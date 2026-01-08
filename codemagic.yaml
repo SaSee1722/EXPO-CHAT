@@ -7,10 +7,11 @@ workflows:
       groups:
         - VAR
       node: 20
+      vars:
+        NODE_OPTIONS: "--max-old-space-size=4096"
     scripts:
       - name: Install dependencies
         script: |
-          # Ensure pnpm is available and used
           corepack enable
           corepack prepare pnpm@10.25.0 --activate
           pnpm install --frozen-lockfile
@@ -18,9 +19,6 @@ workflows:
         script: |
           echo "EXPO_PUBLIC_SUPABASE_URL=$EXPO_PUBLIC_SUPABASE_URL" > .env
           echo "EXPO_PUBLIC_SUPABASE_ANON_KEY=$EXPO_PUBLIC_SUPABASE_ANON_KEY" >> .env
-      - name: Expo Prebuild
-        script: |
-          npx expo prebuild --platform android
       - name: Set up local.properties
         script: |
           echo "sdk.dir=$ANDROID_SDK_ROOT" > android/local.properties
@@ -28,6 +26,6 @@ workflows:
         script: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleRelease
+          ./gradlew assembleRelease --stacktrace
     artifacts:
       - android/app/build/outputs/apk/release/*.apk
