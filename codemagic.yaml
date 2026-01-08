@@ -1,6 +1,6 @@
 workflows:
-  android-workflow:
-    name: Gossip Android Build
+  android-release:
+    name: Gossip Android Release
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
@@ -15,42 +15,16 @@ workflows:
       - name: Expo Prebuild
         script: |
           npx expo prebuild --platform android
-      - name: Build Android APK
+      - name: Set up local.properties
+        script: |
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > android/local.properties
+      - name: Build Android Release APK
         script: |
           cd android
-          ./gradlew assembleDebug
+          ./gradlew assembleRelease
     artifacts:
-      - android/app/build/outputs/apk/debug/*.apk
-
-  ios-workflow:
-    name: Gossip iOS Build
-    max_build_duration: 60
-    instance_type: mac_mini_m2
-    environment:
-      groups:
-        - VAR
-      node: 20
-      xcode: latest
-      cocoapods: default
-    scripts:
-      - name: Install dependencies
-        script: |
-          npm install -g pnpm
-          pnpm install
-      - name: Expo Prebuild
-        script: |
-          npx expo prebuild --platform ios
-      - name: Install Pods
-        script: |
-          cd ios
-          pod install
-      - name: Build iOS Simulator
-        script: |
-          xcodebuild -workspace ios/Gossip.xcworkspace \
-            -scheme Gossip \
-            -configuration Debug \
-            -sdk iphonesimulator \
-            -destination 'platform=iOS Simulator,name=iPhone 15' \
-            build
-    artifacts:
-      - ios/build/Build/Products/Debug-iphonesimulator/*.app
+      - android/app/build/outputs/apk/release/*.apk
+    publishing:
+      email:
+        recipients:
+          - ${CM_EMAIL}
