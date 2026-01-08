@@ -53,6 +53,6 @@ workflows:
         script: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleRelease --stacktrace --no-daemon
+          ./gradlew assembleRelease --stacktrace --no-daemon --warning-mode all
     artifacts:
       - android/app/build/outputs/apk/release/*.apk

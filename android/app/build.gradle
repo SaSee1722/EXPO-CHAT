@@ -127,10 +127,10 @@ android {
             crunchPngs enablePngCrunchInRelease.toBoolean()
         }
     }
-    packagingOptions {
-        jniLibs {
+    packaging {
+        resources {
             def enableLegacyPackaging = findProperty('expo.useLegacyPackaging') ?: 'false'
-            useLegacyPackaging enableLegacyPackaging.toBoolean()
+            excludes += "/META-INF/*.kotlin_module"
         }
     }
     androidResources {
