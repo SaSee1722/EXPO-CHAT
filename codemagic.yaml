@@ -12,6 +12,10 @@ workflows:
         script: |
           npm install -g pnpm
           pnpm install
+      - name: Create .env file
+        script: |
+          echo "EXPO_PUBLIC_SUPABASE_URL=$EXPO_PUBLIC_SUPABASE_URL" > .env
+          echo "EXPO_PUBLIC_SUPABASE_ANON_KEY=$EXPO_PUBLIC_SUPABASE_ANON_KEY" >> .env
       - name: Expo Prebuild
         script: |
           npx expo prebuild --platform android
