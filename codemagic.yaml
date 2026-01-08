@@ -9,6 +9,7 @@ workflows:
       node: 20
       vars:
         NODE_OPTIONS: "--max-old-space-size=4096"
+        GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m"
     scripts:
       - name: Install dependencies
         script: |
@@ -26,6 +27,6 @@ workflows:
         script: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleRelease --stacktrace
+          ./gradlew assembleRelease --stacktrace --info
     artifacts:
       - android/app/build/outputs/apk/release/*.apk
