@@ -1,0 +1,8 @@
+node_modules/
+.expo/
+ios/Pods/
+ios/build/
+android/build/
+android/app/build/
+*.zip
+*.tar.gz

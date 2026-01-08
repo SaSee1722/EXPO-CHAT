@@ -1,0 +1,58 @@
+import { getSupabaseClient } from '@/template';
+import { Call } from '@/types';
+
+const supabase = getSupabaseClient();
+
+export const callService = {
+  async initiateCall(
+    matchId: string,
+    callerId: string,
+    receiverId: string,
+    callType: 'voice' | 'video'
+  ) {
+    const normalizedMatchId = matchId.toLowerCase();
+    const { data, error } = await supabase
+      .from('calls')
+      .insert({
+        match_id: normalizedMatchId,
+        caller_id: callerId,
+        receiver_id: receiverId,
+        call_type: callType,
+        status: 'calling',
+      })
+      .select()
+      .single();
+
+    return { data, error };
+  },
+
+  async updateCallStatus(callId: string, status: Call['status'], duration?: number) {
+    const updates: any = { status };
+
+    if (status === 'ended') {
+      updates.ended_at = new Date().toISOString();
+      if (duration !== undefined) {
+        updates.duration = duration;
+      }
+    }
+
+    const { data, error } = await supabase
+      .from('calls')
+      .update(updates)
+      .eq('id', callId)
+      .select()
+      .single();
+
+    return { data, error };
+  },
+
+  async getCallHistory(matchId: string) {
+    const { data, error } = await supabase
+      .from('calls')
+      .select('*')
+      .eq('match_id', matchId)
+      .order('created_at', { ascending: false });
+
+    return { data, error };
+  },
+};
