@@ -16,11 +16,10 @@ workflows:
           corepack enable
           corepack prepare pnpm@10.25.0 --activate
           pnpm install --no-frozen-lockfile
-      - name: Create .env and Setup Config
+      - name: Create .env
         script: |
           echo "EXPO_PUBLIC_SUPABASE_URL=$EXPO_PUBLIC_SUPABASE_URL" > .env
           echo "EXPO_PUBLIC_SUPABASE_ANON_KEY=$EXPO_PUBLIC_SUPABASE_ANON_KEY" >> .env
-          cp google-services.json android/app/google-services.json
       - name: Build Android Debug APK
         script: |
           cd android
@@ -46,11 +45,10 @@ workflows:
           corepack enable
           corepack prepare pnpm@10.25.0 --activate
           pnpm install --no-frozen-lockfile
-      - name: Create .env and Setup Config
+      - name: Create .env
         script: |
           echo "EXPO_PUBLIC_SUPABASE_URL=$EXPO_PUBLIC_SUPABASE_URL" > .env
           echo "EXPO_PUBLIC_SUPABASE_ANON_KEY=$EXPO_PUBLIC_SUPABASE_ANON_KEY" >> .env
-          cp google-services.json android/app/google-services.json
       - name: Build Android Release APK
         script: |
           cd android
