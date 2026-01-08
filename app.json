@@ -7,7 +7,7 @@
     "icon": "./assets/images/logo.png",
     "scheme": "gossip",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "ios": {
       "supportsTablet": true,
       "bitcode": false,
