@@ -6,7 +6,7 @@ workflows:
     environment:
       groups:
         - VAR
-      node: 20
+      node: 22
       java: 21
       vars:
         NODE_OPTIONS: "--max-old-space-size=4096"
@@ -34,7 +34,7 @@ workflows:
     environment:
       groups:
         - VAR
-      node: 20
+      node: 22
       java: 21
       vars:
         NODE_OPTIONS: "--max-old-space-size=8192"
