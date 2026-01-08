@@ -9,8 +9,8 @@ workflows:
       node: 20
       java: 17
       vars:
-        NODE_OPTIONS: "--max-old-space-size=4096"
-        GRADLE_OPTS: "-Xmx4096m -Dorg.gradle.jvmargs='-Xmx4096m -XX:MaxMetaspaceSize=1024m -XX:+HeapDumpOnOutOfMemoryError' -Dkotlin.daemon.jvm.options=-Xmx2048m"
+        NODE_OPTIONS: "--max-old-space-size=8192"
+        GRADLE_OPTS: "-Xmx8192m"
     scripts:
       - name: Install dependencies
         script: |
@@ -21,13 +21,10 @@ workflows:
         script: |
           echo "EXPO_PUBLIC_SUPABASE_URL=$EXPO_PUBLIC_SUPABASE_URL" > .env
           echo "EXPO_PUBLIC_SUPABASE_ANON_KEY=$EXPO_PUBLIC_SUPABASE_ANON_KEY" >> .env
-      - name: Set up local.properties
-        script: |
-          echo "sdk.dir=$ANDROID_SDK_ROOT" > android/local.properties
       - name: Build Android Release APK
         script: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleRelease --stacktrace --info --no-daemon -Pandroid.allowStaleBundle=true
+          ./gradlew clean assembleRelease --stacktrace --no-daemon
     artifacts:
       - android/app/build/outputs/apk/release/*.apk
