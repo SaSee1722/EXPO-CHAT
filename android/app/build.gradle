@@ -113,8 +113,8 @@ android {
             // Caution! In production, you need to generate your own keystore file.
             // see https://reactnative.dev/docs/signed-apk-android.
             signingConfig signingConfigs.debug
-            shrinkResources false
-            minifyEnabled false
+            shrinkResources true
+            minifyEnabled true
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
             def enablePngCrunchInRelease = findProperty('android.enablePngCrunchInReleaseBuilds') ?: 'true'
             crunchPngs enablePngCrunchInRelease.toBoolean()
@@ -133,13 +133,6 @@ android {
     lintOptions {
         checkReleaseBuilds false
         abortOnError false
-    }
-    
-    // Prevent the rigorous lintVitalRelease task from running and failing the build
-    tasks.whenTaskAdded { task -> 
-        if (task.name == 'lintVitalRelease') {
-            task.enabled = false 
-        }
     }
 }
 
