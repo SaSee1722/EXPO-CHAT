@@ -61,9 +61,6 @@ react {
 
     /* Autolinking */
     autolinkLibrariesWithApp()
-
-    /* Separate APKs per architecture */
-    enableSeparateBuildPerCPUArchitecture = true
 }
 
 /**
@@ -132,6 +129,15 @@ android {
     }
     androidResources {
         ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:!CVS:!thumbs.db:!picasa.ini:!*~'
+    }
+
+    splits {
+        abi {
+            reset()
+            enable true
+            universalApk false
+            include "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
+        }
     }
 }
 
