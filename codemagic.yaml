@@ -10,8 +10,10 @@ workflows:
     scripts:
       - name: Install dependencies
         script: |
+          # Ensure pnpm is available and used
           corepack enable
-          pnpm install
+          corepack prepare pnpm@10.25.0 --activate
+          pnpm install --frozen-lockfile
       - name: Create .env file
         script: |
           echo "EXPO_PUBLIC_SUPABASE_URL=$EXPO_PUBLIC_SUPABASE_URL" > .env
