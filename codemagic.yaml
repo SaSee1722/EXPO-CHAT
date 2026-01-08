@@ -37,7 +37,8 @@ workflows:
       node: 20
       java: 17
       vars:
-        NODE_OPTIONS: "--max-old-space-size=4096"
+        NODE_OPTIONS: "--max-old-space-size=8192"
+        GRADLE_OPTS: "-Xmx8192m"
     scripts:
       - name: Install dependencies
         script: |
@@ -52,6 +53,6 @@ workflows:
         script: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleRelease --stacktrace
+          ./gradlew clean assembleRelease --stacktrace --no-daemon
     artifacts:
       - android/app/build/outputs/apk/release/*.apk
