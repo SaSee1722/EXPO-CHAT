@@ -7,15 +7,16 @@ workflows:
       groups:
         - VAR
       node: 20
+      java: 17
       vars:
         NODE_OPTIONS: "--max-old-space-size=4096"
-        GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m"
+        GRADLE_OPTS: "-Xmx4096m -Dorg.gradle.jvmargs='-Xmx4096m -XX:MaxMetaspaceSize=1024m -XX:+HeapDumpOnOutOfMemoryError' -Dkotlin.daemon.jvm.options=-Xmx2048m"
     scripts:
       - name: Install dependencies
         script: |
           corepack enable
           corepack prepare pnpm@10.25.0 --activate
-          pnpm install --frozen-lockfile
+          pnpm install --no-frozen-lockfile
       - name: Create .env file
         script: |
           echo "EXPO_PUBLIC_SUPABASE_URL=$EXPO_PUBLIC_SUPABASE_URL" > .env
@@ -27,6 +28,6 @@ workflows:
         script: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleRelease --stacktrace --info
+          ./gradlew assembleRelease --stacktrace --info --no-daemon -Pandroid.allowStaleBundle=true
     artifacts:
       - android/app/build/outputs/apk/release/*.apk
