@@ -111,7 +111,7 @@ export default function AuthScreen() {
             <MAnimated.View style={[styles.brandIconContainer, logoFloatStyle]}>
               <View style={styles.brandIconGlow} />
               <View style={styles.brandIconInner}>
-                <Ionicons name="sparkles" size={50} color="#87CEEB" />
+                <Ionicons name="chatbubble-ellipses" size={54} color="#87CEEB" />
               </View>
             </MAnimated.View>
           </View>
@@ -263,23 +263,23 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: 140,
     height: 140,
-    backgroundColor: 'rgba(135, 206, 235, 0.2)',
+    backgroundColor: 'rgba(135, 206, 235, 0.15)',
     borderRadius: 70,
-    filter: Platform.OS === 'ios' ? 'blur(20px)' : undefined,
+    filter: Platform.OS === 'ios' ? 'blur(25px)' : undefined,
   },
   brandIconInner: {
-    width: 100,
-    height: 100,
-    borderRadius: 30,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderWidth: 1.5,
-    borderColor: 'rgba(135, 206, 235, 0.3)',
+    width: 110,
+    height: 110,
+    borderRadius: 55,
+    backgroundColor: 'rgba(135, 206, 235, 0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(135, 206, 235, 0.2)',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#87CEEB',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
-    shadowRadius: 15,
-    elevation: 10,
+    shadowOpacity: 0.6,
+    shadowRadius: 20,
+    elevation: 15,
   },
 });
