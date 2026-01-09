@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { AppState, AppStateStatus } from 'react-native';
 import { Profile } from '@/types';
 import { profileService } from '@/services/profileService';
-import { useAuth } from '@/template';
+import { useAuth, getSupabaseClient } from '@/template';
 
 interface ProfileContextType {
     profile: Profile | null;
@@ -47,16 +47,44 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     }, []);
 
     useEffect(() => {
-        if (authInitialized) {
-            if (user) {
-                fetchProfile(user.id);
-                updateOnlineStatus(true);
-            } else {
-                setProfile(null);
-                setLoading(false);
-            }
+        if (authInitialized && user) {
+            fetchProfile(user.id);
         }
-    }, [user, authInitialized, fetchProfile, updateOnlineStatus]);
+    }, [user, authInitialized, fetchProfile]);
+
+    useEffect(() => {
+        if (user && authInitialized) {
+            const supabase = getSupabaseClient();
+            const channel = supabase.channel(`presence:${user.id}`, {
+                config: {
+                    presence: {
+                        key: user.id,
+                    },
+                },
+            });
+
+            channel
+                .on('presence', { event: 'sync' }, () => {
+                    updateOnlineStatus(true);
+                })
+                .on('presence' as any, { event: 'join' }, ({ key }: any) => {
+                    if (key === user.id) updateOnlineStatus(true);
+                })
+                .on('presence' as any, { event: 'leave' }, ({ key }: any) => {
+                    if (key === user.id) updateOnlineStatus(false);
+                })
+                .subscribe(async (status: string) => {
+                    if (status === 'SUBSCRIBED') {
+                        await channel.track({ online_at: new Date().toISOString() });
+                    }
+                });
+
+            return () => {
+                updateOnlineStatus(false);
+                supabase.removeChannel(channel);
+            };
+        }
+    }, [user, authInitialized, updateOnlineStatus]);
 
     useEffect(() => {
         const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {

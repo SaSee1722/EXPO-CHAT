@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Platform, RefreshControl, Image as RNImage } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Platform, RefreshControl } from 'react-native';
+import { Image } from 'expo-image';
 import { useAuth, useAlert } from '@/template';
 import { useProfileContext } from '@/context/ProfileContext';
 import { Spacing } from '@/constants/theme';
@@ -32,30 +33,7 @@ export default function ProfileScreen() {
     return Array.isArray(photos) ? photos[0] : (typeof photos === 'string' ? photos : null);
   }, [profile?.photos]);
 
-  useEffect(() => {
-    if (remoteUrl) {
-      if (Platform.OS === 'web') {
-        setLocalImageUri(remoteUrl);
-        return;
-      }
-
-      const downloadToCache = async () => {
-        try {
-          const localPath = `${FileSystem.cacheDirectory}avatar_${Date.now()}.jpg`;
-          const result = await FileSystem.downloadAsync(remoteUrl, localPath);
-
-          if (result.status === 200) {
-            setLocalImageUri(result.uri);
-          }
-        } catch (e) {
-          console.error('[ProfileUI] Sync Error:', e);
-        }
-      };
-      downloadToCache();
-    } else {
-      setLocalImageUri(null);
-    }
-  }, [remoteUrl]);
+  const displayUri = localImageUri || remoteUrl;
 
   const handleUpdatePhoto = async () => {
     try {
@@ -102,11 +80,12 @@ export default function ProfileScreen() {
               <View style={styles.avatarOuterContainer}>
                 <TouchableOpacity onPress={handleUpdatePhoto} disabled={updatingPhoto} activeOpacity={0.8}>
                   <View style={styles.avatarWrapper}>
-                    {localImageUri ? (
-                      <RNImage
-                        source={{ uri: localImageUri }}
+                    {displayUri ? (
+                      <Image
+                        source={{ uri: displayUri }}
                         style={styles.avatarInnerImage}
-                        key={localImageUri}
+                        contentFit="cover"
+                        transition={200}
                       />
                     ) : (
                       <View style={styles.placeholderContainer}>

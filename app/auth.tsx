@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, KeyboardAvoidingView, Platform, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TextInput, KeyboardAvoidingView, Platform, ScrollView, TouchableOpacity, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth, useAlert } from '@/template';
 import { Button } from '@/components/ui/Button';
@@ -70,7 +70,11 @@ export default function AuthScreen() {
         >
           <View style={styles.header}>
             <View style={styles.logoContainer}>
-              <Ionicons name="chatbubble-ellipses" size={72} color="#87CEEB" />
+              <Image
+                source={require('@/assets/images/logo.png')}
+                style={styles.logo}
+                resizeMode="contain"
+              />
               <View style={styles.logoGlow} />
             </View>
             <GradientText style={styles.title}>GOSSIP</GradientText>
@@ -226,6 +230,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
+  },
+  logo: {
+    width: 80,
+    height: 80,
+    zIndex: 2,
   },
   logoGlow: {
     position: 'absolute',
