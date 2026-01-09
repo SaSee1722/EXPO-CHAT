@@ -18,6 +18,7 @@ import { Profile } from '@/types';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GradientText } from '@/components/GradientText';
+import { GossipArcade } from '@/components/discover/GossipArcade';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.3;
@@ -32,6 +33,7 @@ export default function DiscoverScreen() {
 
   const [showMatchModal, setShowMatchModal] = useState(false);
   const [matchedProfile, setMatchedProfile] = useState<Profile | null>(null);
+  const [viewMode, setViewMode] = useState<'game' | 'discover'>('game');
 
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
@@ -83,42 +85,79 @@ export default function DiscoverScreen() {
     opacity: interpolate(translateX.value, [-SWIPE_THRESHOLD, 0], [1, 0]),
   }));
 
+  const showGame = viewMode === 'game';
+
   return (
     <View style={[styles.container, { backgroundColor: '#000000', paddingTop: insets.top }]}>
-      <View style={[styles.header, { paddingTop: Platform.OS === 'android' ? 20 : 0 }]}>
-        <GradientText style={styles.logo}>GOSSIP</GradientText>
-        <View style={styles.headerGlow} />
-      </View>
+      {!showGame && (
+        <View style={[styles.header, { paddingTop: Platform.OS === 'android' ? 20 : 0 }]}>
+          <View style={styles.headerSpacer} />
+          <GradientText style={styles.logo}>GOSSIP</GradientText>
+          <TouchableOpacity
+            style={styles.toggleBtn}
+            onPress={() => setViewMode('game')}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name="game-controller-outline"
+              size={28}
+              color="#87CEEB"
+            />
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {showGame && (
+        <TouchableOpacity
+          style={[styles.floatingToggle, { top: insets.top + 10 }]}
+          onPress={() => setViewMode('discover')}
+        >
+          <Ionicons name="close" size={24} color="#FFF" />
+          <Text style={styles.exitText}>Exit Arcade</Text>
+        </TouchableOpacity>
+      )}
 
       <View style={styles.cardContainer}>
-        {!loading && !hasMore && (
-          <View style={styles.emptyState}>
-            <Ionicons name="sparkles-outline" size={60} color="rgba(135, 206, 235, 0.2)" />
-            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-              The elite circle is searching for more members.
-            </Text>
-            <Text style={styles.emptySubtext}>Check back soon for new refined matches.</Text>
-          </View>
-        )}
+        {showGame ? (
+          <GossipArcade />
+        ) : (
+          <>
+            {!loading && !hasMore && !currentProfile && (
+              <View style={styles.emptyState}>
+                <Ionicons name="sparkles-outline" size={64} color="rgba(135, 206, 235, 0.3)" />
+                <Text style={styles.emptyText}>
+                  The elite circle is searching for more members.
+                </Text>
+                <Text style={styles.emptySubtext}>Check back soon for new refined matches.</Text>
+                <TouchableOpacity
+                  style={styles.gamePrompt}
+                  onPress={() => setViewMode('game')}
+                >
+                  <Text style={styles.gamePromptText}>Bored? Visit the GOSSIP Arcade!</Text>
+                </TouchableOpacity>
+              </View>
+            )}
 
-        {currentProfile && (
-          <GestureDetector gesture={gesture}>
-            <Animated.View style={[styles.card, cardStyle]}>
-              <SwipeCard profile={currentProfile} />
+            {currentProfile && (
+              <GestureDetector gesture={gesture}>
+                <Animated.View style={[styles.card, cardStyle]}>
+                  <SwipeCard profile={currentProfile} />
 
-              <Animated.View style={[styles.overlay, styles.likeOverlay, likeOpacity]}>
-                <Text style={styles.overlayText}>LIKE</Text>
-              </Animated.View>
+                  <Animated.View style={[styles.overlay, styles.likeOverlay, likeOpacity]}>
+                    <Text style={styles.overlayText}>LIKE</Text>
+                  </Animated.View>
 
-              <Animated.View style={[styles.overlay, styles.nopeOverlay, nopeOpacity]}>
-                <Text style={styles.overlayText}>NOPE</Text>
-              </Animated.View>
-            </Animated.View>
-          </GestureDetector>
+                  <Animated.View style={[styles.overlay, styles.nopeOverlay, nopeOpacity]}>
+                    <Text style={styles.overlayText}>NOPE</Text>
+                  </Animated.View>
+                </Animated.View>
+              </GestureDetector>
+            )}
+          </>
         )}
       </View>
 
-      {currentProfile && (
+      {!showGame && currentProfile && (
         <View style={styles.actions}>
           <TouchableOpacity
             style={[styles.actionBtn, styles.nopeBtn]}
@@ -165,21 +204,64 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingVertical: Spacing.md,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     position: 'relative',
+    paddingHorizontal: Spacing.md,
   },
-  headerGlow: {
-    position: 'absolute',
-    top: -20,
-    width: 200,
-    height: 100,
-    backgroundColor: 'rgba(135, 206, 235, 0.05)',
-    borderRadius: 100,
+  headerSpacer: {
+    width: 48, // Equivalent to toggleBtn width for symmetry
+  },
+  toggleBtn: {
+    width: 48,
+    height: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 30,
   },
   logo: {
-    fontSize: 32,
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 28,
+    color: '#FFF', // Fallback
     fontWeight: Platform.OS === 'android' ? '700' : '900',
-    letterSpacing: Platform.OS === 'android' ? 8 : 10,
+    letterSpacing: Platform.OS === 'android' ? 6 : 8,
+    minHeight: 40,
+  },
+  gameFill: {
+    flex: 1,
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingBottom: 40,
+  },
+  gameHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '80%',
+    marginBottom: 30,
+  },
+  titleWrapper: {
+    alignItems: 'center',
+  },
+  gameTitle: {
+    color: '#FFF',
+    fontSize: 18,
+    fontWeight: '900',
+    letterSpacing: 2,
+  },
+  gridSizeLabel: {
+    color: 'rgba(255,255,255,0.4)',
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  refreshBtn: {
+    padding: 8,
+    backgroundColor: 'rgba(135, 206, 235, 0.1)',
+    borderRadius: 12,
   },
   cardContainer: {
     flex: 1,
@@ -265,4 +347,35 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontWeight: '500',
   },
+  gamePrompt: {
+    marginTop: 30,
+    backgroundColor: 'rgba(135, 206, 235, 0.1)',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 25,
+    borderWidth: 1,
+    borderColor: 'rgba(135, 206, 235, 0.2)',
+  },
+  gamePromptText: {
+    color: '#87CEEB',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  floatingToggle: {
+    position: 'absolute',
+    right: 20,
+    zIndex: 100,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    gap: 8,
+  },
+  exitText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '700',
+  }
 });

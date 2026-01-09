@@ -96,7 +96,8 @@ export const profileService = {
     try {
       let query = supabase
         .from('profiles')
-        .select('*');
+        .select('*')
+        .eq('is_public', true);
 
       // Only add the NOT IN filter if we have IDs to exclude beyond just the user
       if (excludeIds.length > 1) {

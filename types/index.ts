@@ -12,6 +12,7 @@ export interface Profile {
   age_range_min?: number;
   age_range_max?: number;
   is_online?: boolean;
+  is_public?: boolean;
   last_seen_at?: string;
   created_at?: string;
   updated_at?: string;
@@ -33,6 +34,7 @@ export interface Match {
   profile?: Profile;
   lastMessage?: Message;
   unreadCount?: number;
+  isLocked?: boolean;
 }
 
 export interface Message {
@@ -58,6 +60,9 @@ export interface Message {
   };
   status: 'sent' | 'delivered' | 'read';
   created_at: string;
+  // Antigravity Deletion Flags
+  deleted_for_everyone?: boolean;
+  deleted_by?: string[]; // IDs of users who deleted this for themselves
 }
 
 export interface Call {

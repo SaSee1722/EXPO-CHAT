@@ -1,12 +1,12 @@
 import React from 'react';
-import { Text, TextStyle, StyleSheet, useColorScheme } from 'react-native';
+import { Text, TextStyle, StyleSheet, useColorScheme, View, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import MaskedView from '@react-native-masked-view/masked-view';
 import { Colors } from '@/constants/theme';
 
 interface GradientTextProps {
     children: React.ReactNode;
-    style?: TextStyle | TextStyle[];
+    style?: TextStyle;
     colors?: readonly [string, string, ...string[]];
 }
 
@@ -22,36 +22,73 @@ export const GradientText: React.FC<GradientTextProps> = ({
     const colorScheme = useColorScheme() ?? 'light';
     const theme = Colors[colorScheme];
 
-    // Default gradient colors: Black → Sky Blue → Baby Pink
     const gradientColors: readonly [string, string, ...string[]] = colors || [
-        theme.gradientStart,  // Black
-        theme.gradientMiddle, // Sky Blue
-        theme.gradientEnd,    // Baby Pink
+        theme.gradientStart,
+        theme.gradientMiddle,
+        theme.gradientEnd,
     ];
 
+    // Separate layout styles from text styles
+    const {
+        flex,
+        height,
+        width,
+        margin,
+        marginTop,
+        marginBottom,
+        marginLeft,
+        marginRight,
+        position,
+        top,
+        bottom,
+        left,
+        right,
+        zIndex,
+        ...textStyle
+    } = (style || {}) as any;
+
+    const containerStyle: ViewStyle = {
+        flex,
+        height,
+        width,
+        margin,
+        marginTop,
+        marginBottom,
+        marginLeft,
+        marginRight,
+        position,
+        top,
+        bottom,
+        left,
+        right,
+        zIndex,
+    };
+
     return (
-        <MaskedView
-            maskElement={
-                <Text style={[styles.text, style]}>
-                    {children}
-                </Text>
-            }
-        >
-            <LinearGradient
-                colors={gradientColors}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
+        <View style={containerStyle}>
+            <MaskedView
+                maskElement={
+                    <Text style={[styles.text, textStyle]}>
+                        {children}
+                    </Text>
+                }
             >
-                <Text style={[styles.text, style, { opacity: 0 }]}>
-                    {children}
-                </Text>
-            </LinearGradient>
-        </MaskedView>
+                <LinearGradient
+                    colors={gradientColors}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                >
+                    <Text style={[styles.text, textStyle, { opacity: 0 }]}>
+                        {children}
+                    </Text>
+                </LinearGradient>
+            </MaskedView>
+        </View>
     );
 };
 
 const styles = StyleSheet.create({
     text: {
-        fontWeight: 'bold',
+        fontWeight: '900',
     },
 });

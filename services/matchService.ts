@@ -1,6 +1,6 @@
 import { getSupabaseClient } from '@/template';
 import { Message } from '@/types';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { Platform } from 'react-native';
 
 const supabase = getSupabaseClient();
@@ -75,50 +75,79 @@ export const matchService = {
     data.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
 
+    // Fetch blocked user IDs to filter them out of matches
+    const { data: blockedData } = await supabase
+      .from('blocks')
+      .select('blocked_id, blocker_id')
+      .or(`blocker_id.eq.${userId},blocked_id.eq.${userId}`);
+
+    const blockedUserIds = new Set(
+      blockedData?.map(b => b.blocker_id === userId ? b.blocked_id : b.blocker_id) || []
+    );
+
     // Get profiles and last messages for each match
     const enrichedMatches = await Promise.all(
-      (data || []).map(async (match: any) => {
-        const otherUserId = match.user1_id === userId ? match.user2_id : match.user1_id;
+      (data || [])
+        .filter(match => {
+          const otherUserId = match.user1_id === userId ? match.user2_id : match.user1_id;
+          return !blockedUserIds.has(otherUserId);
+        })
+        .map(async (match: any) => {
+          const otherUserId = match.user1_id === userId ? match.user2_id : match.user1_id;
 
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', otherUserId)
-          .single();
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', otherUserId)
+            .single();
 
-        const { data: messages } = await supabase
-          .from('messages')
-          .select('*')
-          .eq('match_id', match.id)
-          .order('created_at', { ascending: false })
-          .limit(1);
+          const { data: messages } = await supabase
+            .from('messages')
+            .select('*')
+            .eq('match_id', match.id)
+            .not('deleted_by', 'cs', `{${userId}}`) // Filter out messages user deleted for themselves
+            .order('created_at', { ascending: false })
+            .limit(1);
 
-        const { count: unreadCount } = await supabase
-          .from('messages')
-          .select('*', { count: 'exact', head: true })
-          .eq('match_id', match.id)
-          .neq('sender_id', userId)
-          .neq('status', 'read');
+          const { count: unreadCount } = await supabase
+            .from('messages')
+            .select('*', { count: 'exact', head: true })
+            .eq('match_id', match.id)
+            .neq('sender_id', userId)
+            .neq('status', 'read')
+            .not('deleted_by', 'cs', `{${userId}}`); // Filter out unread count for deleted messages
 
-        return {
-          ...match,
-          profile,
-          lastMessage: messages?.[0],
-          unreadCount: unreadCount || 0,
-        };
-      })
+          const { data: lockData } = await supabase
+            .from('chat_locks')
+            .select('id')
+            .eq('user_id', userId)
+            .eq('match_id', match.id)
+            .maybeSingle();
+
+          return {
+            ...match,
+            profile,
+            lastMessage: messages?.[0],
+            unreadCount: unreadCount || 0,
+            isLocked: !!lockData,
+          };
+        })
     );
 
     return { data: enrichedMatches, error: null };
   },
 
-  async getMessages(matchId: string) {
-    const { data, error } = await supabase
+  async getMessages(matchId: string, userId?: string) {
+    let query = supabase
       .from('messages')
       .select('*')
-      .eq('match_id', matchId)
-      .order('created_at', { ascending: false });
+      .eq('match_id', matchId);
 
+    if (userId) {
+      query = query.not('deleted_by', 'cs', `{${userId}}`);
+    }
+
+    const { data, error } = await query.order('created_at', { ascending: false });
     return { data, error };
   },
 
@@ -258,13 +287,74 @@ export const matchService = {
     return { data: res1.data || res2.data, error: res1.error || res2.error };
   },
 
-  async deleteMessage(messageId: string, userId: string) {
+  async deleteMessageForMe(messageId: string, userId: string) {
+    // We add the user ID to the deleted_by array column
+    // Using RPC or fetching and updating if no direct array append is available
+    const { data: msg } = await supabase.from('messages').select('deleted_by').eq('id', messageId).single();
+    const deleted_by = [...(msg?.deleted_by || []), userId];
+
     const { error } = await supabase
       .from('messages')
-      .delete()
+      .update({ deleted_by })
+      .eq('id', messageId);
+
+    return { error };
+  },
+
+  async deleteMessageForEveryone(messageId: string, userId: string) {
+    // Replace content and set flag
+    const { error } = await supabase
+      .from('messages')
+      .update({
+        content: 'Message removed',
+        type: 'text',
+        media_url: null,
+        metadata: { removed_at: new Date().toISOString() },
+        deleted_for_everyone: true
+      })
       .eq('id', messageId)
       .eq('sender_id', userId);
 
     return { error };
   },
+
+  async deleteMessage(messageId: string, userId: string) {
+    // Base implementation now defaults to delete for me if not owner, or we use explicit methods
+    return this.deleteMessageForMe(messageId, userId);
+  },
+
+  async deleteAllMessagesInMatch(matchId: string) {
+    const { error } = await supabase
+      .from('messages')
+      .delete()
+      .eq('match_id', matchId);
+    return { error };
+  },
+
+  async blockUser(blockerId: string, blockedId: string) {
+    const { error } = await supabase
+      .from('blocks')
+      .insert({ blocker_id: blockerId, blocked_id: blockedId });
+    return { error };
+  },
+
+  async unblockUser(blockerId: string, blockedId: string) {
+    const { error } = await supabase
+      .from('blocks')
+      .delete()
+      .eq('blocker_id', blockerId)
+      .eq('blocked_id', blockedId);
+    return { error };
+  },
+
+  async isUserBlocked(userId: string, otherId: string) {
+    const { data, error } = await supabase
+      .from('blocks')
+      .select('id')
+      .or(`blocker_id.eq.${userId},blocked_id.eq.${userId}`)
+      .or(`blocker_id.eq.${otherId},blocked_id.eq.${otherId}`)
+      .limit(1);
+
+    return { isBlocked: !!data?.length, error };
+  }
 };

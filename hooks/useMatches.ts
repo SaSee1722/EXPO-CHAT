@@ -61,6 +61,20 @@ export function useMatches(userId: string | null) {
           ));
         }
       )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'blocks' },
+        () => {
+          loadMatches();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'chat_locks', filter: `user_id=eq.${userId}` },
+        () => {
+          loadMatches();
+        }
+      )
       .subscribe();
 
     // 2. Polling Fallback (Reliability for Poor Network)

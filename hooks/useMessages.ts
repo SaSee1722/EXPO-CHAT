@@ -11,7 +11,7 @@ export function useMessages(matchId: string | null, userId: string | null) {
     if (!matchId) return;
 
     // Fetch messages (v3: newest first for inverted list)
-    const { data, error } = await matchService.getMessages(matchId);
+    const { data, error } = await matchService.getMessages(matchId, userId || undefined);
 
     if (!error && data) {
       setMessages(data);
@@ -56,7 +56,15 @@ export function useMessages(matchId: string | null, userId: string | null) {
             }
           } else if (payload.eventType === 'UPDATE') {
             const updatedMessage = payload.new as Message;
-            setMessages(prev => prev.map(m => m.id === updatedMessage.id ? { ...m, ...updatedMessage } : m));
+
+            // Check if message was deleted for current user
+            if (userId && updatedMessage.deleted_by?.includes(userId)) {
+              // Remove from local state if deleted for me
+              setMessages(prev => prev.filter(m => m.id !== updatedMessage.id));
+            } else {
+              // Update the message (for reactions, status changes, or delete for everyone)
+              setMessages(prev => prev.map(m => m.id === updatedMessage.id ? { ...m, ...updatedMessage } : m));
+            }
           } else if (payload.eventType === 'DELETE') {
             // CRITICAL FIX: Use !== to remove the deleted message from state
             setMessages(prev => prev.filter(m => m.id !== payload.old.id));
@@ -190,15 +198,33 @@ export function useMessages(matchId: string | null, userId: string | null) {
     return await matchService.toggleReaction(messageId, userId, emoji);
   };
 
-  const deleteMessage = async (messageId: string) => {
+  const deleteMessageForMe = async (messageId: string) => {
     if (!userId) return { error: 'Not authenticated' };
-    const { error } = await matchService.deleteMessage(messageId, userId);
+    const { error } = await matchService.deleteMessageForMe(messageId, userId);
     if (!error) {
       setMessages(prev => prev.filter(m => m.id !== messageId));
-    } else {
-      console.error('[useMessages] ❌ Delete failed:', error);
     }
     return { error };
+  };
+
+  const deleteMessageForEveryone = async (messageId: string) => {
+    if (!userId) return { error: 'Not authenticated' };
+    const { error } = await matchService.deleteMessageForEveryone(messageId, userId);
+    // Realtime will handle the update for everyone, but we update locally for speed
+    if (!error) {
+      setMessages(prev => prev.map(m => m.id === messageId ? {
+        ...m,
+        content: 'Message removed',
+        type: 'text',
+        media_url: undefined,
+        deleted_for_everyone: true
+      } : m));
+    }
+    return { error };
+  };
+
+  const deleteMessage = async (messageId: string) => {
+    return deleteMessageForMe(messageId);
   };
 
   return {
@@ -210,5 +236,7 @@ export function useMessages(matchId: string | null, userId: string | null) {
     reload: loadMessages,
     toggleReaction,
     deleteMessage,
+    deleteMessageForMe,
+    deleteMessageForEveryone,
   };
 }

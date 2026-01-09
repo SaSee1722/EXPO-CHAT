@@ -101,11 +101,23 @@ CREATE TABLE IF NOT EXISTS messages (
     metadata JSONB DEFAULT '{}'::JSONB,
     status TEXT DEFAULT 'sent' CHECK (status IN ('sent', 'delivered', 'read')),
     reactions JSONB DEFAULT '{}'::JSONB,
-    reply_to UUID REFERENCES messages(id) ON DELETE
-    SET NULL,
-        reply_to_message JSONB,
-        created_at TIMESTAMPTZ DEFAULT NOW()
+    reply_to UUID REFERENCES messages(id) ON DELETE reply_to_message JSONB,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    -- Antigravity Deletion Flags
+    deleted_for_everyone BOOLEAN DEFAULT FALSE,
+    deleted_by UUID [] DEFAULT '{}'
 );
+-- Enable Realtime for deletions and reactions
+ALTER TABLE messages REPLICA IDENTITY FULL;
+DO $$ BEGIN IF NOT EXISTS (
+    SELECT 1
+    FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+        AND tablename = 'messages'
+) THEN ALTER PUBLICATION supabase_realtime
+ADD TABLE messages;
+END IF;
+END $$;
 -- Enable Row Level Security
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
 -- Policies for messages
@@ -200,6 +212,25 @@ CREATE INDEX IF NOT EXISTS idx_messages_match_id ON messages(match_id);
 CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at);
 CREATE INDEX IF NOT EXISTS idx_messages_type ON messages(type);
 CREATE INDEX IF NOT EXISTS idx_messages_status ON messages(status);
+CREATE INDEX IF NOT EXISTS idx_messages_deleted_by ON messages USING GIN (deleted_by);
+-- ============================================
+-- 5.5 BLOCKS TABLE
+-- ============================================
+CREATE TABLE IF NOT EXISTS blocks (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    blocker_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    blocked_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(blocker_id, blocked_id)
+);
+ALTER TABLE blocks ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can view their own blocks" ON blocks FOR
+SELECT USING (auth.uid() = blocker_id);
+CREATE POLICY "Users can block others" ON blocks FOR
+INSERT WITH CHECK (auth.uid() = blocker_id);
+CREATE POLICY "Users can unblock others" ON blocks FOR DELETE USING (auth.uid() = blocker_id);
+CREATE INDEX IF NOT EXISTS idx_blocks_blocker ON blocks(blocker_id);
+CREATE INDEX IF NOT EXISTS idx_blocks_blocked ON blocks(blocked_id);
 -- ============================================
 -- 6. FUNCTIONS
 -- ============================================
@@ -221,9 +252,14 @@ SELECT p.id,
 FROM profiles p
 WHERE p.id != user_id
     AND p.id NOT IN (
-        SELECT swiped_id
-        FROM swipes
-        WHERE swiper_id = user_id
+        SELECT blocked_id
+        FROM blocks
+        WHERE blocker_id = user_id
+    )
+    AND p.id NOT IN (
+        SELECT blocker_id
+        FROM blocks
+        WHERE blocked_id = user_id
     )
 ORDER BY p.created_at DESC
 LIMIT limit_count;

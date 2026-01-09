@@ -17,24 +17,39 @@ export default function TabLayout() {
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textTertiary,
         tabBarStyle: {
-          backgroundColor: '#000000', // Pure black background
-          borderTopColor: '#1A1A1A',
-          height: Platform.select({
-            ios: insets.bottom + 65,
-            android: 85, // Increase for Android gesture bar safety
-            default: 75,
+          position: 'absolute',
+          bottom: Platform.select({
+            ios: insets.bottom + 16,
+            android: 16,
+            default: 16,
           }),
-          paddingTop: 12,
-          paddingBottom: Platform.select({
-            ios: insets.bottom + 12,
-            android: 25, // More padding for modern Androids
-            default: 12,
-          }),
-          paddingHorizontal: 20,
+          left: 16,
+          right: 16,
+          backgroundColor: 'rgba(18, 18, 18, 0.8)',
+          backdropFilter: 'blur(20px)',
+          borderTopWidth: 0,
+          borderRadius: 32,
+          height: 68,
+          paddingTop: 6,
+          paddingBottom: 6,
+          paddingHorizontal: 8,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 8 },
+          shadowOpacity: 0.4,
+          shadowRadius: 24,
+          elevation: 15,
+          borderWidth: 1.5,
+          borderColor: 'rgba(255,255,255,0.12)',
+          overflow: 'hidden',
         },
         tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: '600',
+          fontSize: 11,
+          fontWeight: '700',
+          letterSpacing: 0.3,
+          marginTop: 4,
+        },
+        tabBarIconStyle: {
+          marginTop: 4,
         },
       }}
     >

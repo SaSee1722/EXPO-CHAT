@@ -9,9 +9,10 @@ interface AudioPlayerProps {
     isOwn: boolean;
     duration?: number;
     messageId?: string;
+    disabled?: boolean;
 }
 
-export function AudioPlayer({ url, isOwn, duration, messageId }: AudioPlayerProps) {
+export function AudioPlayer({ url, isOwn, duration, messageId, disabled }: AudioPlayerProps) {
     const player = useAudioPlayer(url);
     const [position, setPosition] = useState(0);
     const [isDownloaded, setIsDownloaded] = useState(false);
@@ -114,6 +115,7 @@ export function AudioPlayer({ url, isOwn, duration, messageId }: AudioPlayerProp
     }, [isPlaying, player, pulseAnim, hasEnded, smoothProgress]);
 
     const handlePlayPause = async () => {
+        if (disabled) return;
         if (!isDownloaded && !isDownloading) {
             try {
                 setIsDownloading(true);

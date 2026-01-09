@@ -43,10 +43,12 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     const updateOnlineStatus = useCallback(async (isOnline: boolean) => {
         if (!user) return;
         try {
-            const updates: any = { is_online: isOnline };
-            if (!isOnline) {
-                updates.last_seen_at = new Date().toISOString();
-            }
+            // CRITICAL: Always update last_seen_at, not just when going offline
+            // This allows time-based detection to work
+            const updates: any = {
+                is_online: isOnline,
+                last_seen_at: new Date().toISOString()
+            };
             await profileService.updateProfile(user.id, updates);
         } catch (err) {
             console.error('[Presence] Error updating status:', err);
@@ -76,21 +78,31 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     const isUserOnline = (profile: Profile | null) => {
         if (!profile) return false;
 
+        // 1. Check hot presence from realtime (most accurate)
         const hotPresence = presenceMap[profile.id];
         if (hotPresence && (Date.now() - hotPresence.timestamp) < 30000) {
             return hotPresence.isOnline;
         }
 
-        if (profile.is_online === false) return false;
-        if (!profile.last_seen_at) return profile.is_online || false;
+        // 2. Check database is_online flag with time-based verification
+        // Even if is_online is true, verify last_seen_at is recent
+        // This handles cases where app was force-closed without setting offline
+        if (profile.is_online === true) {
+            // If no last_seen_at, trust the flag
+            if (!profile.last_seen_at) return true;
 
-        try {
-            const lastSeen = new Date(profile.last_seen_at).getTime();
-            const now = Date.now();
-            return (now - lastSeen) < 35000;
-        } catch (e) {
-            return false;
+            try {
+                const lastSeen = new Date(profile.last_seen_at).getTime();
+                const now = Date.now();
+                // If last_seen is older than 30 seconds, consider offline
+                // (heartbeat updates every 10s, so 30s means 3 missed updates)
+                return (now - lastSeen) < 30000;
+            } catch (e) {
+                return false;
+            }
         }
+
+        return false;
     };
 
     const getPresenceText = (otherProfile: Profile | null) => {

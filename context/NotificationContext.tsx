@@ -230,50 +230,66 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
         const supabase = getSupabaseClient();
 
-        // Define channel and events
-        const channelName = `global_notifications:${user.id}`;
-        const channel = supabase.channel(channelName)
-            .on(
-                'postgres_changes',
-                { event: 'INSERT', schema: 'public', table: 'messages' },
-                (payload) => {
-                    if (payload.new.sender_id !== user.id) {
-                        handleNewMessage(payload.new);
+        // Subscription logic in a nested async function
+        let channel: any = null;
+        const setupChannel = async () => {
+            if (!user) return;
+
+            const channelName = `global_notifications:${user.id}`;
+            const client = getSupabaseClient();
+
+            // 1. Thoroughly clean up any existing channels with this name
+            const existingChannels = client.getChannels().filter(ch => ch.topic === `realtime:${channelName}`);
+            for (const ch of existingChannels) {
+                await client.removeChannel(ch);
+            }
+
+            // 2. Create and configure the channel
+            channel = client.channel(channelName)
+                .on(
+                    'postgres_changes',
+                    { event: 'INSERT', schema: 'public', table: 'messages' },
+                    (payload) => {
+                        if (payload.new.sender_id !== user.id) {
+                            handleNewMessage(payload.new);
+                        }
                     }
-                }
-            )
-            .on(
-                'postgres_changes',
-                { event: 'INSERT', schema: 'public', table: 'calls' },
-                (payload) => {
-                    handleIncomingCall(payload.new);
-                }
-            )
-            .on(
-                'postgres_changes',
-                { event: 'UPDATE', schema: 'public', table: 'calls' },
-                (payload) => {
-                    const currentActiveCall = activeCallRef.current;
-                    if (currentActiveCall && payload.new.id === currentActiveCall.id) {
-                        const updatedCall = payload.new as Call;
-                        if (updatedCall.status !== currentActiveCall.status) {
-                            setActiveCall(updatedCall);
-                            if (updatedCall.status === 'ended' || updatedCall.status === 'rejected') {
-                                setCallOtherProfile(null);
-                                setIsCallIncoming(false);
-                                webrtcService.cleanup('db_update_terminated');
+                )
+                .on(
+                    'postgres_changes',
+                    { event: 'INSERT', schema: 'public', table: 'calls' },
+                    (payload) => {
+                        handleIncomingCall(payload.new);
+                    }
+                )
+                .on(
+                    'postgres_changes',
+                    { event: 'UPDATE', schema: 'public', table: 'calls' },
+                    (payload) => {
+                        const currentActiveCall = activeCallRef.current;
+                        if (currentActiveCall && payload.new.id === currentActiveCall.id) {
+                            const updatedCall = payload.new as Call;
+                            if (updatedCall.status !== currentActiveCall.status) {
+                                setActiveCall(updatedCall);
+                                if (updatedCall.status === 'ended' || updatedCall.status === 'rejected') {
+                                    setCallOtherProfile(null);
+                                    setIsCallIncoming(false);
+                                    webrtcService.cleanup('db_update_terminated');
+                                }
                             }
                         }
                     }
-                }
-            );
+                );
 
-        // Single subscription call
-        channel.subscribe((status) => {
-            if (status === 'SUBSCRIBED') {
-                console.log('[NotificationContext] ✅ Subscribed to global notifications');
-            }
-        });
+            // 3. Subscribe
+            channel.subscribe((status: string) => {
+                if (status === 'SUBSCRIBED') {
+                    console.log(`[NotificationContext] ✅ Subscribed to global notifications: ${channelName}`);
+                }
+            });
+        };
+
+        setupChannel();
 
         // Polling Fallback
         let lastCheckedMsg = new Date().toISOString();

@@ -1,12 +1,14 @@
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FullScreenImageViewer } from '../chat/FullScreenImageViewer';
 import { Spacing, Colors, Typography } from '@/constants/theme';
 import { Match } from '@/types';
 import { useProfileContext } from '@/context/ProfileContext';
 import { Platform } from 'react-native';
 import { BlurView } from 'expo-blur';
+import { chatLockService } from '@/services/chatLockService';
+import { useAuth } from '@/template';
 
 interface MatchItemProps {
   match: Match;
@@ -16,6 +18,7 @@ interface MatchItemProps {
 export function MatchItem({ match, onPress }: MatchItemProps) {
   const [isViewerVisible, setIsViewerVisible] = useState(false);
   const { isUserOnline, typingMap } = useProfileContext();
+  const isLocked = !!match.isLocked;
 
   const profile = match.profile;
   const lastMessage = match.lastMessage;
@@ -68,11 +71,25 @@ export function MatchItem({ match, onPress }: MatchItemProps) {
               typing...
             </Text>
           </View>
+        ) : isLocked ? (
+          <View style={styles.messageRow}>
+            <Text style={[styles.message, { opacity: 0.8 }]} numberOfLines={1}>
+              {(match.unreadCount ?? 0) > 0
+                ? `${match.unreadCount} new message${match.unreadCount !== 1 ? 's' : ''}`
+                : ['Typing something spicy...', 'Thinking of you...', 'Has something to say...', 'Left you on read 👀', 'Is planning something...'][match.id.charCodeAt(0) % 5]}
+            </Text>
+          </View>
         ) : lastMessage ? (
           <View style={styles.messageRow}>
-            <Text style={styles.message} numberOfLines={1}>
-              {lastMessage.content}
-            </Text>
+            {lastMessage.deleted_for_everyone ? (
+              <Text style={[styles.message, { fontStyle: 'italic', opacity: 0.6 }]} numberOfLines={1}>
+                Message removed
+              </Text>
+            ) : (
+              <Text style={styles.message} numberOfLines={1}>
+                {lastMessage.content}
+              </Text>
+            )}
             {(match.unreadCount ?? 0) > 0 && (
               <View style={styles.unreadBadge}>
                 <Text style={styles.unreadText}>{match.unreadCount}</Text>
@@ -101,8 +118,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: 24,
     marginBottom: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.15)',
     overflow: 'hidden',
     backgroundColor: 'rgba(255,255,255,0.03)',
   },

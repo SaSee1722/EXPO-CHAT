@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { View, Text, StyleSheet, TextInput, FlatList, KeyboardAvoidingView, Platform, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TextInput, FlatList, KeyboardAvoidingView, Platform, TouchableOpacity, Alert } from 'react-native';
 import * as ExpoRouter from 'expo-router';
 import { useAuth, useAlert } from '@/template';
 import { useMessages } from '@/hooks/useMessages';
@@ -18,6 +18,9 @@ import * as DocumentPicker from 'expo-document-picker';
 import { webrtcService } from '@/services/webrtcService';
 import { useNotifications } from '@/context/NotificationContext';
 import { useProfileContext } from '@/context/ProfileContext';
+import { chatLockService } from '@/services/chatLockService';
+import { PinSetupModal } from '@/components/chat/PinSetupModal';
+import { LockedChatScreen } from '@/components/chat/LockedChatScreen';
 
 export default function ChatScreen() {
   const { matchId } = ExpoRouter.useLocalSearchParams<{ matchId: string }>();
@@ -43,15 +46,31 @@ export default function ChatScreen() {
   const useWhatsAppStyle = true; // Always use WhatsApp style for voice notes
   const [replyingTo, setReplyingTo] = React.useState<Message | null>(null);
 
+  // Chat Lock State
+  const [isLocked, setIsLocked] = React.useState(false);
+  const [showPinSetup, setShowPinSetup] = React.useState(false);
+  const [isUnlocked, setIsUnlocked] = React.useState(false);
+
   // Use global call state from NotificationContext
   const { setActiveCall, setCallOtherProfile, setIsCallIncoming } = useNotifications();
 
   const typingChannelRef = React.useRef<any>(null);
 
+  // Check if chat is locked on mount
+  React.useEffect(() => {
+    if (user && matchId) {
+      chatLockService.isChatLocked(user.id, matchId).then(setIsLocked);
+    }
+  }, [user?.id, matchId]);
+
+  const personalTypingChannelRef = React.useRef<any>(null);
+
   // Handle Typing Status & Read Receipts on Focus
   React.useEffect(() => {
     if (!matchId || !user) return;
     const supabase = matchService.getSupabaseClient();
+
+    // Main chat typing channel
     const channel = supabase.channel(`typing:${matchId}`);
     typingChannelRef.current = channel;
 
@@ -72,27 +91,41 @@ export default function ChatScreen() {
     return () => {
       supabase.removeChannel(channel);
       typingChannelRef.current = null;
+      if (personalTypingChannelRef.current) {
+        supabase.removeChannel(personalTypingChannelRef.current);
+        personalTypingChannelRef.current = null;
+      }
     };
   }, [matchId, user?.id]);
 
-  const emitTypingStatus = (isTyping: boolean) => {
-    if (!user || !matchId || !otherProfile) return;
+  // Secondary effect to sync personal typing channel when otherProfile is loaded
+  React.useEffect(() => {
+    if (!user || !otherProfile) return;
     const supabase = matchService.getSupabaseClient();
 
-    // WhatsApp style: Broadcast to the recipient's personal typing channel
-    // and the specific chat channel.
     const personalChannel = supabase.channel(`typing:to:${otherProfile.id}`);
-    personalChannel.subscribe(async (status) => {
-      if (status === 'SUBSCRIBED') {
-        await personalChannel.send({
-          type: 'broadcast',
-          event: 'typing',
-          payload: { matchId, isTyping }
-        });
-        supabase.removeChannel(personalChannel);
-      }
-    });
+    personalChannel.subscribe();
+    personalTypingChannelRef.current = personalChannel;
 
+    return () => {
+      supabase.removeChannel(personalChannel);
+      personalTypingChannelRef.current = null;
+    };
+  }, [user?.id, otherProfile?.id]);
+
+  const emitTypingStatus = (isTyping: boolean) => {
+    if (!user || !matchId || !otherProfile) return;
+
+    // Send to personal channel if ready
+    if (personalTypingChannelRef.current) {
+      personalTypingChannelRef.current.send({
+        type: 'broadcast',
+        event: 'typing',
+        payload: { matchId, isTyping }
+      });
+    }
+
+    // Send to match channel if ready
     if (typingChannelRef.current) {
       typingChannelRef.current.send({
         type: 'broadcast',
@@ -420,7 +453,33 @@ export default function ChatScreen() {
           <Ionicons name="chevron-back" size={28} color="#FFF" />
         </TouchableOpacity>
 
-        <View style={styles.headerInfo}>
+        <TouchableOpacity
+          style={styles.headerInfo}
+          onLongPress={() => {
+            if (isLocked) {
+              Alert.alert(
+                'Unlock Chat',
+                'Remove lock from this chat?',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Unlock',
+                    onPress: async () => {
+                      if (user) {
+                        await chatLockService.unlockChat(user.id, matchId);
+                        setIsLocked(false);
+                        setIsUnlocked(false);
+                      }
+                    }
+                  }
+                ]
+              );
+            } else {
+              setShowPinSetup(true);
+            }
+          }}
+          activeOpacity={1}
+        >
           <Text style={styles.headerName} numberOfLines={1}>
             {otherProfile?.display_name || 'Chat'}
           </Text>
@@ -435,7 +494,7 @@ export default function ChatScreen() {
               </Text>
             )}
           </View>
-        </View>
+        </TouchableOpacity>
 
         <View style={styles.headerActions}>
           <TouchableOpacity onPress={() => initiateCall('voice')} style={styles.headerActionBtn}>
@@ -444,119 +503,183 @@ export default function ChatScreen() {
           <TouchableOpacity onPress={() => initiateCall('video')} style={styles.headerActionBtn}>
             <Ionicons name="videocam" size={24} color="#87CEEB" />
           </TouchableOpacity>
+
+
+          <TouchableOpacity
+            onPress={() => {
+              Alert.alert(
+                'Safety & Privacy',
+                `Are you sure you want to block ${otherProfile?.display_name || 'this user'}? You won't see their messages anymore.`,
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Block',
+                    style: 'destructive',
+                    onPress: async () => {
+                      if (user && otherProfile) {
+                        await matchService.blockUser(user.id, otherProfile.id);
+                        router.replace('/(tabs)/matches');
+                      }
+                    }
+                  }
+                ]
+              );
+            }}
+            style={styles.headerActionBtn}
+          >
+            <Ionicons name="shield-checkmark" size={20} color="#FF3B30" />
+          </TouchableOpacity>
         </View>
       </View>
 
-      <FlatList
-        ref={flatListRef}
-        data={messagesWithDates}
-        style={{ flex: 1 }}
-        inverted={true}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => {
-          if (item.type === 'date-header') {
-            return renderDateHeader(item.date);
-          }
+      {/* Show locked screen if chat is locked and not unlocked */}
+      {isLocked && !isUnlocked ? (
+        <LockedChatScreen
+          otherUserName={otherProfile?.display_name || 'User'}
+          onUnlock={async (pin) => {
+            if (!user) return false;
+            const isValid = await chatLockService.verifyPin(user.id, matchId, pin);
+            if (isValid) {
+              setIsUnlocked(true);
+            }
+            return isValid;
+          }}
+          onMaxAttempts={async () => {
+            if (matchId && user) {
+              Alert.alert(`${otherProfile?.display_name || 'User'} says you are Genius 🤡🤣 !`, "");
+              await matchService.deleteAllMessagesInMatch(matchId);
+              await chatLockService.unlockChat(user.id, matchId);
+              setIsUnlocked(true);
+              setIsLocked(false);
+            }
+          }}
+        />
+      ) : (
+        <>
+          <FlatList
+            ref={flatListRef}
+            data={messagesWithDates}
+            style={{ flex: 1 }}
+            inverted={true}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => {
+              if (item.type === 'date-header') {
+                return renderDateHeader(item.date);
+              }
 
-          return (
-            <MessageBubble
-              message={item}
-              isOwn={item.sender_id === user?.id}
-              onReaction={(emoji: string) => toggleReaction(item.id, emoji)}
-              onReply={(msg) => setReplyingTo(msg)}
-              onReplyPress={handleReplyPress}
-              onDelete={(id) => deleteMessage(id)}
-            />
-          );
-        }}
-        ListHeaderComponent={typingMap[matchId] ? <TypingIndicator /> : null}
-        contentContainerStyle={styles.messageList}
-        showsVerticalScrollIndicator={false}
-        // Important for scrollToIndex
-        onScrollToIndexFailed={(info) => {
-          flatListRef.current?.scrollToOffset({
-            offset: info.averageItemLength * info.index,
-            animated: true,
-          });
-        }}
-      />
+              return (
+                <MessageBubble
+                  message={item}
+                  isOwn={item.sender_id === user?.id}
+                  onReaction={(emoji: string) => toggleReaction(item.id, emoji)}
+                  onReply={(msg) => setReplyingTo(msg)}
+                  onReplyPress={handleReplyPress}
+                  onDelete={(id) => deleteMessage(id)}
+                />
+              );
+            }}
+            ListHeaderComponent={typingMap[matchId] ? <TypingIndicator /> : null}
+            contentContainerStyle={styles.messageList}
+            showsVerticalScrollIndicator={false}
+            // Important for scrollToIndex
+            onScrollToIndexFailed={(info) => {
+              flatListRef.current?.scrollToOffset({
+                offset: info.averageItemLength * info.index,
+                animated: true,
+              });
+            }}
+          />
 
-      <View style={[styles.inputContainer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
-        {replyingTo && (
-          <View style={styles.replyBarContainer}>
-            <View style={styles.replyBarHighlight} />
-            <View style={styles.replyBarContent}>
-              <Text style={styles.replyBarSender}>
-                {replyingTo.sender_id === user?.id ? 'Replying to yourself' : 'Replying to message'}
-              </Text>
-              <Text style={styles.replyBarText} numberOfLines={1}>
-                {replyingTo.type === 'image' ? '📷 Photo' :
-                  replyingTo.type === 'audio' ? '🎵 Audio' :
-                    replyingTo.type === 'file' ? '📄 File' :
-                      replyingTo.content}
-              </Text>
-            </View>
-            <TouchableOpacity onPress={() => setReplyingTo(null)} style={styles.closeReplyBtn}>
-              <Ionicons name="close-circle" size={24} color="#888" />
-            </TouchableOpacity>
-          </View>
-        )}
-        {isRecording ? (
-          useWhatsAppStyle ? (
-            <WhatsAppVoiceNote
-              onRecordingComplete={handleVoiceRecordingComplete}
-              onCancel={() => setIsRecording(false)}
-            />
-          ) : (
-            <VoiceRecorder
-              onRecordingComplete={handleVoiceRecordingComplete}
-              onCancel={() => setIsRecording(false)}
-            />
-          )
-        ) : (
-          <View style={styles.inputWrapper}>
-            <TouchableOpacity
-              onPress={() => setShowMediaMenu(true)}
-              style={styles.mediaButton}
-            >
-              <Ionicons name="add" size={24} color="#87CEEB" />
-            </TouchableOpacity>
-
-            <TextInput
-              style={styles.input}
-              placeholder="Type a message..."
-              placeholderTextColor="rgba(255, 255, 255, 0.4)"
-              value={inputText}
-              onChangeText={handleInputChange}
-              multiline
-              maxLength={500}
-            />
-
-            {inputText.trim() ? (
-              <TouchableOpacity
-                onPress={handleSend}
-                disabled={sending}
-                style={[styles.sendButton, { backgroundColor: '#87CEEB' }]}
-              >
-                <Ionicons name="send" size={20} color="#000" />
-              </TouchableOpacity>
+          <View style={[styles.inputContainer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+            {replyingTo && (
+              <View style={styles.replyBarContainer}>
+                <View style={styles.replyBarHighlight} />
+                <View style={styles.replyBarContent}>
+                  <Text style={styles.replyBarSender}>
+                    {replyingTo.sender_id === user?.id ? 'Replying to yourself' : 'Replying to message'}
+                  </Text>
+                  <Text style={styles.replyBarText} numberOfLines={1}>
+                    {replyingTo.type === 'image' ? '📷 Photo' :
+                      replyingTo.type === 'audio' ? '🎵 Audio' :
+                        replyingTo.type === 'file' ? '📄 File' :
+                          replyingTo.content}
+                  </Text>
+                </View>
+                <TouchableOpacity onPress={() => setReplyingTo(null)} style={styles.closeReplyBtn}>
+                  <Ionicons name="close-circle" size={24} color="#888" />
+                </TouchableOpacity>
+              </View>
+            )}
+            {isRecording ? (
+              useWhatsAppStyle ? (
+                <WhatsAppVoiceNote
+                  onRecordingComplete={handleVoiceRecordingComplete}
+                  onCancel={() => setIsRecording(false)}
+                />
+              ) : (
+                <VoiceRecorder
+                  onRecordingComplete={handleVoiceRecordingComplete}
+                  onCancel={() => setIsRecording(false)}
+                />
+              )
             ) : (
-              <TouchableOpacity
-                onPress={() => setIsRecording(true)}
-                disabled={sending}
-                style={[styles.sendButton, { backgroundColor: 'rgba(255, 255, 255, 0.1)' }]}
-              >
-                <Ionicons name="mic" size={22} color="#FFF" />
-              </TouchableOpacity>
+              <View style={styles.inputWrapper}>
+                <TouchableOpacity
+                  onPress={() => setShowMediaMenu(true)}
+                  style={styles.mediaButton}
+                >
+                  <Ionicons name="add" size={24} color="#87CEEB" />
+                </TouchableOpacity>
+
+                <TextInput
+                  style={styles.input}
+                  placeholder="Type a message..."
+                  placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                  value={inputText}
+                  onChangeText={handleInputChange}
+                  multiline
+                  maxLength={500}
+                />
+
+                {inputText.trim() ? (
+                  <TouchableOpacity
+                    onPress={handleSend}
+                    disabled={sending}
+                    style={[styles.sendButton, { backgroundColor: '#87CEEB' }]}
+                  >
+                    <Ionicons name="send" size={20} color="#000" />
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity
+                    onPress={() => setIsRecording(true)}
+                    disabled={sending}
+                    style={[styles.sendButton, { backgroundColor: 'rgba(255, 255, 255, 0.1)' }]}
+                  >
+                    <Ionicons name="mic" size={22} color="#FFF" />
+                  </TouchableOpacity>
+                )}
+              </View>
             )}
           </View>
-        )}
-      </View>
+        </>
+      )}
 
       <MediaMenu
         visible={showMediaMenu}
         onClose={() => setShowMediaMenu(false)}
         onSelect={handleMediaSelect}
+      />
+
+      <PinSetupModal
+        visible={showPinSetup}
+        onComplete={async (pin) => {
+          if (user) {
+            await chatLockService.lockChat(user.id, matchId, pin);
+            setIsLocked(true);
+            setShowPinSetup(false);
+          }
+        }}
+        onCancel={() => setShowPinSetup(false)}
       />
     </KeyboardAvoidingView>
   );

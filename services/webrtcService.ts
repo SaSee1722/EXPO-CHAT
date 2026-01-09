@@ -142,7 +142,12 @@ class WebRTCService {
 
     setupSignaling(matchId: string) {
         const supabase = getSupabaseClient();
-        if (this.channel) this.channel.unsubscribe();
+
+        // Use removeChannel for cleaner state management
+        if (this.channel) {
+            supabase.removeChannel(this.channel);
+            this.channel = null;
+        }
 
         console.log(`[WebRTC] Setting up signaling for ${matchId}`);
         this.channel = supabase.channel(`signaling:${matchId}`);

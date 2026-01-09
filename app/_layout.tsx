@@ -7,6 +7,7 @@ import { AuthProvider, AlertProvider } from '@/template';
 import { ProfileGuard } from '@/components/ProfileGuard';
 import { ProfileProvider } from '@/context/ProfileContext';
 import { NotificationProvider } from '@/context/NotificationContext';
+import { WebRTCProvider } from '@/context/WebRTCContext';
 import { Audio } from 'expo-av';
 import { StatusBar } from 'expo-status-bar';
 import * as NavigationBar from 'expo-navigation-bar';
@@ -64,15 +65,17 @@ export default function RootLayout() {
           <AuthProvider>
             <ProfileProvider>
               <NotificationProvider>
-                <ProfileGuard>
-                  <Stack screenOptions={{ headerShown: false }}>
-                    <Stack.Screen name="index" />
-                    <Stack.Screen name="(tabs)" />
-                    <Stack.Screen name="auth" />
-                    <Stack.Screen name="setup-profile" />
-                    <Stack.Screen name="chat/[matchId]" />
-                  </Stack>
-                </ProfileGuard>
+                <WebRTCProvider>
+                  <ProfileGuard>
+                    <Stack screenOptions={{ headerShown: false }}>
+                      <Stack.Screen name="index" />
+                      <Stack.Screen name="(tabs)" />
+                      <Stack.Screen name="auth" />
+                      <Stack.Screen name="setup-profile" />
+                      <Stack.Screen name="chat/[matchId]" />
+                    </Stack>
+                  </ProfileGuard>
+                </WebRTCProvider>
               </NotificationProvider>
             </ProfileProvider>
           </AuthProvider>
