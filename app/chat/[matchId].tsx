@@ -133,9 +133,9 @@ export default function ChatScreen() {
 
     const supabase = matchService.getSupabaseClient();
 
-    // 1. Listen for database updates (original logic)
+    // 1. Listen for Database Profile Updates
     const profileChannel = supabase
-      .channel(`profile:${otherProfile.id}`)
+      .channel(`chat_profile_sync:${otherProfile.id}`)
       .on(
         'postgres_changes',
         {
@@ -146,20 +146,25 @@ export default function ChatScreen() {
         },
         (payload) => {
           const updatedProfile = payload.new as Profile;
+          // When DB updates, we merge it, but we preserved the socket-driven is_online for a few seconds
           setOtherProfile(prev => prev ? { ...prev, ...updatedProfile } : updatedProfile);
         }
       )
       .subscribe();
 
-    // 2. Listen for Presence (INSTANT detection)
+    // 2. Listen for Presence (The INSTANT Source of Truth)
     const presenceChannel = supabase.channel(`presence:chat:${matchId}`);
 
     presenceChannel
       .on('presence', { event: 'sync' }, () => {
         const state = presenceChannel.presenceState();
         const otherUserIsPresent = Object.values(state).flat().some((p: any) => p.user_id === otherProfile.id);
+
+        // Only update if there is a change to avoid unnecessary re-renders
         setOtherProfile(prev => {
           if (!prev) return prev;
+          if (prev.is_online === otherUserIsPresent) return prev;
+
           return {
             ...prev,
             is_online: otherUserIsPresent,
@@ -170,14 +175,19 @@ export default function ChatScreen() {
       .on('presence' as any, { event: 'join' }, ({ newPresences }: any) => {
         const isOtherUser = newPresences.some((p: any) => p.user_id === otherProfile.id);
         if (isOtherUser) {
-          setOtherProfile(prev => prev ? { ...prev, is_online: true, last_seen_at: new Date().toISOString() } : prev);
+          setOtherProfile(prev => {
+            if (prev?.is_online) return prev;
+            return prev ? { ...prev, is_online: true, last_seen_at: new Date().toISOString() } : prev;
+          });
         }
       })
       .on('presence' as any, { event: 'leave' }, ({ leftPresences }: any) => {
         const isOtherUser = leftPresences.some((p: any) => p.user_id === otherProfile.id);
         if (isOtherUser) {
-          // When they leave, we explicitly set is_online false and keep last_seen as is (or set to now)
-          setOtherProfile(prev => prev ? { ...prev, is_online: false, last_seen_at: new Date().toISOString() } : prev);
+          setOtherProfile(prev => {
+            if (prev?.is_online === false) return prev;
+            return prev ? { ...prev, is_online: false, last_seen_at: new Date().toISOString() } : prev;
+          });
         }
       })
       .subscribe(async (status) => {
