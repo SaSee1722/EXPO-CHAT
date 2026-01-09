@@ -39,18 +39,31 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     const isUserOnline = (profile: Profile | null) => {
         if (!profile) return false;
 
-        // CRITICAL FIX: If the DB explicitly says they are offline, trust it immediately.
-        // This prevents the "ghost online" where they stay online for 25s after leaving.
+        // 1. Strict Boolean Check: If the DB explicitly says they are offline, trust it.
+        // This handles explicit logouts or background transitions where we successfully updated the flag.
         if (profile.is_online === false) return false;
 
+        // 2. Heartbeat Integrity: If there's no timestamp, we can't verify realtime activity.
         if (!profile.last_seen_at) return profile.is_online || false;
 
-        const lastSeen = new Date(profile.last_seen_at).getTime();
-        const now = new Date().getTime();
+        try {
+            const lastSeen = new Date(profile.last_seen_at).getTime();
+            const now = Date.now();
 
-        // Even if is_online is true, if the timestamp is older than 25s, they are offline.
-        // This prevents "ghost" online status when the app is killed or loses network.
-        return (now - lastSeen) < 25000;
+            if (isNaN(lastSeen)) return false;
+
+            // 3. Bidirectional Drift Control:
+            // - Positive diff: How many ms ago we saw them.
+            // - Negative diff: How many ms into the "future" their clock is relative to ours.
+            const diff = now - lastSeen;
+
+            // Online if seen within last 25 seconds.
+            // We also allow up to 30s of future skew to account for minor clock drift between devices.
+            // If it's more than 30s in the future OR more than 25s in the past, they are offline.
+            return diff < 25000 && diff > -30000;
+        } catch (e) {
+            return false;
+        }
     };
 
     const fetchProfile = useCallback(async (userId: string) => {

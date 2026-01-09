@@ -2,10 +2,11 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import React, { useState } from 'react';
 import { FullScreenImageViewer } from '../chat/FullScreenImageViewer';
-import { Spacing } from '@/constants/theme';
+import { Spacing, Colors, Typography } from '@/constants/theme';
 import { Match } from '@/types';
 import { useProfileContext } from '@/context/ProfileContext';
 import { Platform } from 'react-native';
+import { BlurView } from 'expo-blur';
 
 interface MatchItemProps {
   match: Match;
@@ -32,21 +33,27 @@ export function MatchItem({ match, onPress }: MatchItemProps) {
     return `${Math.floor(diffMins / 1440)}d ago`;
   };
 
+  const isOnline = isUserOnline(profile || null);
+
   return (
     <TouchableOpacity
       style={styles.container}
       onPress={onPress}
-      activeOpacity={0.7}
+      activeOpacity={0.8}
     >
+      <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
+
       <TouchableOpacity style={styles.avatarContainer} onPress={() => setIsViewerVisible(true)}>
-        <Image source={{ uri: photoUrl }} style={styles.avatar} contentFit="cover" />
-        {isUserOnline(profile || null) && <View style={styles.onlineDotOverlay} />}
+        <View style={[styles.avatarGlow, isOnline && styles.avatarOnlineGlow]}>
+          <Image source={{ uri: photoUrl }} style={styles.avatar} contentFit="cover" transition={200} />
+        </View>
+        {isOnline && <View style={styles.onlineDotOverlay} />}
       </TouchableOpacity>
 
       <View style={styles.content}>
         <View style={styles.header}>
           <Text style={styles.name} numberOfLines={1}>
-            {profile?.display_name || 'Unknown'}
+            {profile?.display_name || 'Gossip User'}
           </Text>
           {lastMessage && (
             <Text style={styles.time}>
@@ -67,8 +74,8 @@ export function MatchItem({ match, onPress }: MatchItemProps) {
             )}
           </View>
         ) : (
-          <Text style={[styles.message, { color: '#808080' }]} numberOfLines={1}>
-            Say hello! 👋
+          <Text style={[styles.message, { color: '#666', fontStyle: 'italic' }]} numberOfLines={1}>
+            New connection - say hello!
           </Text>
         )}
       </View>
@@ -84,62 +91,76 @@ export function MatchItem({ match, onPress }: MatchItemProps) {
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    padding: Spacing.lg,
+    padding: 16,
     alignItems: 'center',
-    backgroundColor: '#1A1A1A',
-    borderRadius: 20,
-    marginBottom: Spacing.md,
+    borderRadius: 24,
+    marginBottom: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
+    borderColor: 'rgba(255,255,255,0.08)',
+    overflow: 'hidden',
+    backgroundColor: 'rgba(255,255,255,0.03)',
   },
   avatarContainer: {
     position: 'relative',
   },
+  avatarGlow: {
+    padding: 2,
+    borderRadius: 36,
+    backgroundColor: 'transparent',
+  },
+  avatarOnlineGlow: {
+    backgroundColor: 'rgba(76, 175, 80, 0.2)',
+  },
   avatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 68,
+    height: 68,
+    borderRadius: 34,
     borderWidth: 2,
-    borderColor: '#87CEEB',
+    borderColor: 'rgba(135, 206, 235, 0.4)',
   },
   onlineDotOverlay: {
     position: 'absolute',
-    bottom: 2,
-    right: 2,
+    bottom: 4,
+    right: 4,
     width: 14,
     height: 14,
     borderRadius: 7,
     backgroundColor: '#4CAF50',
     borderWidth: 2,
-    borderColor: '#1A1A1A',
+    borderColor: '#000',
+    shadowColor: '#4CAF50',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 4,
   },
   content: {
     flex: 1,
-    marginLeft: Spacing.lg,
+    marginLeft: 16,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   name: {
-    fontSize: 18,
-    fontWeight: Platform.OS === 'android' ? '600' : '800',
+    fontSize: 17,
+    fontWeight: '800',
     color: '#FFFFFF',
     flex: 1,
-    textTransform: 'uppercase',
-    letterSpacing: Platform.OS === 'android' ? 2 : 1.5,
+    letterSpacing: 0.5,
   },
   time: {
-    fontSize: 12,
-    color: '#808080',
+    fontSize: 11,
+    color: '#666',
+    fontWeight: '600',
   },
   message: {
     fontSize: 14,
-    color: '#BBB',
-    lineHeight: 20,
+    color: '#999',
+    lineHeight: 18,
     flex: 1,
+    marginTop: 2,
   },
   messageRow: {
     flexDirection: 'row',
@@ -149,16 +170,20 @@ const styles = StyleSheet.create({
   },
   unreadBadge: {
     backgroundColor: '#87CEEB',
-    minWidth: 20,
-    height: 20,
-    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 4,
+    shadowColor: '#87CEEB',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
   },
   unreadText: {
     color: '#000',
-    fontSize: 11,
-    fontWeight: '800',
+    fontSize: 10,
+    fontWeight: '900',
   },
 });
