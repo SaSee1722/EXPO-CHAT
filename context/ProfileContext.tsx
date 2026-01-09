@@ -35,15 +35,17 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         }
     }, [user]);
 
-    // Export a helper to check online status based on timestamp (threshold: 20s for "instant" feel)
+    // Export a helper to check online status based on timestamp (threshold: 25s for absolute accuracy)
     const isUserOnline = (profile: Profile | null) => {
         if (!profile) return false;
-        if (profile.is_online) return true;
-        if (!profile.last_seen_at) return false;
+        if (!profile.last_seen_at) return profile.is_online || false; // Fallback for legacy
 
         const lastSeen = new Date(profile.last_seen_at).getTime();
         const now = new Date().getTime();
-        return (now - lastSeen) < 20000; // 20 second threshold
+
+        // Even if is_online is true, if the timestamp is older than 25s, they are offline.
+        // This prevents "ghost" online status when the app is killed or loses network.
+        return (now - lastSeen) < 25000;
     };
 
     const fetchProfile = useCallback(async (userId: string) => {

@@ -158,20 +158,26 @@ export default function ChatScreen() {
       .on('presence', { event: 'sync' }, () => {
         const state = presenceChannel.presenceState();
         const otherUserIsPresent = Object.values(state).flat().some((p: any) => p.user_id === otherProfile.id);
-        if (otherUserIsPresent) {
-          setOtherProfile(prev => prev ? { ...prev, is_online: true } : prev);
-        }
+        setOtherProfile(prev => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            is_online: otherUserIsPresent,
+            last_seen_at: otherUserIsPresent ? new Date().toISOString() : prev.last_seen_at
+          };
+        });
       })
       .on('presence' as any, { event: 'join' }, ({ newPresences }: any) => {
         const isOtherUser = newPresences.some((p: any) => p.user_id === otherProfile.id);
         if (isOtherUser) {
-          setOtherProfile(prev => prev ? { ...prev, is_online: true } : prev);
+          setOtherProfile(prev => prev ? { ...prev, is_online: true, last_seen_at: new Date().toISOString() } : prev);
         }
       })
       .on('presence' as any, { event: 'leave' }, ({ leftPresences }: any) => {
         const isOtherUser = leftPresences.some((p: any) => p.user_id === otherProfile.id);
         if (isOtherUser) {
-          setOtherProfile(prev => prev ? { ...prev, is_online: false } : prev);
+          // When they leave, we explicitly set is_online false and keep last_seen as is (or set to now)
+          setOtherProfile(prev => prev ? { ...prev, is_online: false, last_seen_at: new Date().toISOString() } : prev);
         }
       })
       .subscribe(async (status) => {
