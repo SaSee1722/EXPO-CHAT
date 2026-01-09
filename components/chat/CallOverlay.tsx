@@ -13,6 +13,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { RTCView, MediaStream } from 'react-native-webrtc';
 import { useAuth } from '@/template';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import { Profile, Call } from '@/types';
 import { webrtcService } from '@/services/webrtcService';
@@ -181,7 +182,11 @@ export function CallOverlay({
                 ) : (
                     <>
                         <Image source={{ uri: photoUrl }} style={styles.bgImage} />
-                        <BlurView intensity={80} style={StyleSheet.absoluteFill} tint="dark" />
+                        <BlurView intensity={30} style={StyleSheet.absoluteFill} tint="dark" />
+                        <LinearGradient
+                            colors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.8)']}
+                            style={StyleSheet.absoluteFill}
+                        />
 
                         {/* Always render an RTCView for audio calls to ensure sound output on all platforms */}
                         {remoteStream && (
@@ -194,7 +199,7 @@ export function CallOverlay({
                     </>
                 )}
 
-                {showVideo && localStream && !isCameraOff && remoteStream && (
+                {showVideo && localStream && !isCameraOff && (
                     <View style={styles.localVideoWrapper}>
                         <RTCView
                             streamURL={localStream.toURL()}
@@ -210,21 +215,35 @@ export function CallOverlay({
                         {!showVideo && (
                             <View style={styles.avatarWrapper}>
                                 {call.status === 'calling' && (
-                                    <Animated.View style={[styles.pulseCircle, pulseStyle]} />
+                                    <>
+                                        <Animated.View style={[styles.pulseCircle, pulseStyle, { opacity: 0.15 }]} />
+                                        <Animated.View style={[styles.pulseCircle, pulseStyle, { width: 190, height: 190, opacity: 0.1 }]} />
+                                    </>
                                 )}
-                                <Image source={{ uri: photoUrl }} style={styles.avatar} />
+                                <View style={styles.avatarGlow}>
+                                    <Image source={{ uri: photoUrl }} style={styles.avatar} />
+                                </View>
                             </View>
                         )}
                         <Text style={styles.name}>{otherProfile?.display_name || 'Gossip User'}</Text>
-                        <Text style={styles.status}>
-                            {call.status === 'active' ? formatTime(timer) :
-                                call.status === 'calling' ? (isIncoming ? `Incoming ${call.call_type === 'video' ? 'Video' : 'Voice'} Call...` : 'Calling...') :
-                                    call.status}
-                        </Text>
+                        <View style={styles.statusContainer}>
+                            <Text style={styles.status}>
+                                {call.status === 'active' ? formatTime(timer) :
+                                    call.status === 'calling' ? (isIncoming ? `INCOMING ${call.call_type?.toUpperCase()}` : 'CALLING...') :
+                                        call.status?.toUpperCase()}
+                            </Text>
+                            {call.status === 'active' && (
+                                <View style={styles.secureBadge}>
+                                    <Ionicons name="shield-checkmark" size={12} color="#87CEEB" />
+                                    <Text style={styles.secureText}>SECURE</Text>
+                                </View>
+                            )}
+                        </View>
+
                         <Text style={styles.connectionStatus}>
-                            {webrtcService.peerConnection?.connectionState === 'connected' ? '• Secure Connection' :
-                                webrtcService.peerConnection?.connectionState === 'connecting' ? 'Optimizing Signal...' :
-                                    webrtcService.peerConnection?.connectionState === 'failed' ? 'Connection Unstable - Retrying...' : ''}
+                            {webrtcService.peerConnection?.connectionState === 'connected' ? '• Signal Optimized' :
+                                webrtcService.peerConnection?.connectionState === 'connecting' ? 'Establishing Line...' :
+                                    webrtcService.peerConnection?.connectionState === 'failed' ? 'Retrying Connection...' : ''}
                         </Text>
 
                         {permissionError && (
@@ -247,32 +266,70 @@ export function CallOverlay({
                         {(call.status === 'calling' && isIncoming) ? (
                             <View style={styles.actionRow}>
                                 <TouchableOpacity onPress={onReject} style={[styles.iconBtn, styles.rejectBtn]}>
-                                    <Ionicons name="close" size={32} color="#FFF" />
+                                    <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
+                                    <Ionicons name="close" size={36} color="#FFF" />
+                                    <Text style={styles.btnLabel}>Decline</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity onPress={onAccept} style={[styles.iconBtn, styles.acceptBtn]}>
+                                    <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
                                     <Ionicons name="call" size={32} color="#FFF" />
+                                    <Text style={styles.btnLabel}>Accept</Text>
                                 </TouchableOpacity>
                             </View>
                         ) : (call.status === 'active' || (call.status === 'calling' && !isIncoming)) ? (
                             <View style={[styles.activeActions, showVideo && styles.activeActionsVideo]}>
                                 <View style={styles.activeRow}>
-                                    <TouchableOpacity onPress={toggleMute} style={[styles.midBtn, isMuted && styles.activeStateBtn]}>
-                                        <Ionicons name={isMuted ? "mic-off" : "mic"} size={24} color="#FFF" />
+                                    <TouchableOpacity
+                                        onPress={toggleMute}
+                                        style={[styles.midBtn, isMuted && styles.activeStateBtn]}
+                                        activeOpacity={0.8}
+                                    >
+                                        <BlurView intensity={25} tint="light" style={StyleSheet.absoluteFill} />
+                                        <Ionicons name={isMuted ? "mic-off" : "mic"} size={26} color="#FFF" />
+                                        <Text style={styles.miniLabel}>{isMuted ? 'Unmute' : 'Mute'}</Text>
                                     </TouchableOpacity>
 
-                                    <TouchableOpacity onPress={onEnd} style={[styles.iconBtn, styles.rejectBtn, styles.largeBtn]}>
-                                        <Ionicons name="call-outline" size={32} color="#FFF" style={{ transform: [{ rotate: '135deg' }] }} />
+                                    <TouchableOpacity
+                                        onPress={onEnd}
+                                        style={[styles.iconBtn, styles.rejectBtn, styles.largeBtn]}
+                                        activeOpacity={0.9}
+                                    >
+                                        <Ionicons name="call" size={36} color="#FFF" style={{ transform: [{ rotate: '135deg' }] }} />
                                     </TouchableOpacity>
 
-                                    <TouchableOpacity onPress={toggleSpeaker} style={[styles.midBtn, isSpeakerOn && styles.activeStateBtn]}>
-                                        <Ionicons name={isSpeakerOn ? "volume-high" : "volume-medium"} size={24} color="#FFF" />
+                                    <TouchableOpacity
+                                        onPress={toggleSpeaker}
+                                        style={[styles.midBtn, isSpeakerOn && styles.activeStateBtn]}
+                                        activeOpacity={0.8}
+                                    >
+                                        <BlurView intensity={25} tint="light" style={StyleSheet.absoluteFill} />
+                                        <Ionicons name={isSpeakerOn ? "volume-high" : "volume-medium"} size={26} color="#FFF" />
+                                        <Text style={styles.miniLabel}>Speaker</Text>
                                     </TouchableOpacity>
                                 </View>
                                 {call.call_type === 'video' && (
-                                    <TouchableOpacity onPress={toggleCamera} style={[styles.cameraToggle, isCameraOff && styles.activeStateBtn]}>
-                                        <Ionicons name={isCameraOff ? "videocam-off" : "videocam"} size={20} color="#FFF" />
-                                        <Text style={styles.cameraText}>{isCameraOff ? "Camera Off" : "Camera On"}</Text>
-                                    </TouchableOpacity>
+                                    <View style={styles.videoControlsRow}>
+                                        <TouchableOpacity
+                                            onPress={toggleCamera}
+                                            style={[styles.cameraToggle, isCameraOff && styles.activeStateBtn]}
+                                            activeOpacity={0.8}
+                                        >
+                                            <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
+                                            <Ionicons name={isCameraOff ? "videocam-off" : "videocam"} size={20} color="#FFF" />
+                                            <Text style={styles.cameraText}>{isCameraOff ? "Video Off" : "Video On"}</Text>
+                                        </TouchableOpacity>
+
+                                        {!isCameraOff && (
+                                            <TouchableOpacity
+                                                onPress={() => webrtcService.switchCamera()}
+                                                style={styles.switchCamBtn}
+                                                activeOpacity={0.8}
+                                            >
+                                                <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
+                                                <Ionicons name="camera-reverse" size={24} color="#FFF" />
+                                            </TouchableOpacity>
+                                        )}
+                                    </View>
                                 )}
                             </View>
                         ) : null}
@@ -285,31 +342,50 @@ export function CallOverlay({
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#000' },
-    bgImage: { ...StyleSheet.absoluteFillObject, opacity: 0.5 },
+    bgImage: { ...StyleSheet.absoluteFillObject, opacity: 0.6 },
     content: { flex: 1, justifyContent: 'space-between', paddingVertical: 100, alignItems: 'center' },
     contentVideoMode: { justifyContent: 'flex-end', paddingVertical: 50 },
     topSection: { alignItems: 'center' },
-    avatarWrapper: { width: 160, height: 160, justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
-    avatar: { width: 140, height: 140, borderRadius: 70, borderWidth: 4, borderColor: '#87CEEB' },
-    pulseCircle: { position: 'absolute', width: 180, height: 180, borderRadius: 90, backgroundColor: '#87CEEB' },
-    name: { fontSize: 32, fontWeight: 'bold', color: '#FFF', marginBottom: 8 },
-    status: { fontSize: 18, color: '#87CEEB', fontWeight: '600', letterSpacing: 1 },
-    bottomSection: { width: '100%', paddingHorizontal: 40 },
-    actionRow: { flexDirection: 'row', justifyContent: 'space-between' },
-    activeActions: { alignItems: 'center', gap: 30 },
-    activeActionsVideo: { marginBottom: 20 },
-    activeRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 40 },
-    iconBtn: { width: 72, height: 72, borderRadius: 36, justifyContent: 'center', alignItems: 'center' },
+    avatarWrapper: { width: 220, height: 220, justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
+    avatarGlow: {
+        width: 154,
+        height: 154,
+        borderRadius: 77,
+        backgroundColor: 'rgba(135, 206, 235, 0.2)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        shadowColor: '#87CEEB',
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.5,
+        shadowRadius: 20,
+    },
+    avatar: { width: 140, height: 140, borderRadius: 70, borderWidth: 3, borderColor: '#FFF' },
+    pulseCircle: { position: 'absolute', width: 170, height: 170, borderRadius: 85, backgroundColor: '#87CEEB' },
+    name: { fontSize: 36, fontWeight: '900', color: '#FFF', marginBottom: 8, letterSpacing: -0.5 },
+    statusContainer: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4 },
+    status: { fontSize: 16, color: '#87CEEB', fontWeight: '800', letterSpacing: 2 },
+    secureBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(135, 206, 235, 0.1)', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 },
+    secureText: { fontSize: 10, color: '#87CEEB', fontWeight: '900', letterSpacing: 1 },
+    bottomSection: { width: '100%', paddingHorizontal: 30 },
+    actionRow: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center' },
+    activeActions: { alignItems: 'center', gap: 40 },
+    activeActionsVideo: { marginBottom: 30 },
+    activeRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 30 },
+    iconBtn: { width: 80, height: 80, borderRadius: 40, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
+    btnLabel: { position: 'absolute', bottom: -25, color: '#FFF', fontSize: 12, fontWeight: '700', letterSpacing: 0.5 },
     acceptBtn: { backgroundColor: '#4CAF50' },
     rejectBtn: { backgroundColor: '#FF4458' },
-    largeBtn: { width: 84, height: 84, borderRadius: 42 },
-    midBtn: { width: 56, height: 56, borderRadius: 28, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center' },
-    activeStateBtn: { backgroundColor: '#FF4458' },
-    cameraToggle: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, gap: 8 },
-    cameraText: { color: '#FFF', fontSize: 14, fontWeight: '500' },
-    localVideoWrapper: { position: 'absolute', top: 60, right: 20, width: 100, height: 150, borderRadius: 12, overflow: 'hidden', borderWidth: 2, borderColor: '#FFF', zIndex: 10 },
+    largeBtn: { width: 88, height: 88, borderRadius: 44, shadowColor: '#FF4458', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.5, shadowRadius: 15, elevation: 10 },
+    midBtn: { width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(255,255,255,0.1)', justifyContent: 'center', alignItems: 'center', overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+    activeStateBtn: { backgroundColor: 'rgba(255, 255, 255, 0.3)', borderColor: '#FFF' },
+    miniLabel: { fontSize: 10, color: '#FFF', fontWeight: '700', marginTop: 4, opacity: 0.8 },
+    cameraToggle: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 24, gap: 10, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
+    cameraText: { color: '#FFF', fontSize: 14, fontWeight: '700', letterSpacing: 0.5 },
+    videoControlsRow: { flexDirection: 'row', alignItems: 'center', gap: 15 },
+    switchCamBtn: { width: 48, height: 48, borderRadius: 24, justifyContent: 'center', alignItems: 'center', overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
+    localVideoWrapper: { position: 'absolute', top: 50, right: 20, width: 110, height: 165, borderRadius: 20, overflow: 'hidden', borderWidth: 2, borderColor: 'rgba(255,255,255,0.3)', zIndex: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.5, shadowRadius: 10 },
     localVideo: { width: '100%', height: '100%' },
     permissionWarning: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255, 68, 88, 0.2)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, marginTop: 12, gap: 6 },
     permissionText: { color: '#FFD700', fontSize: 13, fontWeight: '600' },
-    connectionStatus: { color: '#87CEEB', fontSize: 12, marginTop: 4, opacity: 0.8, fontWeight: '500' },
+    connectionStatus: { color: '#87CEEB', fontSize: 13, marginTop: 4, opacity: 0.7, fontWeight: '600', letterSpacing: 0.5 },
 });

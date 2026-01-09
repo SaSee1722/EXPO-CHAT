@@ -435,6 +435,14 @@ class WebRTCService {
         });
     }
 
+    switchCamera() {
+        this.localStream?.getVideoTracks().forEach(track => {
+            if ((track as any)._switchCamera) {
+                (track as any)._switchCamera();
+            }
+        });
+    }
+
     cleanup(reason?: string) {
         console.log(`[WebRTC] Cleanup: ${reason || 'unknown'}`);
 

@@ -59,6 +59,8 @@ export default function CallsScreen() {
         );
 
         if (!error && data) {
+            // CRITICAL: Initialize signaling for this match BEFORE notifying the other user
+            await webrtcService.initialize(user.id, call.match_id, false, type === 'video');
             webrtcService.notifyCallStarted(data);
             setCallOtherProfile(otherProfile);
             setActiveCall(data);

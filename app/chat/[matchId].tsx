@@ -303,6 +303,8 @@ export default function ChatScreen() {
     if (error) {
       showAlert('Failed to initiate call');
     } else {
+      // CRITICAL: Initialize signaling for this match BEFORE notifying the other user
+      await webrtcService.initialize(user.id, matchId, false, type === 'video');
       webrtcService.notifyCallStarted(data);
       setCallOtherProfile(otherProfile);
       setActiveCall(data);
