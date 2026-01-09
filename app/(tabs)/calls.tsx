@@ -1,13 +1,15 @@
-import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity, Platform } from 'react-native';
 import React, { useState, useCallback } from 'react';
 import { useAuth, getSupabaseClient } from '@/template';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { format } from 'date-fns';
+import { Spacing } from '@/constants/theme';
 import { callService } from '@/services/callService';
 import { webrtcService } from '@/services/webrtcService';
 import { useNotifications } from '@/context/NotificationContext';
 import { GradientText } from '@/components/GradientText';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface CallRecord {
     id: string;
@@ -26,6 +28,7 @@ export default function CallsScreen() {
     const [calls, setCalls] = useState<CallRecord[]>([]);
     const [loading, setLoading] = useState(true);
     const { setActiveCall, setCallOtherProfile, setIsCallIncoming } = useNotifications();
+    const insets = useSafeAreaInsets();
     const loadCalls = useCallback(async () => {
         if (!user) return;
         setLoading(true);
@@ -130,8 +133,8 @@ export default function CallsScreen() {
     };
 
     return (
-        <View style={styles.container}>
-            <View style={styles.header}>
+        <View style={[styles.container, { paddingTop: insets.top }]}>
+            <View style={[styles.header, { paddingTop: Platform.OS === 'android' ? 20 : 0 }]}>
                 <GradientText style={styles.headerTitle}>Calls</GradientText>
             </View>
 
@@ -161,15 +164,15 @@ const styles = StyleSheet.create({
         backgroundColor: '#000',
     },
     header: {
-        paddingTop: 60,
-        paddingBottom: 20,
+        paddingVertical: Spacing.md,
         alignItems: 'center',
         borderBottomWidth: 1,
         borderBottomColor: '#1A1A1A',
     },
     headerTitle: {
         fontSize: 28,
-        fontWeight: '700',
+        fontWeight: Platform.OS === 'android' ? '700' : '900',
+        letterSpacing: 2,
     },
     listContent: {
         padding: 20,

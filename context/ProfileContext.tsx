@@ -12,6 +12,7 @@ interface ProfileContextType {
     createProfile: (profileData: Partial<Profile>) => Promise<{ data: Profile | null; error: any }>;
     uploadPhoto: (uri: string) => Promise<{ data: string | null; error: any }>;
     refreshProfile: () => Promise<void>;
+    isUserOnline: (profile: Profile | null) => boolean;
 }
 
 const ProfileContext = createContext<ProfileContextType | undefined>(undefined);
@@ -25,11 +26,25 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     const updateOnlineStatus = useCallback(async (isOnline: boolean) => {
         if (!user) return;
         try {
-            await profileService.updateProfile(user.id, { is_online: isOnline });
+            await profileService.updateProfile(user.id, {
+                is_online: isOnline,
+                last_seen_at: new Date().toISOString()
+            });
         } catch (err) {
             console.error('[Presence] Error updating status:', err);
         }
     }, [user]);
+
+    // Export a helper to check online status based on timestamp (threshold: 1 min)
+    const isUserOnline = (profile: Profile | null) => {
+        if (!profile) return false;
+        if (profile.is_online) return true;
+        if (!profile.last_seen_at) return false;
+
+        const lastSeen = new Date(profile.last_seen_at).getTime();
+        const now = new Date().getTime();
+        return (now - lastSeen) < 60000; // 1 minute threshold
+    };
 
     const fetchProfile = useCallback(async (userId: string) => {
         setLoading(true);
@@ -83,6 +98,19 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
                 updateOnlineStatus(false);
                 supabase.removeChannel(channel);
             };
+        }
+    }, [user, authInitialized, updateOnlineStatus]);
+
+    useEffect(() => {
+        if (user && authInitialized) {
+            const heartbeat = setInterval(() => {
+                const state = AppState.currentState;
+                if (state === 'active') {
+                    updateOnlineStatus(true);
+                }
+            }, 30000); // 30 second heartbeat
+
+            return () => clearInterval(heartbeat);
         }
     }, [user, authInitialized, updateOnlineStatus]);
 
@@ -141,6 +169,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
                 createProfile,
                 uploadPhoto,
                 refreshProfile,
+                isUserOnline,
             }}
         >
             {children}

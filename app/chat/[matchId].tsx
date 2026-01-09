@@ -17,11 +17,13 @@ import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { webrtcService } from '@/services/webrtcService';
 import { useNotifications } from '@/context/NotificationContext';
+import { useProfileContext } from '@/context/ProfileContext';
 
 export default function ChatScreen() {
   const { matchId } = ExpoRouter.useLocalSearchParams<{ matchId: string }>();
   const { user } = useAuth();
   const { showAlert } = useAlert();
+  const { isUserOnline } = useProfileContext();
   const { messages, sending, sendMessage, sendMediaMessage, toggleReaction, deleteMessage } = useMessages(matchId, user?.id || null);
   const router = ExpoRouter.useRouter();
   const flatListRef = React.useRef<FlatList>(null);
@@ -346,13 +348,13 @@ export default function ChatScreen() {
         </TouchableOpacity>
 
         <View style={styles.headerInfo}>
-          <Text style={styles.headerName}>
+          <Text style={styles.headerName} numberOfLines={1}>
             {otherProfile?.display_name || 'Chat'}
           </Text>
           <View style={styles.onlineIndicator}>
-            <View style={[styles.onlineDot, { backgroundColor: otherProfile?.is_online ? '#4CAF50' : 'rgba(255,255,255,0.2)' }]} />
+            <View style={[styles.onlineDot, { backgroundColor: isUserOnline(otherProfile) ? '#4CAF50' : 'rgba(255,255,255,0.2)' }]} />
             <Text style={styles.onlineText}>
-              {otherProfile?.is_online ? 'Online' : 'Offline'}
+              {isUserOnline(otherProfile) ? 'Online' : 'Offline'}
             </Text>
           </View>
         </View>
@@ -504,7 +506,7 @@ const styles = StyleSheet.create({
   },
   headerName: {
     fontSize: 18,
-    fontWeight: '800',
+    fontWeight: Platform.OS === 'android' ? '700' : '900',
     color: '#FFF',
     letterSpacing: 0.5,
   },

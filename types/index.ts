@@ -12,6 +12,7 @@ export interface Profile {
   age_range_min?: number;
   age_range_max?: number;
   is_online?: boolean;
+  last_seen_at?: string;
   created_at?: string;
   updated_at?: string;
 }

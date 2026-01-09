@@ -4,6 +4,8 @@ import React, { useState } from 'react';
 import { FullScreenImageViewer } from '../chat/FullScreenImageViewer';
 import { Spacing } from '@/constants/theme';
 import { Match } from '@/types';
+import { useProfileContext } from '@/context/ProfileContext';
+import { Platform } from 'react-native';
 
 interface MatchItemProps {
   match: Match;
@@ -12,6 +14,7 @@ interface MatchItemProps {
 
 export function MatchItem({ match, onPress }: MatchItemProps) {
   const [isViewerVisible, setIsViewerVisible] = useState(false);
+  const { isUserOnline } = useProfileContext();
 
   const profile = match.profile;
   const lastMessage = match.lastMessage;
@@ -37,7 +40,7 @@ export function MatchItem({ match, onPress }: MatchItemProps) {
     >
       <TouchableOpacity style={styles.avatarContainer} onPress={() => setIsViewerVisible(true)}>
         <Image source={{ uri: photoUrl }} style={styles.avatar} contentFit="cover" />
-        {profile?.is_online && <View style={styles.onlineDotOverlay} />}
+        {isUserOnline(profile || null) && <View style={styles.onlineDotOverlay} />}
       </TouchableOpacity>
 
       <View style={styles.content}>
@@ -122,11 +125,11 @@ const styles = StyleSheet.create({
   },
   name: {
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: Platform.OS === 'android' ? '600' : '800',
     color: '#FFFFFF',
     flex: 1,
     textTransform: 'uppercase',
-    letterSpacing: 1,
+    letterSpacing: Platform.OS === 'android' ? 2 : 1.5,
   },
   time: {
     fontSize: 12,

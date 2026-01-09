@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, useColorScheme } from 'react-native';
+import { View, Text, StyleSheet, FlatList, useColorScheme, Platform } from 'react-native';
 import { useAuth } from '@/template';
 import { useMatches } from '@/hooks/useMatches';
 import { Colors, Spacing, Typography } from '@/constants/theme';
@@ -25,7 +25,7 @@ export default function MatchesScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: '#000000', paddingTop: insets.top }]}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: Platform.OS === 'android' ? 20 : 0 }]}>
         <GradientText style={styles.title}>Matches</GradientText>
       </View>
 
@@ -64,7 +64,8 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 28,
-    fontWeight: '700',
+    fontWeight: Platform.OS === 'android' ? '700' : '900',
+    letterSpacing: 2,
   },
   cardContainer: {
     flex: 1,

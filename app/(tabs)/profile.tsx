@@ -68,7 +68,9 @@ export default function ProfileScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: '#000000', paddingTop: insets.top }]}>
-      <View style={styles.header}><GradientText style={styles.title}>Profile</GradientText></View>
+      <View style={[styles.header, { paddingTop: Platform.OS === 'android' ? 20 : 0 }]}>
+        <GradientText style={styles.title}>Profile</GradientText>
+      </View>
 
       <ScrollView
         contentContainerStyle={styles.content}
@@ -151,7 +153,8 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 28,
-    fontWeight: '700',
+    fontWeight: Platform.OS === 'android' ? '700' : '900',
+    letterSpacing: 2,
   },
   content: { paddingHorizontal: Spacing.lg },
   avatarSection: { alignItems: 'center', marginVertical: Spacing.xl },
@@ -175,5 +178,11 @@ const styles = StyleSheet.create({
   infoLabel: { fontSize: 10, color: '#666', fontWeight: 'bold', marginBottom: 2 },
   infoValue: { fontSize: 16, color: '#FFF', fontWeight: '600' },
   bioText: { fontSize: 15, color: '#BBB', lineHeight: 22 },
-  logoutButton: { marginTop: 40, height: 55, borderRadius: 15 },
+  logoutButton: {
+    marginTop: 40,
+    height: 55,
+    borderRadius: 15,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 68, 88, 0.3)',
+  },
 });

@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS profiles (
     looking_for TEXT CHECK (looking_for IN ('male', 'female', 'everyone')),
     photos TEXT [] DEFAULT '{}',
     is_online BOOLEAN DEFAULT FALSE,
+    last_seen_at TIMESTAMPTZ DEFAULT NOW(),
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
