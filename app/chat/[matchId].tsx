@@ -23,7 +23,7 @@ export default function ChatScreen() {
   const { matchId } = ExpoRouter.useLocalSearchParams<{ matchId: string }>();
   const { user } = useAuth();
   const { showAlert } = useAlert();
-  const { isUserOnline, setPresence } = useProfileContext();
+  const { isUserOnline, getPresenceText, typingMap, setPresence, setTypingStatus: setGlobalTypingStatus } = useProfileContext();
   const { messages, sending, sendMessage, sendMediaMessage, toggleReaction, deleteMessage: baseDeleteMessage } = useMessages(matchId, user?.id || null);
 
   const deleteMessage = async (id: string) => {
@@ -38,7 +38,6 @@ export default function ChatScreen() {
 
   const [inputText, setInputText] = React.useState('');
   const [otherProfile, setOtherProfile] = React.useState<Profile | null>(null);
-  const [isOtherUserTyping, setIsOtherUserTyping] = React.useState(false);
   const [showMediaMenu, setShowMediaMenu] = React.useState(false);
   const [isRecording, setIsRecording] = React.useState(false);
   const useWhatsAppStyle = true; // Always use WhatsApp style for voice notes
@@ -59,11 +58,7 @@ export default function ChatScreen() {
     channel
       .on('broadcast', { event: 'typing' }, ({ payload }) => {
         if (payload.userId !== user.id) {
-          setIsOtherUserTyping(payload.isTyping);
-          if (payload.isTyping) {
-            if ((global as any).typingTimer) clearTimeout((global as any).typingTimer);
-            (global as any).typingTimer = setTimeout(() => setIsOtherUserTyping(false), 5000);
-          }
+          setGlobalTypingStatus(matchId, payload.isTyping);
         }
       })
       .subscribe();
@@ -80,26 +75,43 @@ export default function ChatScreen() {
     };
   }, [matchId, user?.id]);
 
-  const setTypingStatus = (isTyping: boolean) => {
-    if (!typingChannelRef.current || !user || !matchId) return;
+  const emitTypingStatus = (isTyping: boolean) => {
+    if (!user || !matchId || !otherProfile) return;
+    const supabase = matchService.getSupabaseClient();
 
-    typingChannelRef.current.send({
-      type: 'broadcast',
-      event: 'typing',
-      payload: { userId: user.id, isTyping },
+    // WhatsApp style: Broadcast to the recipient's personal typing channel
+    // and the specific chat channel.
+    const personalChannel = supabase.channel(`typing:to:${otherProfile.id}`);
+    personalChannel.subscribe(async (status) => {
+      if (status === 'SUBSCRIBED') {
+        await personalChannel.send({
+          type: 'broadcast',
+          event: 'typing',
+          payload: { matchId, isTyping }
+        });
+        supabase.removeChannel(personalChannel);
+      }
     });
+
+    if (typingChannelRef.current) {
+      typingChannelRef.current.send({
+        type: 'broadcast',
+        event: 'typing',
+        payload: { userId: user.id, isTyping },
+      });
+    }
   };
 
   const typingTimeoutRef = React.useRef<any>(null);
 
   const handleInputChange = (text: string) => {
     setInputText(text);
-    setTypingStatus(true);
+    emitTypingStatus(true);
 
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     typingTimeoutRef.current = setTimeout(() => {
-      setTypingStatus(false);
-    }, 2000);
+      emitTypingStatus(false);
+    }, 1500); // 1.5s delay like WhatsApp
   };
 
   const loadMatchProfile = React.useCallback(async () => {
@@ -283,7 +295,7 @@ export default function ChatScreen() {
     if (!inputText.trim()) return;
     const textToSend = inputText.trim();
     setInputText('');
-    setTypingStatus(false);
+    emitTypingStatus(false);
 
     let replyInfo = null;
     if (replyingTo) {
@@ -413,10 +425,15 @@ export default function ChatScreen() {
             {otherProfile?.display_name || 'Chat'}
           </Text>
           <View style={styles.onlineIndicator}>
-            <View style={[styles.onlineDot, { backgroundColor: isUserOnline(otherProfile) ? '#4CAF50' : 'rgba(255,255,255,0.2)' }]} />
-            <Text style={styles.onlineText}>
-              {isUserOnline(otherProfile) ? 'Online' : 'Offline'}
-            </Text>
+            {typingMap[matchId] ? (
+              <Text style={[styles.onlineText, { color: '#87CEEB', fontStyle: 'italic', fontWeight: 'bold' }]}>
+                typing...
+              </Text>
+            ) : (
+              <Text style={styles.onlineText}>
+                {getPresenceText(otherProfile)}
+              </Text>
+            )}
           </View>
         </View>
 
@@ -452,7 +469,7 @@ export default function ChatScreen() {
             />
           );
         }}
-        ListHeaderComponent={isOtherUserTyping ? <TypingIndicator /> : null}
+        ListHeaderComponent={typingMap[matchId] ? <TypingIndicator /> : null}
         contentContainerStyle={styles.messageList}
         showsVerticalScrollIndicator={false}
         // Important for scrollToIndex

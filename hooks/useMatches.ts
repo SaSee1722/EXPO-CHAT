@@ -18,7 +18,6 @@ export function useMatches(userId: string | null) {
       setMatches(data);
 
       // Mark all received messages as delivered
-      // This ensures that even if Realtime fails, polling will eventually mark messages as delivered
       data.forEach(match => {
         matchService.markMessagesAsDelivered(match.id, userId);
       });
@@ -65,7 +64,6 @@ export function useMatches(userId: string | null) {
       .subscribe();
 
     // 2. Polling Fallback (Reliability for Poor Network)
-    // Reduced polling to every 5 seconds since we have real-time updates
     const interval = setInterval(() => {
       loadMatches();
     }, 5000);

@@ -15,7 +15,7 @@ interface MatchItemProps {
 
 export function MatchItem({ match, onPress }: MatchItemProps) {
   const [isViewerVisible, setIsViewerVisible] = useState(false);
-  const { isUserOnline } = useProfileContext();
+  const { isUserOnline, typingMap } = useProfileContext();
 
   const profile = match.profile;
   const lastMessage = match.lastMessage;
@@ -62,7 +62,13 @@ export function MatchItem({ match, onPress }: MatchItemProps) {
           )}
         </View>
 
-        {lastMessage ? (
+        {typingMap[match.id] ? (
+          <View style={styles.messageRow}>
+            <Text style={[styles.message, { color: '#87CEEB', fontStyle: 'italic', fontWeight: '800' }]} numberOfLines={1}>
+              typing...
+            </Text>
+          </View>
+        ) : lastMessage ? (
           <View style={styles.messageRow}>
             <Text style={styles.message} numberOfLines={1}>
               {lastMessage.content}
