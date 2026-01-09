@@ -20,17 +20,17 @@ export default function TabLayout() {
           backgroundColor: '#000000', // Pure black background
           borderTopColor: '#1A1A1A',
           height: Platform.select({
-            ios: insets.bottom + 60,
-            android: insets.bottom + 60,
-            default: 70,
+            ios: insets.bottom + 65,
+            android: 75,
+            default: 75,
           }),
-          paddingTop: 8,
+          paddingTop: 12,
           paddingBottom: Platform.select({
-            ios: insets.bottom + 8,
-            android: insets.bottom + 8,
-            default: 8,
+            ios: insets.bottom + 12,
+            android: 12,
+            default: 12,
           }),
-          paddingHorizontal: 16,
+          paddingHorizontal: 20,
         },
         tabBarLabelStyle: {
           fontSize: 12,

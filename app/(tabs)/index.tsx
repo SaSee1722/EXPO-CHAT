@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Dimensions, useColorScheme } from 'react-native';
+import { View, Text, StyleSheet, Dimensions, useColorScheme, Platform } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -85,7 +85,7 @@ export default function DiscoverScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: '#000000', paddingTop: insets.top }]}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: Platform.OS === 'android' ? 20 : 0 }]}>
         <GradientText style={styles.logo}>GOSSIP</GradientText>
       </View>
 
@@ -161,8 +161,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   logo: {
-    fontSize: 28,
-    fontWeight: '700',
+    fontSize: 32,
+    fontWeight: '900',
+    letterSpacing: 4,
   },
   cardContainer: {
     flex: 1,
@@ -200,8 +201,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: Spacing.lg,
+    gap: Spacing.xl,
     paddingVertical: Spacing.xl,
+    paddingBottom: Platform.OS === 'android' ? 40 : Spacing.xl,
   },
   emptyState: {
     alignItems: 'center',

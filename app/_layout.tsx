@@ -2,11 +2,17 @@ import React, { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { Platform } from 'react-native';
 import { AuthProvider, AlertProvider } from '@/template';
 import { ProfileGuard } from '@/components/ProfileGuard';
 import { ProfileProvider } from '@/context/ProfileContext';
 import { NotificationProvider } from '@/context/NotificationContext';
 import { Audio } from 'expo-av';
+import { StatusBar } from 'expo-status-bar';
+import * as NavigationBar from 'expo-navigation-bar';
+import * as SplashScreen from 'expo-splash-screen';
+
+SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   useEffect(() => {
@@ -19,22 +25,42 @@ export default function RootLayout() {
           staysActiveInBackground: true,
           shouldDuckAndroid: true,
           playThroughEarpieceAndroid: false,
-          // Match WebRTC requirements
-          interruptionModeIOS: 1, // InterruptionModeIOS.DoNotMix
-          interruptionModeAndroid: 1, // InterruptionModeAndroid.DoNotMix
+          interruptionModeIOS: 1,
+          interruptionModeAndroid: 1,
         });
-        console.log('[RootLayout] Global audio mode initialized');
       } catch (e) {
         console.error('[RootLayout] Failed to set audio mode:', e);
       }
     };
-    setupAudio();
+
+    const setupAndroidBranding = async () => {
+      if (Platform.OS === 'android') {
+        try {
+          await NavigationBar.setBackgroundColorAsync('#000000');
+          await NavigationBar.setButtonStyleAsync('light');
+        } catch (e) {
+          console.log('[RootLayout] Nav Bar error:', e);
+        }
+      }
+    };
+
+    const initialize = async () => {
+      await setupAudio();
+      await setupAndroidBranding();
+      // Keep splash screen a bit longer to ensure smooth transition
+      setTimeout(async () => {
+        await SplashScreen.hideAsync();
+      }, 500);
+    };
+
+    initialize();
   }, []);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <AlertProvider>
         <SafeAreaProvider>
+          <StatusBar style="light" />
           <AuthProvider>
             <ProfileProvider>
               <NotificationProvider>
