@@ -157,7 +157,11 @@ export default function GetStartedScreen() {
                     <MAnimated.View style={[styles.brandIconContainer, logoFloatStyle]}>
                         <View style={styles.brandIconGlow} />
                         <View style={styles.brandIconInner}>
-                            <Ionicons name="chatbubble-ellipses" size={54} color="#87CEEB" />
+                            <Image
+                                source={require('@/assets/images/logo.png')}
+                                style={styles.brandLogoImage}
+                                resizeMode="contain"
+                            />
                         </View>
                     </MAnimated.View>
                 </View>
@@ -301,16 +305,21 @@ const styles = StyleSheet.create({
         width: 110,
         height: 110,
         borderRadius: 55,
-        backgroundColor: 'rgba(135, 206, 235, 0.03)',
-        borderWidth: 1,
-        borderColor: 'rgba(135, 206, 235, 0.2)',
+        backgroundColor: 'rgba(0, 0, 0, 0.4)',
+        borderWidth: 1.5,
+        borderColor: 'rgba(135, 206, 235, 0.4)',
         alignItems: 'center',
         justifyContent: 'center',
         shadowColor: '#87CEEB',
         shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.6,
+        shadowOpacity: 0.7,
         shadowRadius: 20,
         elevation: 15,
+        overflow: 'hidden',
+    },
+    brandLogoImage: {
+        width: '100%',
+        height: '100%',
     },
     glassCard: {
         borderRadius: 32,
