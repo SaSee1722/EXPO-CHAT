@@ -1,139 +1,107 @@
-import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity, Platform } from 'react-native';
 import React, { useState, useCallback } from 'react';
-import { useAuth, getSupabaseClient } from '@/template';
-import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from 'expo-router';
-import { format } from 'date-fns';
-import { Spacing } from '@/constants/theme';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, Platform } from 'react-native';
+import { useAuth } from '@/template';
 import { callService } from '@/services/callService';
-import { webrtcService } from '@/services/webrtcService';
-import { useNotifications } from '@/context/NotificationContext';
-import { GradientText } from '@/components/GradientText';
+import { Call } from '@/types';
+import { format } from 'date-fns';
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
-interface CallRecord {
-    id: string;
-    created_at: string;
-    caller_id: string;
-    receiver_id: string;
-    match_id: string;
-    status: string;
-    call_type: 'voice' | 'video';
-    duration?: number;
-    profile?: any;
-}
+import { GradientText } from '@/components/GradientText';
+import { Spacing, Colors } from '@/constants/theme';
+import { Image } from 'expo-image';
 
 export default function CallsScreen() {
     const { user } = useAuth();
-    const [calls, setCalls] = useState<CallRecord[]>([]);
+    const [calls, setCalls] = useState<Call[]>([]);
     const [loading, setLoading] = useState(true);
-    const { setActiveCall, setCallOtherProfile, setIsCallIncoming } = useNotifications();
+    const [refreshing, setRefreshing] = useState(false);
     const insets = useSafeAreaInsets();
-    const loadCalls = useCallback(async () => {
+    const router = useRouter();
+
+    const fetchCalls = useCallback(async () => {
         if (!user) return;
         setLoading(true);
-        const supabase = getSupabaseClient();
-
-        try {
-            const { data: callData, error } = await supabase
-                .from('calls')
-                .select(`
-          *,
-          user1:profiles!caller_id(id, display_name, photos),
-          user2:profiles!receiver_id(id, display_name, photos)
-        `)
-                .or(`caller_id.eq.${user.id},receiver_id.eq.${user.id}`)
-                .order('created_at', { ascending: false });
-
-            if (error) throw error;
-
-            // Extract the other person's profile for each call
-            const enrichedCalls = (callData || []).map((call: any) => {
-                const otherUser = call.caller_id === user.id ? call.user2 : call.user1;
-                return {
-                    ...call,
-                    profile: otherUser
-                };
-            });
-
-            setCalls(enrichedCalls);
-        } catch (err: any) {
-            // Soften log for network failures to avoid red screen overlays
-            if (err?.message?.includes('Network')) {
-                console.warn('[Calls] Network Issue:', err.message);
-            } else {
-                console.error('[Calls] Error loading calls:', err);
-            }
-        } finally {
-            setLoading(false);
-        }
+        const { data, error } = await callService.getUserCalls(user.id);
+        if (data) setCalls(data);
+        setLoading(false);
     }, [user]);
 
     useFocusEffect(
         useCallback(() => {
-            loadCalls();
-        }, [loadCalls])
+            fetchCalls();
+        }, [fetchCalls])
     );
 
-    const handleCallPress = async (callRecord: CallRecord) => {
-        if (!user || !callRecord.profile) return;
+    const onRefresh = useCallback(async () => {
+        setRefreshing(true);
+        await fetchCalls();
+        setRefreshing(false);
+    }, [fetchCalls]);
 
-        // Initiate a new call to the same person with the same call type
-        const { data, error } = await callService.initiateCall(
-            callRecord.match_id,
-            user.id,
-            callRecord.caller_id === user.id ? callRecord.receiver_id : callRecord.caller_id,
-            callRecord.call_type
-        );
-
-        if (!error && data) {
-            // 1. Initialize counseling/signaling channels FIRST
-            await webrtcService.initialize(user.id, data.match_id);
-
-            // 2. Broadcast the start event
-            webrtcService.notifyCallStarted(data);
-
-            // 3. Update global UI state
-            setCallOtherProfile(callRecord.profile);
-            setActiveCall(data);
-            setIsCallIncoming(false);
-        }
+    const handleCallPress = (call: Call) => {
+        router.push(`/chat/${call.match_id}`);
     };
 
-    const renderCallItem = ({ item }: { item: CallRecord }) => {
+    const renderCallItem = ({ item }: { item: Call }) => {
         const isOutgoing = item.caller_id === user?.id;
-        const photoUrl = item.profile?.photos?.[0] || 'https://via.placeholder.com/60/333/fff?text=User';
+        const otherProfile = isOutgoing ? item.receiver : item.caller;
         const date = new Date(item.created_at);
 
         return (
-            <View style={styles.callItem}>
-                <Image source={{ uri: photoUrl }} style={styles.avatar} />
+            <TouchableOpacity
+                style={styles.callItem}
+                onPress={() => handleCallPress(item)}
+                activeOpacity={0.7}
+            >
+                <View style={styles.avatarContainer}>
+                    {otherProfile?.photos?.[0] ? (
+                        <Image
+                            source={{ uri: otherProfile.photos[0] }}
+                            style={styles.avatar}
+                        />
+                    ) : (
+                        <View style={[styles.avatar, styles.placeholderAvatar]}>
+                            <Ionicons name="person" size={24} color="#555" />
+                        </View>
+                    )}
+                    <View style={[styles.callTypeIcon, { backgroundColor: item.status === 'missed' ? '#FF4458' : '#87CEEB' }]}>
+                        <Ionicons
+                            name={item.call_type === 'video' ? "videocam" : "call"}
+                            size={10}
+                            color="#000"
+                        />
+                    </View>
+                </View>
+
                 <View style={styles.callInfo}>
-                    <Text style={styles.name}>{item.profile?.display_name || 'Gossip User'}</Text>
+                    <Text style={styles.name} numberOfLines={1}>
+                        {otherProfile?.display_name || 'Gossip Member'}
+                    </Text>
                     <View style={styles.detailsRow}>
                         <Ionicons
                             name={isOutgoing ? "arrow-up-outline" : "arrow-down-outline"}
                             size={14}
-                            color={item.status === 'rejected' ? '#FF4458' : '#4CAF50'}
+                            color={item.status === 'missed' ? "#FF4458" : "#888"}
                         />
-                        <Text style={styles.time}>
-                            {format(date, 'MMM d, h:mm a')}
+                        <Text style={[styles.time, item.status === 'missed' && { color: '#FF4458' }]}>
+                            {item.status === 'missed' ? 'Missed Call' : format(date, 'MMM d, h:mm a')}
                         </Text>
                     </View>
                 </View>
-                <TouchableOpacity onPress={() => handleCallPress(item)}>
-                    <Ionicons
-                        name={item.call_type === 'video' ? "videocam" : "call"}
-                        size={24}
-                        color="#87CEEB"
-                    />
+
+                <TouchableOpacity
+                    style={styles.reCallBtn}
+                    onPress={() => handleCallPress(item)}
+                >
+                    <Ionicons name="information-circle-outline" size={24} color="rgba(255,255,255,0.3)" />
                 </TouchableOpacity>
-            </View>
+            </TouchableOpacity>
         );
     };
 
     return (
-        <View style={[styles.container, { paddingTop: insets.top }]}>
+        <View style={[styles.container, { backgroundColor: '#000', paddingTop: insets.top }]}>
             <View style={[styles.header, { paddingTop: Platform.OS === 'android' ? 20 : 0 }]}>
                 <GradientText style={styles.headerTitle}>Calls</GradientText>
             </View>
@@ -143,16 +111,20 @@ export default function CallsScreen() {
                 renderItem={renderCallItem}
                 keyExtractor={(item) => item.id}
                 contentContainerStyle={styles.listContent}
+                refreshControl={
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#87CEEB" />
+                }
                 ListEmptyComponent={
                     !loading ? (
                         <View style={styles.emptyContainer}>
-                            <Ionicons name="call-outline" size={64} color="#333" />
+                            <View style={styles.emptyIconCircle}>
+                                <Ionicons name="call-outline" size={50} color="rgba(135,206,235,0.15)" />
+                            </View>
                             <Text style={styles.emptyText}>No recent calls</Text>
+                            <Text style={styles.emptySubtext}>Your elite voice & video logs will appear here.</Text>
                         </View>
                     ) : null
                 }
-                onRefresh={loadCalls}
-                refreshing={loading}
             />
         </View>
     );
@@ -161,62 +133,107 @@ export default function CallsScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#000',
     },
     header: {
         paddingVertical: Spacing.md,
         alignItems: 'center',
         borderBottomWidth: 1,
-        borderBottomColor: '#1A1A1A',
+        borderBottomColor: 'rgba(255, 255, 255, 0.05)',
     },
     headerTitle: {
         fontSize: 28,
         fontWeight: Platform.OS === 'android' ? '700' : '900',
-        letterSpacing: 2,
+        letterSpacing: Platform.OS === 'android' ? 8 : 10,
     },
     listContent: {
         padding: 20,
+        flexGrow: 1,
     },
     callItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 20,
-        backgroundColor: '#111',
-        padding: 15,
-        borderRadius: 15,
+        marginBottom: 16,
+        backgroundColor: 'rgba(255, 255, 255, 0.03)',
+        padding: 12,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.05)',
+    },
+    avatarContainer: {
+        position: 'relative',
+        marginRight: 15,
     },
     avatar: {
-        width: 50,
-        height: 50,
-        borderRadius: 25,
-        marginRight: 15,
+        width: 56,
+        height: 56,
+        borderRadius: 18,
+    },
+    placeholderAvatar: {
+        backgroundColor: '#1A1A1A',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    callTypeIcon: {
+        position: 'absolute',
+        bottom: -2,
+        right: -2,
+        width: 18,
+        height: 18,
+        borderRadius: 9,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 2,
+        borderColor: '#000',
     },
     callInfo: {
         flex: 1,
     },
     name: {
-        fontSize: 16,
-        fontWeight: 'bold',
+        fontSize: 17,
+        fontWeight: '700',
         color: '#FFF',
         marginBottom: 4,
     },
     detailsRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 5,
+        gap: 6,
     },
     time: {
-        fontSize: 12,
+        fontSize: 13,
         color: '#888',
+        fontWeight: '500',
+    },
+    reCallBtn: {
+        padding: 8,
     },
     emptyContainer: {
-        marginTop: 100,
+        flex: 1,
+        justifyContent: 'center',
         alignItems: 'center',
-        opacity: 0.5,
+        paddingTop: 100,
+        paddingHorizontal: 40,
+    },
+    emptyIconCircle: {
+        width: 100,
+        height: 100,
+        borderRadius: 50,
+        backgroundColor: 'rgba(255,255,255,0.03)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 20,
     },
     emptyText: {
         color: '#FFF',
-        marginTop: 10,
-        fontSize: 16,
+        fontSize: 20,
+        fontWeight: '800',
+        marginBottom: 8,
+    },
+    emptySubtext: {
+        color: '#666',
+        fontSize: 14,
+        textAlign: 'center',
+        lineHeight: 20,
+        fontWeight: '500',
     },
 });

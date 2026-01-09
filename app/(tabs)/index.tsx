@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Dimensions, useColorScheme, Platform } from 'react-native';
+import { View, Text, StyleSheet, Dimensions, useColorScheme, Platform, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -87,14 +88,17 @@ export default function DiscoverScreen() {
     <View style={[styles.container, { backgroundColor: '#000000', paddingTop: insets.top }]}>
       <View style={[styles.header, { paddingTop: Platform.OS === 'android' ? 20 : 0 }]}>
         <GradientText style={styles.logo}>GOSSIP</GradientText>
+        <View style={styles.headerGlow} />
       </View>
 
       <View style={styles.cardContainer}>
         {!loading && !hasMore && (
           <View style={styles.emptyState}>
+            <Ionicons name="sparkles-outline" size={60} color="rgba(135, 206, 235, 0.2)" />
             <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-              No more profiles to show
+              The elite circle is searching for more members.
             </Text>
+            <Text style={styles.emptySubtext}>Check back soon for new refined matches.</Text>
           </View>
         )}
 
@@ -117,25 +121,29 @@ export default function DiscoverScreen() {
 
       {currentProfile && (
         <View style={styles.actions}>
-          <IconButton
-            name="close"
-            size={32}
-            color={colors.error}
+          <TouchableOpacity
+            style={[styles.actionBtn, styles.nopeBtn]}
             onPress={() => handleSwipe('left')}
-          />
-          <IconButton
-            name="star"
-            size={28}
-            color={colors.warning}
-            backgroundColor={colors.surface}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="close" size={32} color={colors.error} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionBtn, styles.superBtn]}
             onPress={() => handleSwipe('super')}
-          />
-          <IconButton
-            name="heart"
-            size={32}
-            color={colors.success}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="star" size={26} color={colors.warning} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionBtn, styles.likeBtn]}
             onPress={() => handleSwipe('right')}
-          />
+            activeOpacity={0.8}
+          >
+            <Ionicons name="heart" size={32} color={colors.success} />
+          </TouchableOpacity>
         </View>
       )}
 
@@ -159,11 +167,21 @@ const styles = StyleSheet.create({
   header: {
     paddingVertical: Spacing.md,
     alignItems: 'center',
+    position: 'relative',
+  },
+  headerGlow: {
+    position: 'absolute',
+    top: -20,
+    width: 200,
+    height: 100,
+    backgroundColor: 'rgba(135, 206, 235, 0.05)',
+    borderRadius: 100,
+    filter: Platform.OS === 'ios' ? 'blur(40px)' : undefined,
   },
   logo: {
     fontSize: 32,
     fontWeight: Platform.OS === 'android' ? '700' : '900',
-    letterSpacing: Platform.OS === 'android' ? 8 : 4,
+    letterSpacing: Platform.OS === 'android' ? 8 : 10,
   },
   cardContainer: {
     flex: 1,
@@ -201,15 +219,52 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: Spacing.xl,
+    gap: 25,
     paddingVertical: Spacing.xl,
-    paddingBottom: Platform.OS === 'android' ? 60 : Spacing.xl, // Higher padding for Android bottom bar
+    paddingBottom: Platform.OS === 'android' ? 80 : Spacing.xl,
+  },
+  actionBtn: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#111113',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 15,
+    elevation: 10,
+  },
+  superBtn: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+  },
+  nopeBtn: {
+    borderColor: 'rgba(255, 68, 88, 0.1)',
+  },
+  likeBtn: {
+    borderColor: 'rgba(82, 196, 26, 0.1)',
   },
   emptyState: {
     alignItems: 'center',
     padding: Spacing.xl,
+    gap: 15,
   },
   emptyText: {
-    ...Typography.h3,
+    fontSize: 20,
+    fontWeight: '700',
+    textAlign: 'center',
+    color: '#FFF',
+    lineHeight: 28,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    fontWeight: '500',
   },
 });

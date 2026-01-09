@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Dimensions, Image, ScrollView, TouchableOpacity, useColorScheme, Platform } from 'react-native';
+import { View, Text, StyleSheet, Dimensions, ScrollView, TouchableOpacity, useColorScheme, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, BorderRadius, Typography, Shadows } from '@/constants/theme';
 import { Profile } from '@/types';
+import { Image } from 'expo-image';
+import { BlurView } from 'expo-blur';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const CARD_WIDTH = SCREEN_WIDTH * 0.9;
-const CARD_HEIGHT = SCREEN_HEIGHT * 0.65;
+const CARD_WIDTH = SCREEN_WIDTH * 0.92;
+const CARD_HEIGHT = SCREEN_HEIGHT * 0.68;
 
 interface SwipeCardProps {
   profile: Profile;
@@ -18,7 +20,7 @@ export function SwipeCard({ profile }: SwipeCardProps) {
   const colors = Colors[colorScheme ?? 'light'];
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
 
-  const photos = profile.photos?.length > 0 ? profile.photos : ['https://via.placeholder.com/400x600/FF4458/FFFFFF?text=No+Photo'];
+  const photos = profile.photos?.length > 0 ? profile.photos : ['https://via.placeholder.com/400x600/1A1A1A/FFFFFF?text=Gossip+Member'];
 
   const nextPhoto = () => {
     setCurrentPhotoIndex(prev => (prev + 1) % photos.length);
@@ -27,6 +29,8 @@ export function SwipeCard({ profile }: SwipeCardProps) {
   const prevPhoto = () => {
     setCurrentPhotoIndex(prev => (prev - 1 + photos.length) % photos.length);
   };
+
+  const CardWrapper = Platform.OS === 'ios' ? BlurView : View;
 
   return (
     <View style={[
@@ -37,16 +41,17 @@ export function SwipeCard({ profile }: SwipeCardProps) {
       <Image
         source={{ uri: photos[currentPhotoIndex] }}
         style={styles.image}
-        resizeMode="cover"
+        contentFit="cover"
+        transition={200}
       />
 
-      {/* Photo navigation */}
+      {/* Photo navigation areas */}
       <View style={styles.photoNav}>
         <TouchableOpacity style={styles.photoNavLeft} onPress={prevPhoto} activeOpacity={1} />
         <TouchableOpacity style={styles.photoNavRight} onPress={nextPhoto} activeOpacity={1} />
       </View>
 
-      {/* Photo indicators */}
+      {/* Modern photo indicators */}
       <View style={styles.indicators}>
         {photos.map((_, index) => (
           <View
@@ -54,7 +59,7 @@ export function SwipeCard({ profile }: SwipeCardProps) {
             style={[
               styles.indicator,
               {
-                backgroundColor: index === currentPhotoIndex ? colors.background : 'rgba(255, 255, 255, 0.4)',
+                backgroundColor: index === currentPhotoIndex ? '#87CEEB' : 'rgba(255, 255, 255, 0.2)',
               },
             ]}
           />
@@ -63,25 +68,28 @@ export function SwipeCard({ profile }: SwipeCardProps) {
 
       {/* Info gradient overlay */}
       <LinearGradient
-        colors={['transparent', 'rgba(0, 0, 0, 0.8)']}
+        colors={['transparent', 'rgba(0, 0, 0, 0.4)', 'rgba(0, 0, 0, 0.9)']}
         style={styles.gradient}
       >
         <View style={styles.info}>
           <View style={styles.nameRow}>
-            <Text style={[styles.name, { color: colors.background }]}>
+            <Text style={styles.name}>
               {profile.display_name}, {profile.age}
             </Text>
+            <View style={styles.verifiedBadge}>
+              <Ionicons name="checkmark-seal" size={20} color="#87CEEB" />
+            </View>
           </View>
 
           {profile.location && (
             <View style={styles.locationRow}>
-              <Ionicons name="location" size={16} color={colors.background} />
-              <Text style={[styles.location, { color: colors.background }]}>{profile.location}</Text>
+              <Ionicons name="location-sharp" size={14} color="rgba(255,255,255,0.6)" />
+              <Text style={styles.location}>{profile.location}</Text>
             </View>
           )}
 
           {profile.bio && (
-            <Text style={[styles.bio, { color: colors.background }]} numberOfLines={2}>
+            <Text style={styles.bio} numberOfLines={2}>
               {profile.bio}
             </Text>
           )}
@@ -91,15 +99,11 @@ export function SwipeCard({ profile }: SwipeCardProps) {
               horizontal
               showsHorizontalScrollIndicator={false}
               style={styles.interests}
+              contentContainerStyle={styles.interestsContent}
             >
-              {profile.interests.slice(0, 5).map((interest, index) => (
-                <View
-                  key={index}
-                  style={[styles.interestBadge, { borderColor: colors.background }]}
-                >
-                  <Text style={[styles.interestText, { color: colors.background }]}>
-                    {interest}
-                  </Text>
+              {profile.interests.map((interest, index) => (
+                <View key={index} style={styles.interestBadge}>
+                  <Text style={styles.interestText}>{interest}</Text>
                 </View>
               ))}
             </ScrollView>
@@ -114,8 +118,8 @@ const styles = StyleSheet.create({
   card: {
     width: CARD_WIDTH,
     height: CARD_HEIGHT,
-    borderRadius: BorderRadius.xl,
-    backgroundColor: Colors.light.surface,
+    borderRadius: 32,
+    backgroundColor: '#111',
     overflow: 'hidden',
   },
   image: {
@@ -127,7 +131,7 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    bottom: 0,
+    bottom: '30%', // Keep nav in the top portion
     flexDirection: 'row',
   },
   photoNavLeft: {
@@ -138,62 +142,80 @@ const styles = StyleSheet.create({
   },
   indicators: {
     position: 'absolute',
-    top: Spacing.md,
-    left: Spacing.md,
-    right: Spacing.md,
+    top: 16,
+    left: 20,
+    right: 20,
     flexDirection: 'row',
-    gap: Spacing.xs,
+    gap: 6,
   },
   indicator: {
     flex: 1,
-    height: 3,
-    borderRadius: BorderRadius.sm,
+    height: 4,
+    borderRadius: 2,
   },
   gradient: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    paddingTop: Spacing.xxl * 2,
+    paddingTop: 100,
   },
   info: {
-    padding: Spacing.lg,
+    padding: 24,
   },
   nameRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: Spacing.xs,
+    gap: 8,
+    marginBottom: 6,
   },
   name: {
-    fontSize: 24,
-    fontWeight: Platform.OS === 'android' ? '700' : '900',
-    lineHeight: 32,
+    fontSize: 32,
+    fontWeight: '800',
+    color: '#FFF',
+    letterSpacing: -0.5,
+  },
+  verifiedBadge: {
+    marginTop: 4,
   },
   locationRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: Spacing.sm,
-    gap: Spacing.xs,
+    marginBottom: 12,
+    gap: 4,
+    opacity: 0.8,
   },
   location: {
-    ...Typography.bodySmall,
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.6)',
+    fontWeight: '600',
+    letterSpacing: 0.5,
   },
   bio: {
-    ...Typography.body,
-    marginBottom: Spacing.sm,
+    fontSize: 16,
+    color: 'rgba(255,255,255,0.8)',
+    lineHeight: 22,
+    fontWeight: '500',
+    marginBottom: 20,
   },
   interests: {
-    marginTop: Spacing.xs,
+    marginTop: 0,
+  },
+  interestsContent: {
+    gap: 10,
   },
   interestBadge: {
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
-    borderRadius: BorderRadius.round,
-    borderWidth: 1.5,
-    marginRight: Spacing.sm,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
   },
   interestText: {
-    ...Typography.caption,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFF',
+    letterSpacing: 0.5,
   },
 });

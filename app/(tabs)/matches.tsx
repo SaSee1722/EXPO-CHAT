@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, useColorScheme, Platform } from 'react-native';
+import { View, Text, StyleSheet, FlatList, useColorScheme, Platform, RefreshControl } from 'react-native';
 import { useAuth } from '@/template';
 import { useMatches } from '@/hooks/useMatches';
 import { Colors, Spacing, Typography } from '@/constants/theme';
@@ -7,6 +7,7 @@ import { MatchItem } from '@/components/matches/MatchItem';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GradientText } from '@/components/GradientText';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function MatchesScreen() {
   const colorScheme = useColorScheme();
@@ -15,6 +16,7 @@ export default function MatchesScreen() {
   const { matches, loading, reload } = useMatches(user?.id || null);
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const [refreshing, setRefreshing] = React.useState(false);
 
   // Force reload when screen comes into focus to ensure sync
   useFocusEffect(
@@ -23,33 +25,41 @@ export default function MatchesScreen() {
     }, [reload])
   );
 
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await reload();
+    setRefreshing(false);
+  }, [reload]);
+
   return (
     <View style={[styles.container, { backgroundColor: '#000000', paddingTop: insets.top }]}>
       <View style={[styles.header, { paddingTop: Platform.OS === 'android' ? 20 : 0 }]}>
         <GradientText style={styles.title}>Matches</GradientText>
       </View>
 
-      <View style={styles.cardContainer}>
-        {!loading && matches.length === 0 ? (
-          <View style={[styles.card, { backgroundColor: '#1A1A1A' }]}>
-            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-              No matches yet. Start swiping!
-            </Text>
-          </View>
-        ) : (
-          <FlatList
-            data={matches}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <MatchItem
-                match={item}
-                onPress={() => router.push(`/chat/${item.id}`)}
-              />
-            )}
-            contentContainerStyle={styles.list}
+      <FlatList
+        data={matches}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => (
+          <MatchItem
+            match={item}
+            onPress={() => router.push(`/chat/${item.id}`)}
           />
         )}
-      </View>
+        ListEmptyComponent={
+          !loading ? (
+            <View style={styles.emptyState}>
+              <View style={styles.emptyIconContainer}>
+                <Ionicons name="chatbubbles" size={64} color="rgba(255,182,193,0.15)" />
+              </View>
+              <Text style={styles.emptyText}>Find your elite circle</Text>
+              <Text style={styles.emptySubtext}>Matches will appear here once you both like each other.</Text>
+            </View>
+          ) : null
+        }
+        contentContainerStyle={styles.listContent}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#87CEEB" />}
+      />
     </View>
   );
 }
@@ -61,28 +71,46 @@ const styles = StyleSheet.create({
   header: {
     paddingVertical: Spacing.md,
     alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
   },
   title: {
     fontSize: 28,
     fontWeight: Platform.OS === 'android' ? '700' : '900',
-    letterSpacing: Platform.OS === 'android' ? 2 : 1,
+    letterSpacing: Platform.OS === 'android' ? 8 : 10,
   },
-  cardContainer: {
-    flex: 1,
+  listContent: {
     padding: Spacing.md,
+    flexGrow: 1,
   },
-  card: {
-    borderRadius: 24,
-    padding: Spacing.xl,
+  emptyState: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 200,
+    paddingTop: 100,
+    paddingHorizontal: 40,
   },
-  list: {
-    padding: Spacing.md,
+  emptyIconContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
   },
   emptyText: {
-    ...Typography.h3,
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#FFF',
     textAlign: 'center',
+    marginBottom: 12,
+  },
+  emptySubtext: {
+    fontSize: 15,
+    color: '#666',
+    textAlign: 'center',
+    lineHeight: 22,
+    fontWeight: '500',
   },
 });

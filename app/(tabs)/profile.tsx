@@ -3,13 +3,13 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator
 import { Image } from 'expo-image';
 import { useAuth, useAlert } from '@/template';
 import { useProfileContext } from '@/context/ProfileContext';
-import { Spacing } from '@/constants/theme';
+import { Spacing, BorderRadius } from '@/constants/theme';
 import { Button } from '@/components/ui/Button';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GradientText } from '@/components/GradientText';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system';
+import { BlurView } from 'expo-blur';
 
 export default function ProfileScreen() {
   const { user, logout } = useAuth();
@@ -19,7 +19,6 @@ export default function ProfileScreen() {
 
   const [updatingPhoto, setUpdatingPhoto] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [localImageUri, setLocalImageUri] = useState<string | null>(null);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -32,8 +31,6 @@ export default function ProfileScreen() {
     if (!photos) return null;
     return Array.isArray(photos) ? photos[0] : (typeof photos === 'string' ? photos : null);
   }, [profile?.photos]);
-
-  const displayUri = localImageUri || remoteUrl;
 
   const handleUpdatePhoto = async () => {
     try {
@@ -50,7 +47,7 @@ export default function ProfileScreen() {
 
         if (uploadError) {
           setUpdatingPhoto(false);
-          showAlert('Upload failed. Try picking a smaller image or checking Supabase connection.');
+          showAlert('Upload failed. Try picking a smaller image.');
           return;
         }
 
@@ -66,6 +63,8 @@ export default function ProfileScreen() {
     }
   };
 
+  const CardWrapper = Platform.OS === 'ios' ? BlurView : View;
+
   return (
     <View style={[styles.container, { backgroundColor: '#000000', paddingTop: insets.top }]}>
       <View style={[styles.header, { paddingTop: Platform.OS === 'android' ? 20 : 0 }]}>
@@ -74,115 +73,112 @@ export default function ProfileScreen() {
 
       <ScrollView
         contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#87CEEB" />}
       >
         {profile ? (
           <>
             <View style={styles.avatarSection}>
-              <View style={styles.avatarOuterContainer}>
-                <TouchableOpacity onPress={handleUpdatePhoto} disabled={updatingPhoto} activeOpacity={0.8}>
-                  <View style={styles.avatarWrapper}>
-                    {displayUri ? (
-                      <Image
-                        source={{ uri: displayUri }}
-                        style={styles.avatarInnerImage}
-                        contentFit="cover"
-                        transition={200}
-                      />
+              <TouchableOpacity style={styles.avatarContainer} onPress={handleUpdatePhoto} disabled={updatingPhoto} activeOpacity={0.9}>
+                <View style={styles.avatarOuterRing}>
+                  <View style={styles.avatarInnerContainer}>
+                    {remoteUrl ? (
+                      <Image source={{ uri: remoteUrl }} style={styles.avatarImage} contentFit="cover" transition={200} />
                     ) : (
                       <View style={styles.placeholderContainer}>
-                        <Ionicons name="person" size={80} color="#000" />
+                        <Ionicons name="person" size={50} color="rgba(255,255,255,0.2)" />
                       </View>
                     )}
-                    {updatingPhoto && <View style={styles.uploadingOverlay}><ActivityIndicator color="#FFF" size="large" /></View>}
+                    {updatingPhoto && <View style={styles.uploadingOverlay}><ActivityIndicator color="#FFF" /></View>}
                   </View>
-                  <View style={styles.cameraCircle}><Ionicons name="camera" size={20} color="#FFF" /></View>
-                </TouchableOpacity>
-              </View>
+                </View>
+                <View style={styles.editBadge}>
+                  <Ionicons name="camera" size={16} color="#000" />
+                </View>
+              </TouchableOpacity>
 
               <Text style={styles.displayName}>{profile.display_name}</Text>
-              <Text style={styles.ageText}>{profile.age} years old</Text>
+              <Text style={styles.ageText}>{profile.age} years old • Refined Member</Text>
             </View>
 
-            <View style={styles.card}>
-              <View style={styles.infoRow}>
-                <Ionicons name="mail" size={20} color="#87CEEB" style={styles.icon} />
-                <View>
-                  <Text style={styles.infoLabel}>EMAIL</Text>
-                  <Text style={styles.infoValue}>{user?.email}</Text>
-                </View>
-              </View>
-
-              {profile.location && (
-                <View style={styles.infoRow}>
-                  <Ionicons name="location" size={20} color="#FFB6C1" style={styles.icon} />
-                  <View>
-                    <Text style={styles.infoLabel}>LOCATION</Text>
-                    <Text style={styles.infoValue}>{profile.location}</Text>
-                  </View>
-                </View>
-              )}
-
-              <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
-                <Ionicons name="document-text" size={20} color="#87CEEB" style={styles.icon} />
-                <View>
-                  <Text style={styles.infoLabel}>BIO</Text>
-                  <Text style={styles.bioText}>{profile.bio || 'No bio yet'}</Text>
-                </View>
-              </View>
+            <View style={styles.statsRow}>
+              <StatItem label="Status" value="Exclusive" color="#87CEEB" />
+              <View style={styles.statDivider} />
+              <StatItem label="Identity" value="Verified" color="#FFB6C1" />
             </View>
+
+            <CardWrapper intensity={20} tint="dark" style={[styles.infoCard, Platform.OS === 'android' && styles.androidCard]}>
+              <InfoRow icon="mail" label="EMAIL" value={user?.email || 'Not set'} color="#87CEEB" />
+              <InfoRow icon="location" label="LOCATION" value={profile.location || 'Not set'} color="#FFB6C1" />
+              <InfoRow icon="document-text" label="BIO" value={profile.bio || 'No bio yet'} color="#87CEEB" last />
+            </CardWrapper>
+
+            <TouchableOpacity style={styles.logoutBtn} onPress={logout} activeOpacity={0.8}>
+              <Text style={styles.logoutBtnText}>Logout Account</Text>
+            </TouchableOpacity>
           </>
         ) : (
-          <View style={{ paddingTop: 100 }}>
+          <View style={styles.loadingContainer}>
             <ActivityIndicator color="#87CEEB" size="large" />
           </View>
         )}
-
-        <Button title="Logout" onPress={() => logout()} variant="outline" style={styles.logoutButton} textStyle={{ color: '#FF4458' }} />
         <View style={{ height: 100 }} />
       </ScrollView>
     </View>
   );
 }
 
+function StatItem({ label, value, color }: { label: string, value: string, color: string }) {
+  return (
+    <View style={styles.statItem}>
+      <Text style={styles.statLabel}>{label}</Text>
+      <Text style={[styles.statValue, { color }]}>{value}</Text>
+    </View>
+  );
+}
+
+function InfoRow({ icon, label, value, color, last }: { icon: any, label: string, value: string, color: string, last?: boolean }) {
+  return (
+    <View style={[styles.infoRow, last && { borderBottomWidth: 0 }]}>
+      <View style={[styles.infoIconBox, { backgroundColor: `${color}15` }]}>
+        <Ionicons name={icon} size={18} color={color} />
+      </View>
+      <View style={styles.infoContent}>
+        <Text style={styles.infoLabel}>{label}</Text>
+        <Text style={styles.infoValue} numberOfLines={2}>{value}</Text>
+      </View>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: {
-    paddingVertical: Spacing.md,
-    alignItems: 'center',
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: Platform.OS === 'android' ? '700' : '900',
-    letterSpacing: 2,
-  },
-  content: { paddingHorizontal: Spacing.lg },
-  avatarSection: { alignItems: 'center', marginVertical: Spacing.xl },
-  avatarOuterContainer: { width: 160, height: 160, position: 'relative' },
-  avatarWrapper: {
-    width: 160, height: 160, borderRadius: 80, backgroundColor: '#87CEEB',
-    justifyContent: 'center', alignItems: 'center', overflow: 'hidden', borderWidth: 4, borderColor: '#87CEEB',
-  },
-  avatarInnerImage: { width: '100%', height: '100%' },
-  placeholderContainer: { width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center' },
-  uploadingOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', zIndex: 10 },
-  cameraCircle: {
-    position: 'absolute', bottom: 8, right: 8, backgroundColor: '#87CEEB', width: 44, height: 44,
-    borderRadius: 22, justifyContent: 'center', alignItems: 'center', borderWidth: 4, borderColor: '#000', zIndex: 11,
-  },
-  displayName: { fontSize: 28, fontWeight: '800', color: '#FFF', marginTop: 15 },
-  ageText: { fontSize: 16, color: '#808080', marginTop: 5 },
-  card: { backgroundColor: '#0A0A0A', borderRadius: 25, padding: 20, marginTop: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
-  infoRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 15, borderBottomWidth: 0.5, borderBottomColor: 'rgba(255,255,255,0.1)' },
-  icon: { marginRight: 15, width: 22 },
-  infoLabel: { fontSize: 10, color: '#666', fontWeight: 'bold', marginBottom: 2 },
+  header: { paddingVertical: Spacing.md, alignItems: 'center' },
+  title: { fontSize: 28, fontWeight: Platform.OS === 'android' ? '700' : '900', letterSpacing: Platform.OS === 'android' ? 8 : 10 },
+  content: { paddingHorizontal: 24, paddingTop: 20 },
+  avatarSection: { alignItems: 'center', marginBottom: 32 },
+  avatarContainer: { position: 'relative' },
+  avatarOuterRing: { width: 140, height: 140, borderRadius: 70, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', justifyContent: 'center', alignItems: 'center', padding: 4 },
+  avatarInnerContainer: { width: '100%', height: '100%', borderRadius: 66, backgroundColor: '#0A0A0A', overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+  avatarImage: { width: '100%', height: '100%' },
+  placeholderContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  uploadingOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
+  editBadge: { position: 'absolute', bottom: 4, right: 4, backgroundColor: '#87CEEB', width: 34, height: 34, borderRadius: 17, justifyContent: 'center', alignItems: 'center', borderWidth: 3, borderColor: '#000' },
+  displayName: { fontSize: 28, fontWeight: '800', color: '#FFF', marginTop: 20, letterSpacing: 0.5 },
+  ageText: { fontSize: 13, color: 'rgba(255,255,255,0.4)', marginTop: 6, fontWeight: '600', letterSpacing: 1 },
+  statsRow: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 24, paddingVertical: 18, marginBottom: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+  statItem: { flex: 1, alignItems: 'center' },
+  statLabel: { fontSize: 10, color: 'rgba(255,255,255,0.3)', fontWeight: '700', letterSpacing: 1, marginBottom: 4 },
+  statValue: { fontSize: 15, fontWeight: '800' },
+  statDivider: { width: 1, height: '60%', backgroundColor: 'rgba(255,255,255,0.05)', alignSelf: 'center' },
+  infoCard: { borderRadius: 32, padding: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', overflow: 'hidden' },
+  androidCard: { backgroundColor: 'rgba(255,255,255,0.04)' },
+  infoRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 18, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
+  infoIconBox: { width: 40, height: 40, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginRight: 16 },
+  infoContent: { flex: 1 },
+  infoLabel: { fontSize: 10, color: 'rgba(255,255,255,0.3)', fontWeight: '800', letterSpacing: 1.5, marginBottom: 4 },
   infoValue: { fontSize: 16, color: '#FFF', fontWeight: '600' },
-  bioText: { fontSize: 15, color: '#BBB', lineHeight: 22 },
-  logoutButton: {
-    marginTop: 40,
-    height: 55,
-    borderRadius: 15,
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 68, 88, 0.3)',
-  },
+  logoutBtn: { marginTop: 32, height: 64, borderRadius: 24, backgroundColor: 'rgba(255, 68, 88, 0.05)', borderWidth: 1, borderColor: 'rgba(255, 68, 88, 0.1)', justifyContent: 'center', alignItems: 'center' },
+  logoutBtnText: { color: '#FF4458', fontSize: 17, fontWeight: '700', letterSpacing: 0.5 },
+  loadingContainer: { paddingTop: 100 },
 });
