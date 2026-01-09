@@ -128,8 +128,8 @@ const styles = StyleSheet.create({
     },
     title: {
         fontSize: 48,
-        fontWeight: '900',
-        letterSpacing: 10,
+        fontWeight: Platform.OS === 'android' ? '700' : '900',
+        letterSpacing: Platform.OS === 'android' ? 8 : 10,
         color: '#FFFFFF',
         textAlign: 'center',
     },

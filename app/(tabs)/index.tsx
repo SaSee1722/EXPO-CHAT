@@ -162,8 +162,8 @@ const styles = StyleSheet.create({
   },
   logo: {
     fontSize: 32,
-    fontWeight: '900',
-    letterSpacing: 4,
+    fontWeight: Platform.OS === 'android' ? '700' : '900',
+    letterSpacing: Platform.OS === 'android' ? 8 : 4,
   },
   cardContainer: {
     flex: 1,
@@ -203,7 +203,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.xl,
     paddingVertical: Spacing.xl,
-    paddingBottom: Platform.OS === 'android' ? 40 : Spacing.xl,
+    paddingBottom: Platform.OS === 'android' ? 60 : Spacing.xl, // Higher padding for Android bottom bar
   },
   emptyState: {
     alignItems: 'center',

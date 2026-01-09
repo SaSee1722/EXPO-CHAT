@@ -21,13 +21,13 @@ export default function TabLayout() {
           borderTopColor: '#1A1A1A',
           height: Platform.select({
             ios: insets.bottom + 65,
-            android: 75,
+            android: 85, // Increase for Android gesture bar safety
             default: 75,
           }),
           paddingTop: 12,
           paddingBottom: Platform.select({
             ios: insets.bottom + 12,
-            android: 12,
+            android: 25, // More padding for modern Androids
             default: 12,
           }),
           paddingHorizontal: 20,

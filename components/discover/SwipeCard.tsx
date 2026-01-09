@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Dimensions, Image, ScrollView, TouchableOpacity, useColorScheme } from 'react-native';
+import { View, Text, StyleSheet, Dimensions, Image, ScrollView, TouchableOpacity, useColorScheme, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, BorderRadius, Typography, Shadows } from '@/constants/theme';
@@ -29,7 +29,11 @@ export function SwipeCard({ profile }: SwipeCardProps) {
   };
 
   return (
-    <View style={[styles.card, Shadows.large]}>
+    <View style={[
+      styles.card,
+      Shadows.large,
+      Platform.OS === 'android' && { borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }
+    ]}>
       <Image
         source={{ uri: photos[currentPhotoIndex] }}
         style={styles.image}
@@ -161,7 +165,9 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xs,
   },
   name: {
-    ...Typography.h2,
+    fontSize: 24,
+    fontWeight: Platform.OS === 'android' ? '700' : '900',
+    lineHeight: 32,
   },
   locationRow: {
     flexDirection: 'row',

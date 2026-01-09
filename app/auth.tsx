@@ -210,7 +210,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingHorizontal: 24,
     paddingTop: Platform.OS === 'ios' ? 80 : 40,
-    paddingBottom: 40,
+    paddingBottom: Platform.OS === 'android' ? 80 : 40,
   },
   header: {
     alignItems: 'center',
@@ -238,8 +238,8 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 48,
-    fontWeight: '900',
-    letterSpacing: 10,
+    fontWeight: Platform.OS === 'android' ? '700' : '900',
+    letterSpacing: Platform.OS === 'android' ? 8 : 10,
     color: '#FFFFFF',
     includeFontPadding: false,
     textAlign: 'center',

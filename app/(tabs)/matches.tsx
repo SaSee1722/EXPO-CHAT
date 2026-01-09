@@ -65,7 +65,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: Platform.OS === 'android' ? '700' : '900',
-    letterSpacing: 2,
+    letterSpacing: Platform.OS === 'android' ? 2 : 1,
   },
   cardContainer: {
     flex: 1,
