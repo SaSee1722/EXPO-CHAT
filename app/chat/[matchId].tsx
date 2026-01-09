@@ -23,7 +23,7 @@ export default function ChatScreen() {
   const { matchId } = ExpoRouter.useLocalSearchParams<{ matchId: string }>();
   const { user } = useAuth();
   const { showAlert } = useAlert();
-  const { isUserOnline } = useProfileContext();
+  const { isUserOnline, setPresence } = useProfileContext();
   const { messages, sending, sendMessage, sendMediaMessage, toggleReaction, deleteMessage } = useMessages(matchId, user?.id || null);
   const router = ExpoRouter.useRouter();
   const flatListRef = React.useRef<FlatList>(null);
@@ -160,7 +160,9 @@ export default function ChatScreen() {
         const state = presenceChannel.presenceState();
         const otherUserIsPresent = Object.values(state).flat().some((p: any) => p.user_id === otherProfile.id);
 
-        // Only update if there is a change to avoid unnecessary re-renders
+        // Update Global Presence Map
+        setPresence(otherProfile.id, otherUserIsPresent);
+
         setOtherProfile(prev => {
           if (!prev) return prev;
           if (prev.is_online === otherUserIsPresent) return prev;
@@ -175,6 +177,7 @@ export default function ChatScreen() {
       .on('presence' as any, { event: 'join' }, ({ newPresences }: any) => {
         const isOtherUser = newPresences.some((p: any) => p.user_id === otherProfile.id);
         if (isOtherUser) {
+          setPresence(otherProfile.id, true);
           setOtherProfile(prev => {
             if (prev?.is_online) return prev;
             return prev ? { ...prev, is_online: true, last_seen_at: new Date().toISOString() } : prev;
@@ -184,6 +187,7 @@ export default function ChatScreen() {
       .on('presence' as any, { event: 'leave' }, ({ leftPresences }: any) => {
         const isOtherUser = leftPresences.some((p: any) => p.user_id === otherProfile.id);
         if (isOtherUser) {
+          setPresence(otherProfile.id, false);
           setOtherProfile(prev => {
             if (prev?.is_online === false) return prev;
             return prev ? { ...prev, is_online: false, last_seen_at: new Date().toISOString() } : prev;

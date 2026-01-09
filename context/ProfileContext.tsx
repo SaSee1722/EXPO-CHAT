@@ -13,6 +13,7 @@ interface ProfileContextType {
     uploadPhoto: (uri: string) => Promise<{ data: string | null; error: any }>;
     refreshProfile: () => Promise<void>;
     isUserOnline: (profile: Profile | null) => boolean;
+    setPresence: (userId: string, isOnline: boolean) => void;
 }
 
 const ProfileContext = createContext<ProfileContextType | undefined>(undefined);
@@ -22,6 +23,14 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     const [profile, setProfile] = useState<Profile | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [presenceMap, setPresenceMap] = useState<Record<string, { isOnline: boolean, timestamp: number }>>({});
+
+    const setPresence = useCallback((userId: string, isOnline: boolean) => {
+        setPresenceMap(prev => ({
+            ...prev,
+            [userId]: { isOnline, timestamp: Date.now() }
+        }));
+    }, []);
 
     const updateOnlineStatus = useCallback(async (isOnline: boolean) => {
         if (!user) return;
@@ -35,32 +44,30 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         }
     }, [user]);
 
-    // Export a helper to check online status based on timestamp (threshold: 25s for absolute accuracy)
     const isUserOnline = (profile: Profile | null) => {
         if (!profile) return false;
 
-        // 1. Strict Boolean Check: If the DB explicitly says they are offline, trust it.
-        // This handles explicit logouts or background transitions where we successfully updated the flag.
+        // 1. Check the "Hot" Presence Map (Instant Socket Updates)
+        // If we have a very recent socket event (< 30s ago), prioritize it over the DB.
+        const hotPresence = presenceMap[profile.id];
+        if (hotPresence && (Date.now() - hotPresence.timestamp) < 30000) {
+            return hotPresence.isOnline;
+        }
+
+        // 2. Strict Boolean Check: If the DB explicitly says they are offline, trust it.
         if (profile.is_online === false) return false;
 
-        // 2. Heartbeat Integrity: If there's no timestamp, we can't verify realtime activity.
+        // 3. Heartbeat Integrity: If there's no timestamp, we can't verify realtime activity.
         if (!profile.last_seen_at) return profile.is_online || false;
 
         try {
             const lastSeen = new Date(profile.last_seen_at).getTime();
             const now = Date.now();
-
             if (isNaN(lastSeen)) return false;
 
-            // 3. Bidirectional Drift Control:
-            // - Positive diff: How many ms ago we saw them.
-            // - Negative diff: How many ms into the "future" their clock is relative to ours.
             const diff = now - lastSeen;
-
             // Online if seen within last 25 seconds.
-            // We also allow up to 30s of future skew to account for minor clock drift between devices.
-            // If it's more than 30s in the future OR more than 25s in the past, they are offline.
-            return diff < 25000 && diff > -30000;
+            return diff < 25000 && diff > -35000;
         } catch (e) {
             return false;
         }
@@ -190,6 +197,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
                 uploadPhoto,
                 refreshProfile,
                 isUserOnline,
+                setPresence,
             }}
         >
             {children}
