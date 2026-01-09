@@ -30,3 +30,7 @@
 
 # React Native
 -keep class com.facebook.react.** { *; }
+
+# Stripe
+-dontwarn com.stripe.android.pushProvisioning.**
+-keep class com.stripe.android.** { *; }
