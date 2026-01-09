@@ -70,4 +70,6 @@ export interface Call {
   duration?: number;
   created_at: string;
   ended_at?: string;
+  caller?: Profile;
+  receiver?: Profile;
 }

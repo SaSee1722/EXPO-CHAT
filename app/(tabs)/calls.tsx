@@ -8,8 +8,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GradientText } from '@/components/GradientText';
-import { Spacing, Colors } from '@/constants/theme';
+import { Spacing, Colors, Typography } from '@/constants/theme';
 import { Image } from 'expo-image';
+import { useNotifications } from '@/context/NotificationContext';
+import { webrtcService } from '@/services/webrtcService';
 
 export default function CallsScreen() {
     const { user } = useAuth();
@@ -18,6 +20,7 @@ export default function CallsScreen() {
     const [refreshing, setRefreshing] = useState(false);
     const insets = useSafeAreaInsets();
     const router = useRouter();
+    const { setActiveCall, setCallOtherProfile, setIsCallIncoming } = useNotifications();
 
     const fetchCalls = useCallback(async () => {
         if (!user) return;
@@ -39,8 +42,28 @@ export default function CallsScreen() {
         setRefreshing(false);
     }, [fetchCalls]);
 
-    const handleCallPress = (call: Call) => {
-        router.push(`/chat/${call.match_id}`);
+    const handleCallPress = (call: Call, type: 'voice' | 'video' = 'voice') => {
+        initiateCall(call, type);
+    };
+
+    const initiateCall = async (call: Call, type: 'voice' | 'video') => {
+        if (!user) return;
+        const otherProfile = call.caller_id === user.id ? call.receiver : call.caller;
+        if (!otherProfile) return;
+
+        const { data, error } = await callService.initiateCall(
+            call.match_id,
+            user.id,
+            otherProfile.id,
+            type
+        );
+
+        if (!error && data) {
+            webrtcService.notifyCallStarted(data);
+            setCallOtherProfile(otherProfile);
+            setActiveCall(data);
+            setIsCallIncoming(false);
+        }
     };
 
     const renderCallItem = ({ item }: { item: Call }) => {
@@ -90,12 +113,20 @@ export default function CallsScreen() {
                     </View>
                 </View>
 
-                <TouchableOpacity
-                    style={styles.reCallBtn}
-                    onPress={() => handleCallPress(item)}
-                >
-                    <Ionicons name="information-circle-outline" size={24} color="rgba(255,255,255,0.3)" />
-                </TouchableOpacity>
+                <View style={styles.actionButtons}>
+                    <TouchableOpacity
+                        style={styles.actionBtn}
+                        onPress={() => handleCallPress(item, 'voice')}
+                    >
+                        <Ionicons name="call" size={20} color="#87CEEB" />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={styles.actionBtn}
+                        onPress={() => handleCallPress(item, 'video')}
+                    >
+                        <Ionicons name="videocam" size={20} color="#87CEEB" />
+                    </TouchableOpacity>
+                </View>
             </TouchableOpacity>
         );
     };
@@ -204,8 +235,19 @@ const styles = StyleSheet.create({
         color: '#888',
         fontWeight: '500',
     },
-    reCallBtn: {
-        padding: 8,
+    actionButtons: {
+        flexDirection: 'row',
+        gap: 8,
+    },
+    actionBtn: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(135, 206, 235, 0.1)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(135, 206, 235, 0.2)',
     },
     emptyContainer: {
         flex: 1,
