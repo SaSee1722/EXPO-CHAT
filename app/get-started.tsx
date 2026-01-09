@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Animated, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Animated, Platform, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { GradientText } from '@/components/GradientText';
@@ -82,6 +82,22 @@ export default function GetStartedScreen() {
         );
     }, []);
 
+    const logoOffset = useSharedValue(0);
+    useEffect(() => {
+        logoOffset.value = withRepeat(
+            withSequence(
+                withTiming(15, { duration: 2500 }),
+                withTiming(0, { duration: 2500 })
+            ),
+            -1,
+            true
+        );
+    }, []);
+
+    const logoFloatStyle = useAnimatedStyle(() => ({
+        transform: [{ translateY: logoOffset.value }]
+    }));
+
     const bubble1Style = useAnimatedStyle(() => ({
         transform: [
             { translateX: bubble1X.value },
@@ -134,6 +150,16 @@ export default function GetStartedScreen() {
                         <Text style={styles.subtitle}>REFINED FOR THE ELITE</Text>
                         <View style={styles.line} />
                     </View>
+                </View>
+
+                {/* Center Space Brand Icon */}
+                <View style={styles.logoSpace}>
+                    <MAnimated.View style={[styles.brandIconContainer, logoFloatStyle]}>
+                        <View style={styles.brandIconGlow} />
+                        <View style={styles.brandIconInner}>
+                            <Ionicons name="sparkles" size={50} color="#87CEEB" />
+                        </View>
+                    </MAnimated.View>
                 </View>
 
                 {Platform.OS === 'ios' ? (
@@ -250,6 +276,41 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         marginHorizontal: 16,
         textAlign: 'center',
+    },
+    logoSpace: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: 160,
+        marginVertical: 10,
+    },
+    brandIconContainer: {
+        width: 120,
+        height: 120,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    brandIconGlow: {
+        position: 'absolute',
+        width: 140,
+        height: 140,
+        backgroundColor: 'rgba(135, 206, 235, 0.2)',
+        borderRadius: 70,
+        filter: Platform.OS === 'ios' ? 'blur(20px)' : undefined,
+    },
+    brandIconInner: {
+        width: 100,
+        height: 100,
+        borderRadius: 30,
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        borderWidth: 1.5,
+        borderColor: 'rgba(135, 206, 235, 0.3)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: '#87CEEB',
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.5,
+        shadowRadius: 15,
+        elevation: 10,
     },
     glassCard: {
         borderRadius: 32,

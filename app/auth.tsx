@@ -20,6 +20,22 @@ export default function AuthScreen() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
+  const logoOffset = useSharedValue(0);
+  useEffect(() => {
+    logoOffset.value = withRepeat(
+      withSequence(
+        withTiming(15, { duration: 2500 }),
+        withTiming(0, { duration: 2500 })
+      ),
+      -1,
+      true
+    );
+  }, []);
+
+  const logoFloatStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: logoOffset.value }]
+  }));
+
   // Reanimated background movement
   const bubble1X = useSharedValue(0);
   const bubble1Y = useSharedValue(0);
@@ -88,6 +104,16 @@ export default function AuthScreen() {
               <Text style={styles.subtitle}>REFINED FOR THE ELITE</Text>
               <View style={styles.line} />
             </View>
+          </View>
+
+          {/* Center Space Brand Icon */}
+          <View style={styles.logoSpace}>
+            <MAnimated.View style={[styles.brandIconContainer, logoFloatStyle]}>
+              <View style={styles.brandIconGlow} />
+              <View style={styles.brandIconInner}>
+                <Ionicons name="sparkles" size={50} color="#87CEEB" />
+              </View>
+            </MAnimated.View>
           </View>
 
           <CardWrapper intensity={30} tint="dark" style={[styles.glassCard, Platform.OS === 'android' && styles.androidCard]}>
@@ -199,7 +225,7 @@ const styles = StyleSheet.create({
   orb2: { bottom: '15%', left: '-15%', backgroundColor: '#FFB6C1' },
   content: { flex: 1 },
   scrollContent: { flexGrow: 1, paddingHorizontal: 24, paddingTop: Platform.OS === 'ios' ? 80 : 40, paddingBottom: 60 },
-  header: { alignItems: 'center', marginBottom: 40 },
+  header: { alignItems: 'center', marginBottom: 20 },
   title: { fontSize: 48, fontWeight: Platform.OS === 'android' ? '700' : '900', letterSpacing: Platform.OS === 'android' ? 8 : 10, color: '#FFFFFF', textAlign: 'center' },
   subtitleContainer: { flexDirection: 'row', alignItems: 'center', marginTop: 12, paddingHorizontal: 20 },
   line: { height: 1, flex: 1, backgroundColor: 'rgba(255, 255, 255, 0.1)' },
@@ -221,4 +247,39 @@ const styles = StyleSheet.create({
   footer: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 32, gap: 10 },
   footerText: { color: 'rgba(255, 255, 255, 0.35)', fontSize: 14, fontWeight: '500' },
   footerLink: { color: '#87CEEB', fontSize: 14, fontWeight: '700' },
+  logoSpace: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 160,
+    marginVertical: 10,
+  },
+  brandIconContainer: {
+    width: 120,
+    height: 120,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  brandIconGlow: {
+    position: 'absolute',
+    width: 140,
+    height: 140,
+    backgroundColor: 'rgba(135, 206, 235, 0.2)',
+    borderRadius: 70,
+    filter: Platform.OS === 'ios' ? 'blur(20px)' : undefined,
+  },
+  brandIconInner: {
+    width: 100,
+    height: 100,
+    borderRadius: 30,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(135, 206, 235, 0.3)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#87CEEB',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 15,
+    elevation: 10,
+  },
 });
