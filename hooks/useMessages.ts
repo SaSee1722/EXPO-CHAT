@@ -58,7 +58,8 @@ export function useMessages(matchId: string | null, userId: string | null) {
             const updatedMessage = payload.new as Message;
             setMessages(prev => prev.map(m => m.id === updatedMessage.id ? { ...m, ...updatedMessage } : m));
           } else if (payload.eventType === 'DELETE') {
-            setMessages(prev => prev.filter(m => m.id === payload.old.id));
+            // CRITICAL FIX: Use !== to remove the deleted message from state
+            setMessages(prev => prev.filter(m => m.id !== payload.old.id));
           }
         }
       )
@@ -190,9 +191,12 @@ export function useMessages(matchId: string | null, userId: string | null) {
   };
 
   const deleteMessage = async (messageId: string) => {
-    const { error } = await matchService.deleteMessage(messageId);
+    if (!userId) return { error: 'Not authenticated' };
+    const { error } = await matchService.deleteMessage(messageId, userId);
     if (!error) {
       setMessages(prev => prev.filter(m => m.id !== messageId));
+    } else {
+      console.error('[useMessages] ❌ Delete failed:', error);
     }
     return { error };
   };

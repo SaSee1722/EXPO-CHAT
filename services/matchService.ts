@@ -182,7 +182,7 @@ export const matchService = {
 
         const result = await FileSystem.uploadAsync(uploadUrl, uri, {
           httpMethod: 'PUT',
-          uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+          uploadType: (FileSystem as any).UploadType?.BINARY_CONTENT || (FileSystem as any).FileSystemUploadType?.BINARY_CONTENT,
           headers: {
             'Authorization': `Bearer ${token}`,
             'apikey': supabaseAnonKey,
@@ -258,11 +258,12 @@ export const matchService = {
     return { data: res1.data || res2.data, error: res1.error || res2.error };
   },
 
-  async deleteMessage(messageId: string) {
+  async deleteMessage(messageId: string, userId: string) {
     const { error } = await supabase
       .from('messages')
       .delete()
-      .eq('id', messageId);
+      .eq('id', messageId)
+      .eq('sender_id', userId);
 
     return { error };
   },

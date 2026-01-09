@@ -24,7 +24,14 @@ export default function ChatScreen() {
   const { user } = useAuth();
   const { showAlert } = useAlert();
   const { isUserOnline, setPresence } = useProfileContext();
-  const { messages, sending, sendMessage, sendMediaMessage, toggleReaction, deleteMessage } = useMessages(matchId, user?.id || null);
+  const { messages, sending, sendMessage, sendMediaMessage, toggleReaction, deleteMessage: baseDeleteMessage } = useMessages(matchId, user?.id || null);
+
+  const deleteMessage = async (id: string) => {
+    const { error } = await baseDeleteMessage(id);
+    if (error) {
+      showAlert('Failed to delete message. You may not have permission.');
+    }
+  };
   const router = ExpoRouter.useRouter();
   const flatListRef = React.useRef<FlatList>(null);
   const insets = useSafeAreaInsets();
