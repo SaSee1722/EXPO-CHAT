@@ -69,14 +69,6 @@ export default function AuthScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.header}>
-            <View style={styles.logoContainer}>
-              <Image
-                source={require('@/assets/images/logo.png')}
-                style={styles.logo}
-                resizeMode="contain"
-              />
-              <View style={styles.logoGlow} />
-            </View>
             <GradientText style={styles.title}>GOSSIP</GradientText>
             <View style={styles.subtitleContainer}>
               <View style={styles.line} />

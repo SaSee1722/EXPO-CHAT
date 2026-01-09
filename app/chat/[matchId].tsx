@@ -132,7 +132,9 @@ export default function ChatScreen() {
     if (!otherProfile?.id) return;
 
     const supabase = matchService.getSupabaseClient();
-    const channel = supabase
+
+    // 1. Listen for database updates (original logic)
+    const profileChannel = supabase
       .channel(`profile:${otherProfile.id}`)
       .on(
         'postgres_changes',
@@ -149,10 +151,40 @@ export default function ChatScreen() {
       )
       .subscribe();
 
+    // 2. Listen for Presence (INSTANT detection)
+    const presenceChannel = supabase.channel(`presence:chat:${matchId}`);
+
+    presenceChannel
+      .on('presence', { event: 'sync' }, () => {
+        const state = presenceChannel.presenceState();
+        const otherUserIsPresent = Object.values(state).flat().some((p: any) => p.user_id === otherProfile.id);
+        if (otherUserIsPresent) {
+          setOtherProfile(prev => prev ? { ...prev, is_online: true } : prev);
+        }
+      })
+      .on('presence' as any, { event: 'join' }, ({ newPresences }: any) => {
+        const isOtherUser = newPresences.some((p: any) => p.user_id === otherProfile.id);
+        if (isOtherUser) {
+          setOtherProfile(prev => prev ? { ...prev, is_online: true } : prev);
+        }
+      })
+      .on('presence' as any, { event: 'leave' }, ({ leftPresences }: any) => {
+        const isOtherUser = leftPresences.some((p: any) => p.user_id === otherProfile.id);
+        if (isOtherUser) {
+          setOtherProfile(prev => prev ? { ...prev, is_online: false } : prev);
+        }
+      })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED' && user) {
+          await presenceChannel.track({ user_id: user.id, online_at: new Date().toISOString() });
+        }
+      });
+
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(profileChannel);
+      supabase.removeChannel(presenceChannel);
     };
-  }, [otherProfile?.id]);
+  }, [otherProfile?.id, matchId, user?.id]);
 
   const handleReplyPress = (replyToId: string) => {
     // Find the original message in our combined list (including date headers)

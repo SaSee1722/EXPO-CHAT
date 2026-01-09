@@ -19,8 +19,8 @@ export function ProfileGuard({ children }: ProfileGuardProps) {
         if (!authInitialized || !navigationState?.key) return;
 
         if (!user) {
-            if (pathname !== '/auth') {
-                router.replace('/auth');
+            if (pathname !== '/auth' && pathname !== '/get-started') {
+                router.replace('/get-started');
             }
             return;
         }

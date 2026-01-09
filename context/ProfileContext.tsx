@@ -35,7 +35,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         }
     }, [user]);
 
-    // Export a helper to check online status based on timestamp (threshold: 1 min)
+    // Export a helper to check online status based on timestamp (threshold: 20s for "instant" feel)
     const isUserOnline = (profile: Profile | null) => {
         if (!profile) return false;
         if (profile.is_online) return true;
@@ -43,7 +43,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
         const lastSeen = new Date(profile.last_seen_at).getTime();
         const now = new Date().getTime();
-        return (now - lastSeen) < 60000; // 1 minute threshold
+        return (now - lastSeen) < 20000; // 20 second threshold
     };
 
     const fetchProfile = useCallback(async (userId: string) => {
@@ -108,7 +108,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
                 if (state === 'active') {
                     updateOnlineStatus(true);
                 }
-            }, 30000); // 30 second heartbeat
+            }, 10000); // 10 second heartbeat
 
             return () => clearInterval(heartbeat);
         }
