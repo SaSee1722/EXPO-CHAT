@@ -13,7 +13,6 @@ import { useAuth } from '@/template';
 import { useDiscover } from '@/hooks/useDiscover';
 import { Colors, Spacing, BorderRadius, Typography } from '@/constants/theme';
 import { SwipeCard } from '@/components/discover/SwipeCard';
-import { IconButton } from '@/components/ui/IconButton';
 import { MatchModal } from '@/components/discover/MatchModal';
 import { Profile } from '@/types';
 import { useRouter } from 'expo-router';
@@ -176,7 +175,6 @@ const styles = StyleSheet.create({
     height: 100,
     backgroundColor: 'rgba(135, 206, 235, 0.05)',
     borderRadius: 100,
-    filter: Platform.OS === 'ios' ? 'blur(40px)' : undefined,
   },
   logo: {
     fontSize: 32,

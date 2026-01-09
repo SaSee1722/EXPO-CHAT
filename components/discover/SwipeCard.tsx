@@ -5,7 +5,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, BorderRadius, Typography, Shadows } from '@/constants/theme';
 import { Profile } from '@/types';
 import { Image } from 'expo-image';
-import { BlurView } from 'expo-blur';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const CARD_WIDTH = SCREEN_WIDTH * 0.92;
@@ -30,8 +29,6 @@ export function SwipeCard({ profile }: SwipeCardProps) {
     setCurrentPhotoIndex(prev => (prev - 1 + photos.length) % photos.length);
   };
 
-  const CardWrapper = Platform.OS === 'ios' ? BlurView : View;
-
   return (
     <View style={[
       styles.card,
@@ -45,13 +42,11 @@ export function SwipeCard({ profile }: SwipeCardProps) {
         transition={200}
       />
 
-      {/* Photo navigation areas */}
       <View style={styles.photoNav}>
         <TouchableOpacity style={styles.photoNavLeft} onPress={prevPhoto} activeOpacity={1} />
         <TouchableOpacity style={styles.photoNavRight} onPress={nextPhoto} activeOpacity={1} />
       </View>
 
-      {/* Modern photo indicators */}
       <View style={styles.indicators}>
         {photos.map((_, index) => (
           <View
@@ -66,7 +61,6 @@ export function SwipeCard({ profile }: SwipeCardProps) {
         ))}
       </View>
 
-      {/* Info gradient overlay */}
       <LinearGradient
         colors={['transparent', 'rgba(0, 0, 0, 0.4)', 'rgba(0, 0, 0, 0.9)']}
         style={styles.gradient}
@@ -131,7 +125,7 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    bottom: '30%', // Keep nav in the top portion
+    bottom: '30%',
     flexDirection: 'row',
   },
   photoNavLeft: {

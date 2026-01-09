@@ -55,4 +55,18 @@ export const callService = {
 
     return { data, error };
   },
+
+  async getUserCalls(userId: string) {
+    const { data, error } = await supabase
+      .from('calls')
+      .select(`
+        *,
+        caller:profiles!calls_caller_id_fkey(*),
+        receiver:profiles!calls_receiver_id_fkey(*)
+      `)
+      .or(`caller_id.eq.${userId},receiver_id.eq.${userId}`)
+      .order('created_at', { ascending: false });
+
+    return { data, error };
+  },
 };
