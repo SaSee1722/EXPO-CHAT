@@ -6,7 +6,7 @@ import { AudioPlayer } from './AudioPlayer';
 import { FullScreenImageViewer } from './FullScreenImageViewer';
 import { FullScreenVideoViewer } from './FullScreenVideoViewer';
 import * as Sharing from 'expo-sharing';
-import * as FileSystem from 'expo-file-system/legacy';
+import * as FileSystem from 'expo-file-system';
 import React, { useState } from 'react';
 import { ReactionPicker } from './ReactionPicker';
 import Animated, {

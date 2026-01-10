@@ -414,10 +414,11 @@ export default function ChatScreen() {
             copyToCacheDirectory: true,
           });
           if (!result.canceled) {
-            await sendMediaMessage(result.assets[0].uri, 'file', {
-              fileName: result.assets[0].name,
-              fileSize: result.assets[0].size,
-              mimeType: result.assets[0].mimeType,
+            const asset = result.assets[0];
+            await sendMediaMessage(asset.uri, 'file', {
+              fileName: asset.name || 'document',
+              fileSize: asset.size || 0,
+              mimeType: asset.mimeType || 'application/octet-stream',
             });
           }
           break;
@@ -428,10 +429,11 @@ export default function ChatScreen() {
             copyToCacheDirectory: true,
           });
           if (!result.canceled) {
-            await sendMediaMessage(result.assets[0].uri, 'audio', {
-              fileName: result.assets[0].name,
-              fileSize: result.assets[0].size,
-              mimeType: result.assets[0].mimeType,
+            const asset = result.assets[0];
+            await sendMediaMessage(asset.uri, 'audio', {
+              fileName: asset.name || 'audio',
+              fileSize: asset.size || 0,
+              mimeType: asset.mimeType || 'audio/mpeg',
             });
           }
           break;

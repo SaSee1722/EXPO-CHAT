@@ -130,7 +130,7 @@ export function useMessages(matchId: string | null, userId: string | null) {
       content: '',
       type,
       media_url: uri, // Use local URI for immediate preview
-      metadata: { ...metadata, isUploading: true },
+      metadata: { ...(typeof metadata === 'object' ? metadata : {}), isUploading: true },
       status: 'sending',
       created_at: new Date().toISOString(),
     };
@@ -152,13 +152,14 @@ export function useMessages(matchId: string | null, userId: string | null) {
     }
 
     // 3. Create the real message in DB
+    const safeMetadata = typeof metadata === 'object' ? metadata : {};
     const { data: realMessage, error: sendError } = await matchService.sendMessage(
       matchId,
       userId,
       '',
       type,
       publicUrl,
-      { ...metadata, isUploading: false }
+      { ...safeMetadata, isUploading: false }
     );
 
     if (sendError || !realMessage) {
