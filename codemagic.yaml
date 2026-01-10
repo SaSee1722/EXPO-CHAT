@@ -38,7 +38,7 @@ workflows:
       java: 21
       vars:
         NODE_OPTIONS: "--max-old-space-size=8192"
-        GRADLE_OPTS: "-Xmx8192m"
+        GRADLE_OPTS: "-Xmx8192m -XX:MaxMetaspaceSize=1024m"
     scripts:
       - name: Install dependencies
         script: |
@@ -49,10 +49,16 @@ workflows:
         script: |
           echo "EXPO_PUBLIC_SUPABASE_URL=$EXPO_PUBLIC_SUPABASE_URL" > .env
           echo "EXPO_PUBLIC_SUPABASE_ANON_KEY=$EXPO_PUBLIC_SUPABASE_ANON_KEY" >> .env
-      - name: Build Android Release APK
+      - name: Build Android Release Split APKs
         script: |
           cd android
           chmod +x gradlew
           ./gradlew assembleRelease --stacktrace --no-daemon --warning-mode all
+          echo "✅ Build complete! Generated APKs:"
+          ls -lh app/build/outputs/apk/release/
     artifacts:
+      - android/app/build/outputs/apk/release/app-armeabi-v7a-release.apk
+      - android/app/build/outputs/apk/release/app-arm64-v8a-release.apk
+      - android/app/build/outputs/apk/release/app-x86-release.apk
+      - android/app/build/outputs/apk/release/app-x86_64-release.apk
       - android/app/build/outputs/apk/release/*.apk
