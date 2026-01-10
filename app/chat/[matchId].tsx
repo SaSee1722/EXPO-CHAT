@@ -21,6 +21,7 @@ import { useProfileContext } from '@/context/ProfileContext';
 import { chatLockService } from '@/services/chatLockService';
 import { PinSetupModal } from '@/components/chat/PinSetupModal';
 import { LockedChatScreen } from '@/components/chat/LockedChatScreen';
+import { Colors, Typography, Shadows, Spacing, BorderRadius } from '@/constants/theme';
 
 export default function ChatScreen() {
   const { matchId } = ExpoRouter.useLocalSearchParams<{ matchId: string }>();
@@ -369,54 +370,76 @@ export default function ChatScreen() {
   };
 
   const handleMediaSelect = async (type: 'image' | 'file' | 'audio' | 'camera') => {
-    switch (type) {
-      case 'image': {
-        const result = await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: ImagePicker.MediaTypeOptions.All, // Allow both images and videos
-          quality: 0.8,
-          videoMaxDuration: 60, // 60 seconds max
-        });
-        if (!result.canceled) {
-          const asset = result.assets[0];
-          const isVideo = asset.type === 'video' || asset.uri.includes('.mp4') || asset.uri.includes('.mov');
-          await sendMediaMessage(asset.uri, isVideo ? 'video' : 'image');
-        }
-        break;
-      }
-      case 'camera': {
-        const result = await ImagePicker.launchCameraAsync({
-          mediaTypes: ImagePicker.MediaTypeOptions.All, // Allow both photo and video
-          quality: 0.8,
-          videoMaxDuration: 60, // 60 seconds max for videos
-        });
-        if (!result.canceled) {
-          const asset = result.assets[0];
-          const isVideo = asset.type === 'video' || asset.uri.includes('.mp4') || asset.uri.includes('.mov');
-          await sendMediaMessage(asset.uri, isVideo ? 'video' : 'image');
-        }
-        break;
-      }
-      case 'file': {
-        const result = await DocumentPicker.getDocumentAsync({});
-        if (!result.canceled) {
-          await sendMediaMessage(result.assets[0].uri, 'file', {
-            fileName: result.assets[0].name,
-            fileSize: result.assets[0].size,
-            mimeType: result.assets[0].mimeType,
+    try {
+      switch (type) {
+        case 'image': {
+          const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+          if (status !== 'granted') {
+            showAlert('Permission to access photos is required');
+            return;
+          }
+          const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.All,
+            quality: 0.8,
+            videoMaxDuration: 60,
           });
+          if (!result.canceled) {
+            const asset = result.assets[0];
+            const isVideo = asset.type === 'video' || asset.uri.includes('.mp4') || asset.uri.includes('.mov');
+            await sendMediaMessage(asset.uri, isVideo ? 'video' : 'image');
+          }
+          break;
         }
-        break;
-      }
-      case 'audio': {
-        const result = await DocumentPicker.getDocumentAsync({ type: 'audio/*' });
-        if (!result.canceled) {
-          await sendMediaMessage(result.assets[0].uri, 'audio', {
-            fileName: result.assets[0].name,
-            fileSize: result.assets[0].size,
+        case 'camera': {
+          const { status } = await ImagePicker.requestCameraPermissionsAsync();
+          if (status !== 'granted') {
+            showAlert('Permission to use camera is required');
+            return;
+          }
+          const result = await ImagePicker.launchCameraAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.All,
+            quality: 0.8,
+            videoMaxDuration: 60,
           });
+          if (!result.canceled) {
+            const asset = result.assets[0];
+            const isVideo = asset.type === 'video' || asset.uri.includes('.mp4') || asset.uri.includes('.mov');
+            await sendMediaMessage(asset.uri, isVideo ? 'video' : 'image');
+          }
+          break;
         }
-        break;
+        case 'file': {
+          const result = await DocumentPicker.getDocumentAsync({
+            type: '*/*',
+            copyToCacheDirectory: true,
+          });
+          if (!result.canceled) {
+            await sendMediaMessage(result.assets[0].uri, 'file', {
+              fileName: result.assets[0].name,
+              fileSize: result.assets[0].size,
+              mimeType: result.assets[0].mimeType,
+            });
+          }
+          break;
+        }
+        case 'audio': {
+          const result = await DocumentPicker.getDocumentAsync({
+            type: 'audio/*',
+            copyToCacheDirectory: true,
+          });
+          if (!result.canceled) {
+            await sendMediaMessage(result.assets[0].uri, 'audio', {
+              fileName: result.assets[0].name,
+              fileSize: result.assets[0].size,
+              mimeType: result.assets[0].mimeType,
+            });
+          }
+          break;
+        }
       }
+    } catch (error) {
+      console.error('Error selecting media:', error);
+      showAlert('Failed to select media. Please try again.');
     }
   };
 
@@ -485,7 +508,7 @@ export default function ChatScreen() {
           </Text>
           <View style={styles.onlineIndicator}>
             {typingMap[matchId] ? (
-              <Text style={[styles.onlineText, { color: '#87CEEB', fontStyle: 'italic', fontWeight: 'bold' }]}>
+              <Text style={styles.typingText}>
                 typing...
               </Text>
             ) : (
@@ -697,6 +720,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#000000',
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    ...Shadows.small,
   },
   backButton: {
     padding: 8,
@@ -706,27 +730,22 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerName: {
-    fontSize: 18,
-    fontWeight: Platform.OS === 'android' ? '700' : '900',
+    ...Typography.h3,
     color: '#FFF',
-    letterSpacing: 0.5,
   },
   onlineIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
     marginTop: 2,
   },
-  onlineDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#4CAF50',
-    marginRight: 6,
-  },
   onlineText: {
-    fontSize: 12,
+    ...Typography.caption,
     color: '#888',
-    fontWeight: '500',
+  },
+  typingText: {
+    ...Typography.caption,
+    color: '#87CEEB',
+    fontStyle: 'italic',
   },
   headerActions: {
     flexDirection: 'row',
@@ -759,6 +778,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.05)',
+    ...Shadows.small,
   },
   replyBarContainer: {
     flexDirection: 'row',
@@ -781,12 +801,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   replyBarSender: {
+    ...Typography.caption,
     color: '#87CEEB',
-    fontSize: 12,
     fontWeight: 'bold',
     marginBottom: 2,
   },
   replyBarText: {
+    ...Typography.chat,
     color: '#AAA',
     fontSize: 13,
   },
@@ -795,7 +816,7 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    fontSize: 15,
+    ...Typography.chat,
     color: '#FFF',
     minHeight: 40,
     maxHeight: 100,
@@ -824,8 +845,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   dateHeaderText: {
+    ...Typography.caption,
     color: '#AAA',
-    fontSize: 12,
     fontWeight: '700',
     textTransform: 'uppercase',
   },

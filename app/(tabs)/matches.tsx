@@ -2,7 +2,7 @@ import React, { useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, useColorScheme, Platform, RefreshControl } from 'react-native';
 import { useAuth } from '@/template';
 import { useMatches } from '@/hooks/useMatches';
-import { Colors, Spacing, Typography } from '@/constants/theme';
+import { Colors, Spacing, Typography, Shadows } from '@/constants/theme';
 import { MatchItem } from '@/components/matches/MatchItem';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,8 +10,6 @@ import { GradientText } from '@/components/GradientText';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function MatchesScreen() {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
   const { user } = useAuth();
   const { matches, loading, reload } = useMatches(user?.id || null);
   const router = useRouter();
@@ -33,7 +31,7 @@ export default function MatchesScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: '#000000', paddingTop: insets.top }]}>
-      <View style={[styles.header, { paddingTop: Platform.OS === 'android' ? 20 : 0 }]}>
+      <View style={styles.header}>
         <GradientText style={styles.title}>Matches</GradientText>
       </View>
 
@@ -50,7 +48,7 @@ export default function MatchesScreen() {
           !loading ? (
             <View style={styles.emptyState}>
               <View style={styles.emptyIconContainer}>
-                <Ionicons name="chatbubbles" size={64} color="rgba(255,182,193,0.15)" />
+                <Ionicons name="chatbubbles" size={64} color="rgba(135,206,235,0.15)" />
               </View>
               <Text style={styles.emptyText}>Find your elite circle</Text>
               <Text style={styles.emptySubtext}>Matches will appear here once you both like each other.</Text>
@@ -59,6 +57,7 @@ export default function MatchesScreen() {
         }
         contentContainerStyle={styles.listContent}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#87CEEB" />}
+        showsVerticalScrollIndicator={false}
       />
     </View>
   );
@@ -73,11 +72,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+    ...Shadows.small,
   },
   title: {
-    fontSize: 28,
-    fontWeight: Platform.OS === 'android' ? '700' : '900',
-    letterSpacing: Platform.OS === 'android' ? 8 : 10,
+    ...Typography.h2,
+    letterSpacing: 2,
   },
   listContent: {
     padding: Spacing.md,
@@ -94,23 +93,22 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: 'rgba(255,255,255,0.03)',
+    backgroundColor: 'rgba(135,206,235,0.03)',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 24,
   },
   emptyText: {
-    fontSize: 22,
-    fontWeight: '800',
+    ...Typography.h3,
     color: '#FFF',
     textAlign: 'center',
     marginBottom: 12,
   },
   emptySubtext: {
+    ...Typography.body,
     fontSize: 15,
-    color: '#666',
+    color: '#888',
     textAlign: 'center',
     lineHeight: 22,
-    fontWeight: '500',
   },
 });

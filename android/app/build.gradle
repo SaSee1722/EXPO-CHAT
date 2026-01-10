@@ -88,14 +88,6 @@ android {
     compileSdk rootProject.ext.compileSdkVersion
 
     namespace 'com.ssabee1722.gossip'
-    splits {
-        abi {
-            reset()
-            enable true
-            universalApk false
-            include "armeabi-v7a", "x86", "arm64-v8a", "x86_64"
-        }
-    }
     defaultConfig {
         applicationId 'com.ssabee1722.gossip'
         minSdkVersion rootProject.ext.minSdkVersion
@@ -104,8 +96,6 @@ android {
         versionName "1.0.0"
 
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
-        
-        multiDexEnabled true
     }
     signingConfigs {
         debug {
@@ -123,26 +113,22 @@ android {
             // Caution! In production, you need to generate your own keystore file.
             // see https://reactnative.dev/docs/signed-apk-android.
             signingConfig signingConfigs.debug
-            shrinkResources true
-            minifyEnabled true
+            def enableShrinkResources = findProperty('android.enableShrinkResourcesInReleaseBuilds') ?: 'false'
+            shrinkResources enableShrinkResources.toBoolean()
+            minifyEnabled enableMinifyInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
             def enablePngCrunchInRelease = findProperty('android.enablePngCrunchInReleaseBuilds') ?: 'true'
             crunchPngs enablePngCrunchInRelease.toBoolean()
         }
     }
-    packaging {
-        resources {
+    packagingOptions {
+        jniLibs {
             def enableLegacyPackaging = findProperty('expo.useLegacyPackaging') ?: 'false'
-            excludes += "/META-INF/*.kotlin_module"
+            useLegacyPackaging enableLegacyPackaging.toBoolean()
         }
     }
     androidResources {
         ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:!CVS:!thumbs.db:!picasa.ini:!*~'
-    }
-
-    lintOptions {
-        checkReleaseBuilds false
-        abortOnError false
     }
 }
 
@@ -194,3 +180,5 @@ dependencies {
         implementation jscFlavor
     }
 }
+
+apply plugin: 'com.google.gms.google-services'

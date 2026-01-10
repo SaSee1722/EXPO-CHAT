@@ -24,16 +24,26 @@ export function Button({
   textStyle,
 }: ButtonProps) {
   const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
+  const themeColors = Colors[colorScheme ?? 'light'];
+
+  const getBackgroundColor = () => {
+    if (variant === 'primary') return themeColors.primary;
+    if (variant === 'secondary') return themeColors.secondary;
+    return 'transparent';
+  };
+
+  const getTextColor = () => {
+    if (variant === 'outline' || variant === 'ghost') return themeColors.primary;
+    return '#000000'; // Black text on primary/secondary for high contrast
+  };
 
   return (
     <TouchableOpacity
       style={[
         styles.base,
         styles[size],
-        styles[variant],
-        { backgroundColor: variant === 'primary' ? colors.primary : variant === 'secondary' ? colors.secondary : 'transparent' },
-        variant === 'outline' && { borderColor: colors.primary, borderWidth: 2 },
+        { backgroundColor: getBackgroundColor() },
+        variant === 'outline' && { borderColor: themeColors.primary, borderWidth: 2 },
         (disabled || loading) && { opacity: 0.5 },
         style,
       ]}
@@ -42,12 +52,12 @@ export function Button({
       activeOpacity={0.7}
     >
       {loading ? (
-        <ActivityIndicator color={variant === 'outline' || variant === 'ghost' ? colors.primary : colors.background} />
+        <ActivityIndicator color={getTextColor()} />
       ) : (
         <Text
           style={[
             styles.text,
-            { color: variant === 'outline' || variant === 'ghost' ? colors.primary : colors.background },
+            { color: getTextColor() },
             textStyle,
           ]}
         >
@@ -76,10 +86,6 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.lg,
     paddingHorizontal: Spacing.xl,
   },
-  primary: {},
-  secondary: {},
-  outline: {},
-  ghost: {},
   text: {
     ...Typography.button,
   },

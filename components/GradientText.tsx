@@ -23,9 +23,8 @@ export const GradientText: React.FC<GradientTextProps> = ({
     const theme = Colors[colorScheme];
 
     const gradientColors: readonly [string, string, ...string[]] = colors || [
-        theme.gradientStart,
-        theme.gradientMiddle,
-        theme.gradientEnd,
+        theme.primary,
+        theme.secondary,
     ];
 
     // Separate layout styles from text styles
@@ -89,6 +88,7 @@ export const GradientText: React.FC<GradientTextProps> = ({
 
 const styles = StyleSheet.create({
     text: {
-        fontWeight: '900',
+        fontFamily: 'SpaceMono',
+        fontWeight: '700',
     },
 });

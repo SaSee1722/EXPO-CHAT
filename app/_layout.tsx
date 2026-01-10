@@ -12,12 +12,17 @@ import { Audio } from 'expo-av';
 import { StatusBar } from 'expo-status-bar';
 import * as NavigationBar from 'expo-navigation-bar';
 import * as SplashScreen from 'expo-splash-screen';
+import { useFonts } from 'expo-font';
 
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
+  const [fontsLoaded] = useFonts({
+    'SpaceMono': require('../assets/fonts/SpaceMono-Regular.ttf'),
+  });
+
   useEffect(() => {
-    // Set up global audio mode that works for both calls and voice notes
+    // Set up global audio mode
     const setupAudio = async () => {
       try {
         await Audio.setAudioModeAsync({
@@ -48,14 +53,20 @@ export default function RootLayout() {
     const initialize = async () => {
       await setupAudio();
       await setupAndroidBranding();
-      // Keep splash screen a bit longer to ensure smooth transition
-      setTimeout(async () => {
-        await SplashScreen.hideAsync();
-      }, 500);
+      if (fontsLoaded) {
+        // Keep splash screen a bit longer to ensure smooth transition
+        setTimeout(async () => {
+          await SplashScreen.hideAsync();
+        }, 500);
+      }
     };
 
     initialize();
-  }, []);
+  }, [fontsLoaded]);
+
+  if (!fontsLoaded) {
+    return null;
+  }
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>

@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GradientText } from '@/components/GradientText';
+import { Colors, Typography, Shadows, Spacing, BorderRadius } from '@/constants/theme';
 
 interface BlockedUser {
     id: string;
@@ -176,14 +177,14 @@ const styles = StyleSheet.create({
         paddingVertical: 12,
         borderBottomWidth: 1,
         borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+        ...Shadows.small,
     },
     backButton: {
         padding: 4,
     },
     title: {
-        fontSize: 20,
-        fontWeight: '800',
-        letterSpacing: 1,
+        ...Typography.h3,
+        color: '#FFF',
     },
     placeholder: {
         width: 36,
@@ -201,43 +202,43 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: 'rgba(255, 255, 255, 0.05)',
-        borderRadius: 16,
+        borderRadius: BorderRadius.md,
         padding: 16,
         marginBottom: 12,
         borderWidth: 1,
         borderColor: 'rgba(255, 255, 255, 0.08)',
+        ...Shadows.small,
     },
     avatar: {
-        width: 56,
-        height: 56,
-        borderRadius: 28,
-        borderWidth: 2,
-        borderColor: 'rgba(255, 77, 77, 0.4)',
+        width: 50,
+        height: 50,
+        borderRadius: 25,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 77, 77, 0.3)',
     },
     userInfo: {
         flex: 1,
         marginLeft: 12,
     },
     userName: {
-        fontSize: 16,
+        ...Typography.body,
         fontWeight: '700',
         color: '#FFF',
-        marginBottom: 4,
+        marginBottom: 2,
     },
     blockedDate: {
-        fontSize: 12,
+        ...Typography.caption,
         color: '#888',
-        fontWeight: '500',
     },
     unblockButton: {
         backgroundColor: '#87CEEB',
-        paddingHorizontal: 20,
-        paddingVertical: 10,
-        borderRadius: 12,
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: BorderRadius.round,
     },
     unblockText: {
+        ...Typography.caption,
         color: '#000',
-        fontSize: 14,
         fontWeight: '700',
     },
     emptyState: {
@@ -251,23 +252,22 @@ const styles = StyleSheet.create({
         width: 120,
         height: 120,
         borderRadius: 60,
-        backgroundColor: 'rgba(255,255,255,0.03)',
+        backgroundColor: 'rgba(135, 206, 235, 0.03)',
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: 24,
     },
     emptyText: {
-        fontSize: 22,
-        fontWeight: '800',
+        ...Typography.h3,
         color: '#FFF',
         textAlign: 'center',
         marginBottom: 12,
     },
     emptySubtext: {
+        ...Typography.body,
         fontSize: 15,
-        color: '#666',
+        color: '#888',
         textAlign: 'center',
         lineHeight: 22,
-        fontWeight: '500',
     },
 });

@@ -7,29 +7,29 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		073990E6DBA82E0935707480 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 444B49F4C857F55E5FDEE4E5 /* PrivacyInfo.xcprivacy */; };
+		127E6355F5EC0391EC4E3745 /* libPods-Gossip.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 12BB0E312EC1624F72A12797 /* libPods-Gossip.a */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
-		86003D1BD224D8D3B5963C58 /* libPods-Gossip.a in Frameworks */ = {isa = PBXBuildFile; fileRef = E828F3DFD4AE960F2ED20F4B /* libPods-Gossip.a */; };
-		B1B92240B934463D84C69E24 /* noop-file.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8596104C2944365A3FB3E1C /* noop-file.swift */; };
+		6362EBEFB242A7AFB9914DB6 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 5FBEE7C2E68002D2379119BB /* PrivacyInfo.xcprivacy */; };
+		B5DFD9673F621647210D3AB9 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = E064C1F9159DB75EBC7A6CBF /* ExpoModulesProvider.swift */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
-		BB46F0C685E1C6DAC1D68205 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = EECD9F7F60488F89EEB4BF7F /* ExpoModulesProvider.swift */; };
+		C3F7463279054425971A7035 /* noop-file.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AE4038B408B4568B309DAC1 /* noop-file.swift */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		12BB0E312EC1624F72A12797 /* libPods-Gossip.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Gossip.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07F961A680F5B00A75B9A /* Gossip.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Gossip.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = Gossip/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = Gossip/Info.plist; sourceTree = "<group>"; };
-		2A4741C053ABAF84E008D004 /* Pods-Gossip.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Gossip.debug.xcconfig"; path = "Target Support Files/Pods-Gossip/Pods-Gossip.debug.xcconfig"; sourceTree = "<group>"; };
-		3043ABBBD83A55B2ED3267C7 /* Pods-Gossip.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Gossip.release.xcconfig"; path = "Target Support Files/Pods-Gossip/Pods-Gossip.release.xcconfig"; sourceTree = "<group>"; };
-		444B49F4C857F55E5FDEE4E5 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = Gossip/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		2A600D664F8B0E8C55E23770 /* Pods-Gossip.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Gossip.debug.xcconfig"; path = "Target Support Files/Pods-Gossip/Pods-Gossip.debug.xcconfig"; sourceTree = "<group>"; };
+		5B5098B89B107B3EB792A0A8 /* Pods-Gossip.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Gossip.release.xcconfig"; path = "Target Support Files/Pods-Gossip/Pods-Gossip.release.xcconfig"; sourceTree = "<group>"; };
+		5FBEE7C2E68002D2379119BB /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = Gossip/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		9AE4038B408B4568B309DAC1 /* noop-file.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = "noop-file.swift"; path = "Gossip/noop-file.swift"; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = Gossip/SplashScreen.storyboard; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
-		C8596104C2944365A3FB3E1C /* noop-file.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = "noop-file.swift"; path = "Gossip/noop-file.swift"; sourceTree = "<group>"; };
-		E828F3DFD4AE960F2ED20F4B /* libPods-Gossip.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Gossip.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		E064C1F9159DB75EBC7A6CBF /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-Gossip/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
-		EECD9F7F60488F89EEB4BF7F /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-Gossip/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
 		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = Gossip/AppDelegate.swift; sourceTree = "<group>"; };
 		F11748442D0722820044C1D9 /* Gossip-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "Gossip-Bridging-Header.h"; path = "Gossip/Gossip-Bridging-Header.h"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -39,7 +39,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				86003D1BD224D8D3B5963C58 /* libPods-Gossip.a in Frameworks */,
+				127E6355F5EC0391EC4E3745 /* libPods-Gossip.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -55,8 +55,8 @@
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */,
-				C8596104C2944365A3FB3E1C /* noop-file.swift */,
-				444B49F4C857F55E5FDEE4E5 /* PrivacyInfo.xcprivacy */,
+				9AE4038B408B4568B309DAC1 /* noop-file.swift */,
+				5FBEE7C2E68002D2379119BB /* PrivacyInfo.xcprivacy */,
 			);
 			name = Gossip;
 			sourceTree = "<group>";
@@ -65,16 +65,24 @@
 			isa = PBXGroup;
 			children = (
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
-				E828F3DFD4AE960F2ED20F4B /* libPods-Gossip.a */,
+				12BB0E312EC1624F72A12797 /* libPods-Gossip.a */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
-		37D8CA5A16974E557588FB82 /* Pods */ = {
+		551D9E1D3E954072416C2831 /* Gossip */ = {
 			isa = PBXGroup;
 			children = (
-				2A4741C053ABAF84E008D004 /* Pods-Gossip.debug.xcconfig */,
-				3043ABBBD83A55B2ED3267C7 /* Pods-Gossip.release.xcconfig */,
+				E064C1F9159DB75EBC7A6CBF /* ExpoModulesProvider.swift */,
+			);
+			name = Gossip;
+			sourceTree = "<group>";
+		};
+		741D774F4235138BA38D1331 /* Pods */ = {
+			isa = PBXGroup;
+			children = (
+				2A600D664F8B0E8C55E23770 /* Pods-Gossip.debug.xcconfig */,
+				5B5098B89B107B3EB792A0A8 /* Pods-Gossip.release.xcconfig */,
 			);
 			name = Pods;
 			path = Pods;
@@ -94,8 +102,8 @@
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
-				37D8CA5A16974E557588FB82 /* Pods */,
-				FE3EF582013B6B3FC468975D /* ExpoModulesProviders */,
+				741D774F4235138BA38D1331 /* Pods */,
+				BDD321439EB0DD272E781210 /* ExpoModulesProviders */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -119,20 +127,12 @@
 			path = Gossip/Supporting;
 			sourceTree = "<group>";
 		};
-		FE3EF582013B6B3FC468975D /* ExpoModulesProviders */ = {
+		BDD321439EB0DD272E781210 /* ExpoModulesProviders */ = {
 			isa = PBXGroup;
 			children = (
-				FF353A429D9A9E79E700F00D /* Gossip */,
+				551D9E1D3E954072416C2831 /* Gossip */,
 			);
 			name = ExpoModulesProviders;
-			sourceTree = "<group>";
-		};
-		FF353A429D9A9E79E700F00D /* Gossip */ = {
-			isa = PBXGroup;
-			children = (
-				EECD9F7F60488F89EEB4BF7F /* ExpoModulesProvider.swift */,
-			);
-			name = Gossip;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -143,13 +143,13 @@
 			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "Gossip" */;
 			buildPhases = (
 				08A4A3CD28434E44B6B9DE2E /* [CP] Check Pods Manifest.lock */,
-				3A7873C5AB0279C072D1A636 /* [Expo] Configure project */,
+				4A6C98D741EECC5D45E6EB79 /* [Expo] Configure project */,
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
 				800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */,
-				4694F3ABF6E35D9B586628BC /* [CP] Embed Pods Frameworks */,
+				FF2B6F335BBD216C417E6D27 /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
@@ -199,7 +199,7 @@
 				BB2F792D24A3F905000567C9 /* Expo.plist in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
-				073990E6DBA82E0935707480 /* PrivacyInfo.xcprivacy in Resources */,
+				6362EBEFB242A7AFB9914DB6 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -245,7 +245,7 @@
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
-		3A7873C5AB0279C072D1A636 /* [Expo] Configure project */ = {
+		4A6C98D741EECC5D45E6EB79 /* [Expo] Configure project */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
@@ -268,30 +268,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "# This script configures Expo modules and generates the modules provider file.\nbash -l -c \"./Pods/Target\\ Support\\ Files/Pods-Gossip/expo-configure-project.sh\"\n";
-		};
-		4694F3ABF6E35D9B586628BC /* [CP] Embed Pods Frameworks */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-Gossip/Pods-Gossip-frameworks.sh",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/JitsiWebRTC/WebRTC.framework/WebRTC",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/React-Core-prebuilt/React.framework/React",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ReactNativeDependencies/ReactNativeDependencies.framework/ReactNativeDependencies",
-				"${PODS_XCFRAMEWORKS_BUILD_DIR}/hermes-engine/Pre-built/hermes.framework/hermes",
-			);
-			name = "[CP] Embed Pods Frameworks";
-			outputPaths = (
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/WebRTC.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/React.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/ReactNativeDependencies.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/hermes.framework",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Gossip/Pods-Gossip-frameworks.sh\"\n";
-			showEnvVarsInLog = 0;
 		};
 		800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -403,6 +379,30 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Gossip/Pods-Gossip-resources.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
+		FF2B6F335BBD216C417E6D27 /* [CP] Embed Pods Frameworks */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-Gossip/Pods-Gossip-frameworks.sh",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/JitsiWebRTC/WebRTC.framework/WebRTC",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/React-Core-prebuilt/React.framework/React",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ReactNativeDependencies/ReactNativeDependencies.framework/ReactNativeDependencies",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/hermes-engine/Pre-built/hermes.framework/hermes",
+			);
+			name = "[CP] Embed Pods Frameworks";
+			outputPaths = (
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/WebRTC.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/React.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/ReactNativeDependencies.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/hermes.framework",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Gossip/Pods-Gossip-frameworks.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -411,8 +411,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */,
-				B1B92240B934463D84C69E24 /* noop-file.swift in Sources */,
-				BB46F0C685E1C6DAC1D68205 /* ExpoModulesProvider.swift in Sources */,
+				C3F7463279054425971A7035 /* noop-file.swift in Sources */,
+				B5DFD9673F621647210D3AB9 /* ExpoModulesProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -421,7 +421,7 @@
 /* Begin XCBuildConfiguration section */
 		13B07F941A680F5B00A75B9A /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 2A4741C053ABAF84E008D004 /* Pods-Gossip.debug.xcconfig */;
+			baseConfigurationReference = 2A600D664F8B0E8C55E23770 /* Pods-Gossip.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
@@ -445,7 +445,7 @@
 					"-lc++",
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_DEBUG";
-				PRODUCT_BUNDLE_IDENTIFIER = "com.ssabee-1722.gossip";
+				PRODUCT_BUNDLE_IDENTIFIER = com.ssabee1722.gossip;
 				PRODUCT_NAME = Gossip;
 				SWIFT_OBJC_BRIDGING_HEADER = "Gossip/Gossip-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
@@ -457,7 +457,7 @@
 		};
 		13B07F951A680F5B00A75B9A /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 3043ABBBD83A55B2ED3267C7 /* Pods-Gossip.release.xcconfig */;
+			baseConfigurationReference = 5B5098B89B107B3EB792A0A8 /* Pods-Gossip.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
@@ -477,7 +477,7 @@
 					"-lc++",
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_RELEASE";
-				PRODUCT_BUNDLE_IDENTIFIER = "com.ssabee-1722.gossip";
+				PRODUCT_BUNDLE_IDENTIFIER = com.ssabee1722.gossip;
 				PRODUCT_NAME = Gossip;
 				SWIFT_OBJC_BRIDGING_HEADER = "Gossip/Gossip-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;

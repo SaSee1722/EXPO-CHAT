@@ -11,26 +11,4 @@
 -keep class com.swmansion.reanimated.** { *; }
 -keep class com.facebook.react.turbomodule.** { *; }
 
-# Expo
--keep class expo.modules.** { *; }
--keep class expo.modules.adapters.** { *; }
-
-# WebRTC
--keep class org.webrtc.** { *; }
-
-# Supabase / Networking
--keepattributes Signature
--keepattributes *Annotation*
--keep class okhttp3.** { *; }
--keep interface okhttp3.** { *; }
--dontwarn okhttp3.**
--dontwarn okio.**
--dontwarn javax.annotation.**
--dontwarn org.bouncycastle.**
-
-# React Native
--keep class com.facebook.react.** { *; }
-
-# Stripe
--dontwarn com.stripe.android.pushProvisioning.**
--keep class com.stripe.android.** { *; }
+# Add any project specific keep options here:

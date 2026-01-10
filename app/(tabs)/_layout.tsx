@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '@/constants/theme';
+import { Colors, Shadows } from '@/constants/theme';
 import { useColorScheme, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TabBarLabel } from '@/components/TabBarLabel';
@@ -18,28 +18,19 @@ export default function TabLayout() {
         tabBarInactiveTintColor: colors.textTertiary,
         tabBarStyle: {
           position: 'absolute',
-          bottom: Platform.select({
-            ios: insets.bottom + 16,
-            android: 16,
-            default: 16,
-          }),
+          bottom: 24,
           left: 16,
           right: 16,
-          backgroundColor: 'rgba(18, 18, 18, 0.8)',
-          backdropFilter: 'blur(20px)',
+          backgroundColor: 'rgba(12, 12, 12, 0.9)',
           borderTopWidth: 0,
           borderRadius: 32,
-          height: 68,
-          paddingTop: 6,
-          paddingBottom: 6,
+          height: 64,
+          paddingTop: 4,
+          paddingBottom: 4,
           paddingHorizontal: 8,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 8 },
-          shadowOpacity: 0.4,
-          shadowRadius: 24,
-          elevation: 15,
-          borderWidth: 1.5,
-          borderColor: 'rgba(255,255,255,0.12)',
+          ...Shadows.large,
+          borderWidth: 1,
+          borderColor: 'rgba(255,255,255,0.1)',
           overflow: 'hidden',
         },
         tabBarLabelStyle: {

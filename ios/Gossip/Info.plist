@@ -28,7 +28,13 @@
         <key>CFBundleURLSchemes</key>
         <array>
           <string>gossip</string>
-          <string>com.ssabee-1722.gossip</string>
+          <string>com.ssabee1722.gossip</string>
+        </array>
+      </dict>
+      <dict>
+        <key>CFBundleURLSchemes</key>
+        <array>
+          <string>exp+gossip</string>
         </array>
       </dict>
     </array>
@@ -106,7 +112,9 @@
     <true/>
     <key>UIBackgroundModes</key>
     <array>
+      <string>audio</string>
       <string>fetch</string>
+      <string>voip</string>
     </array>
     <key>UILaunchStoryboardName</key>
     <string>SplashScreen</string>

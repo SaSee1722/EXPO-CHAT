@@ -2,25 +2,21 @@ import { Platform } from 'react-native';
 
 export const Colors = {
   light: {
-    // Primary palette - Sky Blue & Baby Pink
     primary: '#87CEEB', // Sky Blue
     primaryDark: '#4A9FD8',
     primaryLight: '#B0E0F6',
     secondary: '#FFB6C1', // Baby Pink
-    accent: '#FF69B4', // Hot Pink accent
+    accent: '#87CEEB',
 
-    // Backgrounds
     background: '#FFFFFF',
     surface: '#F8F9FA',
     card: '#FFFFFF',
     overlay: 'rgba(0, 0, 0, 0.5)',
 
-    // Text
-    text: '#000000', // Black for main text
+    text: '#000000',
     textSecondary: '#4A4A4A',
     textTertiary: '#808080',
 
-    // UI elements
     border: '#E9ECEF',
     divider: '#DEE2E6',
     success: '#52C41A',
@@ -28,36 +24,29 @@ export const Colors = {
     error: '#FF4458',
     info: '#87CEEB',
 
-    // Interactive
     disabled: '#CED4DA',
     placeholder: '#ADB5BD',
     shadow: 'rgba(0, 0, 0, 0.1)',
 
-    // Gradients - Sky Blue to Baby Pink (no black)
-    gradientStart: '#87CEEB', // Sky Blue
-    gradientMiddle: '#A8D5E8', // Light blue-pink transition
-    gradientEnd: '#FFB6C1', // Baby Pink
+    bubbleSender: '#87CEEB',
+    bubbleReceiver: '#F0F0F0', // Light grey for light mode receiver
   },
   dark: {
-    // Primary palette - Sky Blue & Baby Pink
-    primary: '#87CEEB', // Sky Blue
+    primary: '#87CEEB',
     primaryDark: '#4A9FD8',
     primaryLight: '#B0E0F6',
-    secondary: '#FFB6C1', // Baby Pink
-    accent: '#FF69B4', // Hot Pink accent
+    secondary: '#FFB6C1',
+    accent: '#87CEEB',
 
-    // Backgrounds
-    background: '#000000', // Pure black for dark mode
+    background: '#000000',
     surface: '#1A1A1A',
     card: '#2A2A2A',
     overlay: 'rgba(0, 0, 0, 0.7)',
 
-    // Text
     text: '#FFFFFF',
     textSecondary: '#B0B0B0',
     textTertiary: '#808080',
 
-    // UI elements
     border: '#3A3A3A',
     divider: '#2A2A2A',
     success: '#52C41A',
@@ -65,15 +54,12 @@ export const Colors = {
     error: '#FF4458',
     info: '#87CEEB',
 
-    // Interactive
     disabled: '#4A4A4A',
     placeholder: '#808080',
     shadow: 'rgba(0, 0, 0, 0.3)',
 
-    // Gradients - Sky Blue to Baby Pink (no black)
-    gradientStart: '#87CEEB', // Sky Blue
-    gradientMiddle: '#A8D5E8', // Light blue-pink transition
-    gradientEnd: '#FFB6C1', // Baby Pink
+    bubbleSender: '#87CEEB',
+    bubbleReceiver: '#1A1A1A',
   },
 };
 
@@ -90,80 +76,92 @@ export const BorderRadius = {
   sm: 8,
   md: 12,
   lg: 16,
-  xl: 24,
+  bubble: 20,
   round: 999,
+};
+
+// Typography configured for SpaceMono (No autonomy - exact match to user request)
+const fontConfig = {
+  fontFamily: 'SpaceMono',
 };
 
 export const Typography = {
   h1: {
+    ...fontConfig,
     fontSize: 32,
     fontWeight: '700' as const,
     lineHeight: 40,
   },
   h2: {
+    ...fontConfig,
     fontSize: 24,
     fontWeight: '700' as const,
     lineHeight: 32,
   },
   h3: {
+    ...fontConfig,
     fontSize: 20,
     fontWeight: '600' as const,
     lineHeight: 28,
   },
+  chat: {
+    ...fontConfig,
+    fontSize: 15,
+    fontWeight: '400' as const,
+    lineHeight: 20,
+  },
   body: {
+    ...fontConfig,
     fontSize: 16,
     fontWeight: '400' as const,
     lineHeight: 24,
   },
-  bodySmall: {
-    fontSize: 14,
-    fontWeight: '400' as const,
-    lineHeight: 20,
-  },
-  caption: {
-    fontSize: 12,
-    fontWeight: '400' as const,
-    lineHeight: 16,
-  },
   button: {
+    ...fontConfig,
     fontSize: 16,
     fontWeight: '600' as const,
     lineHeight: 24,
   },
+  caption: {
+    ...fontConfig,
+    fontSize: 12,
+    fontWeight: '400' as const,
+    lineHeight: 16,
+  },
+};
+
+// Normalized Shadow Utility for cross-platform parity
+export const getShadow = (intensity: 'small' | 'medium' | 'large' = 'small') => {
+  const configs = {
+    small: {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 3,
+    },
+    medium: {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.12,
+      shadowRadius: 8,
+      elevation: 5,
+    },
+    large: {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.15,
+      shadowRadius: 16,
+      elevation: 8,
+    },
+  };
+
+  return configs[intensity];
 };
 
 export const Shadows = {
-  small: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-    // Add web support
-    ...(Platform.OS === 'web' && {
-      boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.1)',
-    }),
-  },
-  medium: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 4,
-    // Add web support
-    ...(Platform.OS === 'web' && {
-      boxShadow: '0px 4px 8px rgba(0, 0, 0, 0.15)',
-    }),
-  },
-  large: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 16,
-    elevation: 8,
-    // Add web support
-    ...(Platform.OS === 'web' && {
-      boxShadow: '0px 8px 16px rgba(0, 0, 0, 0.2)',
-    }),
-  },
+  small: getShadow('small'),
+  medium: getShadow('medium'),
+  large: getShadow('large'),
 };
+
