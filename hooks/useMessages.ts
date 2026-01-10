@@ -104,8 +104,11 @@ export function useMessages(matchId: string | null, userId: string | null) {
 
     if (!error && data) {
       setMessages(prev => {
-        const alreadyExists = prev.some(m => m.id === data.id);
-        if (alreadyExists) return prev.filter(m => m.id !== tempId);
+        // If the real-time listener already added the message, just remove the temp one
+        if (prev.some(m => m.id === data.id)) {
+          return prev.filter(m => m.id !== tempId);
+        }
+        // Otherwise, swap the temp message with the official one
         return prev.map(m => m.id === tempId ? data : m);
       });
     } else if (error) {
@@ -166,8 +169,15 @@ export function useMessages(matchId: string | null, userId: string | null) {
       console.error('[useMessages] ❌ Database entry failed:', sendError);
       setMessages(prev => prev.filter(m => m.id !== tempId));
     } else {
-      // 4. Swap temp message with official one
-      setMessages(prev => prev.map(m => m.id === tempId ? realMessage : m));
+      // 4. Swap temp message with official one - DEDUPLICATING AGAINST REALTIME
+      setMessages(prev => {
+        // If the real-time listener already added the message while we were uploading, just remove the temp one
+        if (prev.some(m => m.id === realMessage.id)) {
+          return prev.filter(m => m.id !== tempId);
+        }
+        // Otherwise, perform the official swap
+        return prev.map(m => m.id === tempId ? realMessage : m);
+      });
       console.log('[useMessages] ✅ Media message complete');
     }
 
