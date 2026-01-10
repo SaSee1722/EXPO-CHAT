@@ -39,6 +39,35 @@ export default function RootLayout() {
       }
     };
 
+    const requestPermissions = async () => {
+      try {
+        // Request microphone permission
+        const { status: audioStatus } = await Audio.requestPermissionsAsync();
+        console.log('[RootLayout] Microphone permission:', audioStatus);
+
+        // Request camera permission (for video calls)
+        if (Platform.OS === 'android') {
+          const { PermissionsAndroid } = require('react-native');
+          const cameraGranted = await PermissionsAndroid.request(
+            PermissionsAndroid.PERMISSIONS.CAMERA,
+            {
+              title: 'Camera Permission',
+              message: 'Gossip needs access to your camera for video calls.',
+              buttonNeutral: 'Ask Me Later',
+              buttonNegative: 'Cancel',
+              buttonPositive: 'OK',
+            }
+          );
+          console.log('[RootLayout] Camera permission:', cameraGranted);
+        } else {
+          // iOS camera permission will be requested when needed
+          console.log('[RootLayout] iOS camera permission will be requested on first use');
+        }
+      } catch (e) {
+        console.error('[RootLayout] Failed to request permissions:', e);
+      }
+    };
+
     const setupAndroidBranding = async () => {
       if (Platform.OS === 'android') {
         try {
@@ -52,6 +81,7 @@ export default function RootLayout() {
 
     const initialize = async () => {
       await setupAudio();
+      await requestPermissions();
       await setupAndroidBranding();
       if (fontsLoaded) {
         // Keep splash screen a bit longer to ensure smooth transition

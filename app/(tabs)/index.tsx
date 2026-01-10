@@ -301,7 +301,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 25,
     paddingVertical: Spacing.xl,
-    paddingBottom: Platform.OS === 'android' ? 80 : Spacing.xl,
+    paddingBottom: Platform.OS === 'android' ? 100 : 90,
   },
   actionBtn: {
     width: 64,

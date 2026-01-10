@@ -9,7 +9,7 @@ const supabase = getSupabaseClient();
 // 1. Configure Global Handler
 Notifications.setNotificationHandler({
     handleNotification: async () => ({
-        shouldShowAlert: false, // We will show custom Banner
+        shouldShowAlert: true, // Enable system notification in foreground
         shouldPlaySound: true,
         shouldSetBadge: true,
     } as any),

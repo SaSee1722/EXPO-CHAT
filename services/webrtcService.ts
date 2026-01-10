@@ -484,11 +484,12 @@ class WebRTCService {
                 allowsRecordingIOS: true,
                 playsInSilentModeIOS: true,
                 staysActiveInBackground: true,
-                playThroughEarpieceAndroid: !isSpeaker,
+                playThroughEarpieceAndroid: !isSpeaker, // false = speaker, true = earpiece
+                shouldDuckAndroid: true,
                 interruptionModeIOS: 1,
                 interruptionModeAndroid: 1,
             });
-            console.log(`[WebRTC] Speaker ${isSpeaker ? 'ON' : 'OFF'}`);
+            console.log(`[WebRTC] Speaker ${isSpeaker ? 'ON (Loudspeaker)' : 'OFF (Earpiece)'}`);
         } catch (e) {
             console.error('[WebRTC] Speaker toggle error:', e);
         }

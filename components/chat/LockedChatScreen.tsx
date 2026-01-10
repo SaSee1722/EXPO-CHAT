@@ -4,17 +4,26 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring, runOnJS } from 'react-native-reanimated';
 import { PinInput } from './PinInput';
 
+export interface LockedChatScreenRef {
+    triggerUnlock: () => void;
+}
+
 interface LockedChatScreenProps {
     otherUserName: string;
     onUnlock: (pin: string) => Promise<boolean>;
     onMaxAttempts: () => void;
+    unlockRef?: React.RefObject<LockedChatScreenRef>;
 }
 
-export function LockedChatScreen({ otherUserName, onUnlock, onMaxAttempts }: LockedChatScreenProps) {
+export function LockedChatScreen({ otherUserName, onUnlock, onMaxAttempts, unlockRef }: LockedChatScreenProps) {
     const [showPinInput, setShowPinInput] = useState(false);
     const [pinError, setPinError] = useState('');
     const [attempts, setAttempts] = useState(0);
     const translateY = useSharedValue(0);
+
+    React.useImperativeHandle(unlockRef, () => ({
+        triggerUnlock: () => setShowPinInput(true)
+    }));
 
     const handlePinComplete = async (pin: string) => {
         const isValid = await onUnlock(pin);

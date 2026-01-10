@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, Image } from 'react-native';
+import { View, Text, StyleSheet, Modal, TouchableOpacity, TouchableWithoutFeedback, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import Animated, {
@@ -11,6 +11,7 @@ import Animated, {
     interpolate,
     Extrapolate
 } from 'react-native-reanimated';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { RTCView, MediaStream } from 'react-native-webrtc';
 import { useAuth } from '@/template';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -45,9 +46,18 @@ export function CallOverlay({
     const [isCameraOff, setIsCameraOff] = useState(false);
     const [isSpeakerOn, setIsSpeakerOn] = useState(call.call_type === 'voice'); // Default speaker ON for voice
     const [permissionError, setPermissionError] = useState(false);
+    const [showControls, setShowControls] = useState(true); // Controls visibility state
 
     const intervalRef = useRef<any>(null);
+    const hideControlsTimeoutRef = useRef<any>(null);
     const pulse = useSharedValue(1);
+    const controlsOpacity = useSharedValue(1);
+
+    // Draggable video preview
+    const translateX = useSharedValue(0);
+    const translateY = useSharedValue(0);
+    const offsetX = useSharedValue(0);
+    const offsetY = useSharedValue(0);
 
     // Effect for initializing WebRTC when call becomes active
     useEffect(() => {
@@ -141,27 +151,101 @@ export function CallOverlay({
         return `${mins}:${secs.toString().padStart(2, '0')}`;
     };
 
+    // Auto-hide controls effect
+    useEffect(() => {
+        if (call.status === 'active' || (call.status === 'calling' && !isIncoming)) {
+            // Start auto-hide timer when call is active or outgoing call is starting
+            resetHideTimer();
+        }
+
+        return () => {
+            if (hideControlsTimeoutRef.current) {
+                clearTimeout(hideControlsTimeoutRef.current);
+            }
+        };
+    }, [call.status, isIncoming]);
+
+    // Reset hide timer and show controls
+    const resetHideTimer = () => {
+        // Clear existing timer
+        if (hideControlsTimeoutRef.current) {
+            clearTimeout(hideControlsTimeoutRef.current);
+        }
+
+        // Show controls
+        setShowControls(true);
+        controlsOpacity.value = withTiming(1, { duration: 200 });
+
+        // Set new timer to hide after 3 seconds
+        hideControlsTimeoutRef.current = setTimeout(() => {
+            setShowControls(false);
+            controlsOpacity.value = withTiming(0, { duration: 300 });
+        }, 3000);
+    };
+
+    // Handle screen tap to toggle controls
+    const handleScreenTap = () => {
+        if (call.status === 'active' || call.status === 'calling') {
+            if (showControls) {
+                // If controls are visible, hide them immediately
+                setShowControls(false);
+                controlsOpacity.value = withTiming(0, { duration: 300 });
+                if (hideControlsTimeoutRef.current) {
+                    clearTimeout(hideControlsTimeoutRef.current);
+                }
+            } else {
+                // If controls are hidden, show them and start auto-hide timer
+                resetHideTimer();
+            }
+        }
+    };
+
     const pulseStyle = useAnimatedStyle(() => ({
         transform: [{ scale: pulse.value }],
         opacity: interpolate(pulse.value, [1, 1.2], [1, 0.6], Extrapolate.CLAMP)
+    }));
+
+    const controlsAnimatedStyle = useAnimatedStyle(() => ({
+        opacity: controlsOpacity.value,
+    }));
+
+    // Pan gesture for draggable video preview
+    const panGesture = Gesture.Pan()
+        .onUpdate((event) => {
+            translateX.value = offsetX.value + event.translationX;
+            translateY.value = offsetY.value + event.translationY;
+        })
+        .onEnd(() => {
+            offsetX.value = translateX.value;
+            offsetY.value = translateY.value;
+        });
+
+    const previewAnimatedStyle = useAnimatedStyle(() => ({
+        transform: [
+            { translateX: translateX.value },
+            { translateY: translateY.value }
+        ],
     }));
 
     const toggleMute = () => {
         const newMuted = !isMuted;
         setIsMuted(newMuted);
         webrtcService.toggleAudio(!newMuted);
+        resetHideTimer(); // Reset timer on interaction
     };
 
     const toggleCamera = () => {
         const newCameraOff = !isCameraOff;
         setIsCameraOff(newCameraOff);
         webrtcService.toggleVideo(!newCameraOff);
+        resetHideTimer(); // Reset timer on interaction
     };
 
     const toggleSpeaker = async () => {
         const newSpeakerOn = !isSpeakerOn;
         setIsSpeakerOn(newSpeakerOn);
         await webrtcService.toggleSoundOutput(newSpeakerOn);
+        resetHideTimer(); // Reset timer on interaction
     };
 
     if (!visible) return null;
@@ -171,171 +255,193 @@ export function CallOverlay({
 
     return (
         <Modal visible={visible} transparent animationType="slide">
-            <View style={styles.container}>
-                {showVideo ? (
-                    <RTCView
-                        streamURL={remoteStream?.toURL() || localStream?.toURL()}
-                        style={StyleSheet.absoluteFillObject}
-                        objectFit="cover"
-                        zOrder={0}
-                    />
-                ) : (
-                    <>
-                        <Image source={{ uri: photoUrl }} style={styles.bgImage} />
-                        <BlurView intensity={30} style={StyleSheet.absoluteFill} tint="dark" />
-                        <LinearGradient
-                            colors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.8)']}
-                            style={StyleSheet.absoluteFill}
-                        />
-
-                        {/* Always render an RTCView for audio calls to ensure sound output on all platforms */}
-                        {remoteStream && (
-                            <RTCView
-                                streamURL={remoteStream.toURL()}
-                                style={{ width: 1, height: 1, opacity: 0, position: 'absolute' }}
-                                zOrder={-1}
+            <TouchableWithoutFeedback onPress={handleScreenTap}>
+                <View style={styles.container}>
+                    {showVideo ? (
+                        <>
+                            {remoteStream ? (
+                                <RTCView
+                                    streamURL={remoteStream.toURL()}
+                                    style={StyleSheet.absoluteFillObject}
+                                    objectFit="cover"
+                                    zOrder={0}
+                                />
+                            ) : (
+                                <>
+                                    <Image source={{ uri: photoUrl }} style={styles.bgImage} />
+                                    <BlurView intensity={30} style={StyleSheet.absoluteFill} tint="dark" />
+                                    <LinearGradient
+                                        colors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.8)']}
+                                        style={StyleSheet.absoluteFill}
+                                    />
+                                </>
+                            )}
+                        </>
+                    ) : (
+                        <>
+                            <Image source={{ uri: photoUrl }} style={styles.bgImage} />
+                            <BlurView intensity={30} style={StyleSheet.absoluteFill} tint="dark" />
+                            <LinearGradient
+                                colors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.8)']}
+                                style={StyleSheet.absoluteFill}
                             />
-                        )}
-                    </>
-                )}
 
-                {showVideo && localStream && !isCameraOff && (
-                    <View style={styles.localVideoWrapper}>
-                        <RTCView
-                            streamURL={localStream.toURL()}
-                            style={styles.localVideo}
-                            objectFit="cover"
-                            zOrder={1}
-                        />
-                    </View>
-                )}
+                            {/* Always render an RTCView for audio calls to ensure sound output on all platforms */}
+                            {remoteStream && (
+                                <RTCView
+                                    streamURL={remoteStream.toURL()}
+                                    style={{ width: 1, height: 1, opacity: 0, position: 'absolute' }}
+                                    zOrder={-1}
+                                />
+                            )}
+                        </>
+                    )}
 
-                <View style={[styles.content, showVideo && styles.contentVideoMode]}>
-                    <View style={styles.topSection}>
-                        {!showVideo && (
-                            <View style={styles.avatarWrapper}>
-                                {call.status === 'calling' && (
-                                    <>
-                                        <Animated.View style={[styles.pulseCircle, pulseStyle, { opacity: 0.15 }]} />
-                                        <Animated.View style={[styles.pulseCircle, pulseStyle, { width: 190, height: 190, opacity: 0.1 }]} />
-                                    </>
-                                )}
-                                <View style={styles.avatarGlow}>
-                                    <Image source={{ uri: photoUrl }} style={styles.avatar} />
-                                </View>
-                            </View>
-                        )}
-                        <Text style={styles.name}>{otherProfile?.display_name || 'Gossip User'}</Text>
-                        <View style={styles.statusContainer}>
-                            <Text style={styles.status}>
-                                {call.status === 'active' ? formatTime(timer) :
-                                    call.status === 'calling' ? (isIncoming ? `INCOMING ${call.call_type?.toUpperCase()}` : 'CALLING...') :
-                                        call.status?.toUpperCase()}
-                            </Text>
-                            {call.status === 'active' && (
-                                <View style={styles.secureBadge}>
-                                    <Ionicons name="shield-checkmark" size={12} color="#87CEEB" />
-                                    <Text style={styles.secureText}>SECURE</Text>
+                    {showVideo && localStream && !isCameraOff && (
+                        <GestureDetector gesture={panGesture}>
+                            <Animated.View style={[styles.localVideoWrapper, previewAnimatedStyle]}>
+                                <RTCView
+                                    streamURL={localStream.toURL()}
+                                    style={styles.localVideo}
+                                    objectFit="cover"
+                                    zOrder={1}
+                                />
+                            </Animated.View>
+                        </GestureDetector>
+                    )}
+
+                    <View style={[styles.content, showVideo && styles.contentVideoMode]}>
+                        <View style={styles.topSection}>
+                            {!showVideo && (
+                                <View style={styles.avatarWrapper}>
+                                    {call.status === 'calling' && (
+                                        <>
+                                            <Animated.View style={[styles.pulseCircle, pulseStyle, { opacity: 0.15 }]} />
+                                            <Animated.View style={[styles.pulseCircle, pulseStyle, { width: 190, height: 190, opacity: 0.1 }]} />
+                                        </>
+                                    )}
+                                    <View style={styles.avatarGlow}>
+                                        <Image source={{ uri: photoUrl }} style={styles.avatar} />
+                                    </View>
                                 </View>
                             )}
-                        </View>
-
-                        <Text style={styles.connectionStatus}>
-                            {webrtcService.peerConnection?.connectionState === 'connected' ? '• Signal Optimized' :
-                                webrtcService.peerConnection?.connectionState === 'connecting' ? 'Establishing Line...' :
-                                    webrtcService.peerConnection?.connectionState === 'failed' ? 'Retrying Connection...' : ''}
-                        </Text>
-
-                        {permissionError && (
-                            <TouchableOpacity
-                                style={styles.permissionWarning}
-                                onPress={() => {
-                                    setPermissionError(false);
-                                    if (user?.id && call.match_id) {
-                                        webrtcService.initialize(user.id, call.match_id, true);
-                                    }
-                                }}
-                            >
-                                <Ionicons name="warning" size={20} color="#FFD700" />
-                                <Text style={styles.permissionText}>Microphone Access Required</Text>
-                            </TouchableOpacity>
-                        )}
-                    </View>
-
-                    <View style={styles.bottomSection}>
-                        {(call.status === 'calling' && isIncoming) ? (
-                            <View style={styles.actionRow}>
-                                <TouchableOpacity onPress={onReject} style={[styles.iconBtn, styles.rejectBtn]}>
-                                    <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
-                                    <Ionicons name="close" size={36} color="#FFF" />
-                                    <Text style={styles.btnLabel}>Decline</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity onPress={onAccept} style={[styles.iconBtn, styles.acceptBtn]}>
-                                    <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
-                                    <Ionicons name="call" size={32} color="#FFF" />
-                                    <Text style={styles.btnLabel}>Accept</Text>
-                                </TouchableOpacity>
-                            </View>
-                        ) : (call.status === 'active' || (call.status === 'calling' && !isIncoming)) ? (
-                            <View style={[styles.activeActions, showVideo && styles.activeActionsVideo]}>
-                                <View style={styles.activeRow}>
-                                    <TouchableOpacity
-                                        onPress={toggleMute}
-                                        style={[styles.midBtn, isMuted && styles.activeStateBtn]}
-                                        activeOpacity={0.8}
-                                    >
-                                        <BlurView intensity={25} tint="light" style={StyleSheet.absoluteFill} />
-                                        <Ionicons name={isMuted ? "mic-off" : "mic"} size={26} color="#FFF" />
-                                        <Text style={styles.miniLabel}>{isMuted ? 'Unmute' : 'Mute'}</Text>
-                                    </TouchableOpacity>
-
-                                    <TouchableOpacity
-                                        onPress={onEnd}
-                                        style={[styles.iconBtn, styles.rejectBtn, styles.largeBtn]}
-                                        activeOpacity={0.9}
-                                    >
-                                        <Ionicons name="call" size={36} color="#FFF" style={{ transform: [{ rotate: '135deg' }] }} />
-                                    </TouchableOpacity>
-
-                                    <TouchableOpacity
-                                        onPress={toggleSpeaker}
-                                        style={[styles.midBtn, isSpeakerOn && styles.activeStateBtn]}
-                                        activeOpacity={0.8}
-                                    >
-                                        <BlurView intensity={25} tint="light" style={StyleSheet.absoluteFill} />
-                                        <Ionicons name={isSpeakerOn ? "volume-high" : "volume-medium"} size={26} color="#FFF" />
-                                        <Text style={styles.miniLabel}>Speaker</Text>
-                                    </TouchableOpacity>
-                                </View>
-                                {call.call_type === 'video' && (
-                                    <View style={styles.videoControlsRow}>
-                                        <TouchableOpacity
-                                            onPress={toggleCamera}
-                                            style={[styles.cameraToggle, isCameraOff && styles.activeStateBtn]}
-                                            activeOpacity={0.8}
-                                        >
-                                            <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
-                                            <Ionicons name={isCameraOff ? "videocam-off" : "videocam"} size={20} color="#FFF" />
-                                            <Text style={styles.cameraText}>{isCameraOff ? "Video Off" : "Video On"}</Text>
-                                        </TouchableOpacity>
-
-                                        {!isCameraOff && (
-                                            <TouchableOpacity
-                                                onPress={() => webrtcService.switchCamera()}
-                                                style={styles.switchCamBtn}
-                                                activeOpacity={0.8}
-                                            >
-                                                <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
-                                                <Ionicons name="camera-reverse" size={24} color="#FFF" />
-                                            </TouchableOpacity>
-                                        )}
+                            <Text style={styles.name}>{otherProfile?.display_name || 'Gossip User'}</Text>
+                            <View style={styles.statusContainer}>
+                                <Text style={styles.status}>
+                                    {call.status === 'active' ? formatTime(timer) :
+                                        call.status === 'calling' ? (isIncoming ? `INCOMING ${call.call_type?.toUpperCase()}` : 'CALLING...') :
+                                            call.status?.toUpperCase()}
+                                </Text>
+                                {call.status === 'active' && (
+                                    <View style={styles.secureBadge}>
+                                        <Ionicons name="shield-checkmark" size={12} color="#87CEEB" />
+                                        <Text style={styles.secureText}>SECURE</Text>
                                     </View>
                                 )}
                             </View>
-                        ) : null}
+
+                            <Text style={styles.connectionStatus}>
+                                {webrtcService.peerConnection?.connectionState === 'connected' ? '• Signal Optimized' :
+                                    webrtcService.peerConnection?.connectionState === 'connecting' ? 'Establishing Line...' :
+                                        webrtcService.peerConnection?.connectionState === 'failed' ? 'Retrying Connection...' : ''}
+                            </Text>
+
+                            {permissionError && (
+                                <TouchableOpacity
+                                    style={styles.permissionWarning}
+                                    onPress={() => {
+                                        setPermissionError(false);
+                                        if (user?.id && call.match_id) {
+                                            webrtcService.initialize(user.id, call.match_id, true);
+                                        }
+                                    }}
+                                >
+                                    <Ionicons name="warning" size={20} color="#FFD700" />
+                                    <Text style={styles.permissionText}>Microphone Access Required</Text>
+                                </TouchableOpacity>
+                            )}
+                        </View>
+
+                        <View style={styles.bottomSection}>
+                            {(call.status === 'calling' && isIncoming) ? (
+                                <View style={styles.actionRow}>
+                                    <TouchableOpacity onPress={onReject} style={[styles.iconBtn, styles.rejectBtn]}>
+                                        <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
+                                        <Ionicons name="close" size={36} color="#FFF" />
+                                        <Text style={styles.btnLabel}>Decline</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity onPress={onAccept} style={[styles.iconBtn, styles.acceptBtn]}>
+                                        <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
+                                        <Ionicons name="call" size={32} color="#FFF" />
+                                        <Text style={styles.btnLabel}>Accept</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            ) : (call.status === 'active' || (call.status === 'calling' && !isIncoming)) ? (
+                                <Animated.View style={[
+                                    styles.activeActions,
+                                    showVideo && styles.activeActionsVideo,
+                                    call.status === 'active' ? controlsAnimatedStyle : { opacity: 1 }
+                                ]}>
+                                    <View style={styles.activeRow}>
+                                        <TouchableOpacity
+                                            onPress={toggleMute}
+                                            style={[styles.midBtn, isMuted && styles.activeStateBtn]}
+                                            activeOpacity={0.8}
+                                        >
+                                            <BlurView intensity={25} tint="light" style={StyleSheet.absoluteFill} />
+                                            <Ionicons name={isMuted ? "mic-off" : "mic"} size={26} color="#FFF" />
+                                            <Text style={styles.miniLabel}>{isMuted ? 'Unmute' : 'Mute'}</Text>
+                                        </TouchableOpacity>
+
+                                        <TouchableOpacity
+                                            onPress={onEnd}
+                                            style={[styles.iconBtn, styles.rejectBtn, styles.largeBtn]}
+                                            activeOpacity={0.9}
+                                        >
+                                            <Ionicons name="call" size={36} color="#FFF" style={{ transform: [{ rotate: '135deg' }] }} />
+                                        </TouchableOpacity>
+
+                                        <TouchableOpacity
+                                            onPress={toggleSpeaker}
+                                            style={[styles.midBtn, isSpeakerOn && styles.activeStateBtn]}
+                                            activeOpacity={0.8}
+                                        >
+                                            <BlurView intensity={25} tint="light" style={StyleSheet.absoluteFill} />
+                                            <Ionicons name={isSpeakerOn ? "volume-high" : "volume-medium"} size={26} color="#FFF" />
+                                            <Text style={styles.miniLabel}>Speaker</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                    {call.call_type === 'video' && (
+                                        <View style={styles.videoControlsRow}>
+                                            <TouchableOpacity
+                                                onPress={toggleCamera}
+                                                style={[styles.cameraToggle, isCameraOff && styles.activeStateBtn]}
+                                                activeOpacity={0.8}
+                                            >
+                                                <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
+                                                <Ionicons name={isCameraOff ? "videocam-off" : "videocam"} size={20} color="#FFF" />
+                                                <Text style={styles.cameraText}>{isCameraOff ? "Video Off" : "Video On"}</Text>
+                                            </TouchableOpacity>
+
+                                            {!isCameraOff && (
+                                                <TouchableOpacity
+                                                    onPress={() => webrtcService.switchCamera()}
+                                                    style={styles.switchCamBtn}
+                                                    activeOpacity={0.8}
+                                                >
+                                                    <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
+                                                    <Ionicons name="camera-reverse" size={24} color="#FFF" />
+                                                    <Text style={styles.cameraText}>Flip</Text>
+                                                </TouchableOpacity>
+                                            )}
+                                        </View>
+                                    )}
+                                </Animated.View>
+                            ) : null}
+                        </View>
                     </View>
                 </View>
-            </View>
+            </TouchableWithoutFeedback>
         </Modal>
     );
 }
@@ -343,8 +449,8 @@ export function CallOverlay({
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#000' },
     bgImage: { ...StyleSheet.absoluteFillObject, opacity: 0.6 },
-    content: { flex: 1, justifyContent: 'space-between', paddingVertical: 100, alignItems: 'center' },
-    contentVideoMode: { justifyContent: 'flex-end', paddingVertical: 50 },
+    content: { flex: 1, justifyContent: 'space-between', paddingTop: 100, paddingBottom: 60, alignItems: 'center' },
+    contentVideoMode: { justifyContent: 'flex-end', paddingBottom: 50 },
     topSection: { alignItems: 'center' },
     avatarWrapper: { width: 220, height: 220, justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
     avatarGlow: {

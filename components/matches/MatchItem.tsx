@@ -1,5 +1,6 @@
 import { View, Text, TouchableOpacity, StyleSheet, useColorScheme } from 'react-native';
 import { Image } from 'expo-image';
+import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import { FullScreenImageViewer } from '../chat/FullScreenImageViewer';
 import { Spacing, Colors, Typography, Shadows, BorderRadius } from '@/constants/theme';
@@ -72,6 +73,7 @@ export function MatchItem({ match, onPress }: MatchItemProps) {
           </View>
         ) : isLocked ? (
           <View style={styles.messageRow}>
+            <Ionicons name="lock-closed" size={14} color="#AAA" />
             <Text style={[styles.message, { opacity: 0.8 }]} numberOfLines={1}>
               Chat Locked
             </Text>

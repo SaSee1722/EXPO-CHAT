@@ -49,6 +49,8 @@ export interface Message {
     fileName?: string;
     fileSize?: number;
     mimeType?: string;
+    call_type?: 'voice' | 'video';
+    call_status?: 'ended' | 'missed' | 'rejected';
     [key: string]: any;
   };
   reactions?: { [emoji: string]: string[] };

@@ -148,8 +148,9 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     };
 
     const handleRejectCall = async () => {
-        if (!activeCall) return;
+        if (!activeCall || !user) return;
         await callService.updateCallStatus(activeCall.id, 'rejected');
+
         setActiveCall(null);
         setCallOtherProfile(null);
         setActiveNotification(null);
@@ -157,8 +158,18 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     };
 
     const handleEndCall = async () => {
-        if (!activeCall) return;
-        await callService.updateCallStatus(activeCall.id, 'ended');
+        if (!activeCall || !user) return;
+
+        // Calculate duration if call was active
+        let duration = 0;
+        if (activeCall.status === 'active' && activeCall.created_at) {
+            const startTime = new Date(activeCall.created_at).getTime();
+            const endTime = Date.now();
+            duration = Math.floor((endTime - startTime) / 1000); // duration in seconds
+        }
+
+        await callService.updateCallStatus(activeCall.id, 'ended', duration);
+
         setActiveCall(null);
         setCallOtherProfile(null);
         webrtcService.cleanup('manual_end');
@@ -224,7 +235,13 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         const responseListener = Notifications.addNotificationResponseReceivedListener(response => {
             const data = response.notification.request.content.data as any;
             if (data.matchId) {
-                router.push(`/chat/${data.matchId}`);
+                const currentSegments = segmentsRef.current as string[];
+                const currentParams = paramsRef.current;
+                const isSameChat = currentSegments.includes('chat') && (currentParams.matchId === data.matchId);
+
+                if (!isSameChat) {
+                    router.push(`/chat/${data.matchId}`);
+                }
             }
         });
 

@@ -67,6 +67,10 @@ export default function ChatScreen() {
     }
   }, [user?.id, matchId]);
 
+  // Lock screen ref
+  const lockedChatRef = React.useRef<any>(null);
+  const isRemovingLock = React.useRef(false);
+
   const personalTypingChannelRef = React.useRef<any>(null);
 
   // Handle Typing Status & Read Receipts on Focus
@@ -494,9 +498,13 @@ export default function ChatScreen() {
                     {
                       text: 'Unlock',
                       onPress: async () => {
-                        if (user) {
-                          await chatLockService.unlockChat(user.id, matchId);
-                          setIsLocked(false);
+                        // Ask for PIN first
+                        isRemovingLock.current = true;
+                        // Trigger the pin input on the LockedChatScreen
+                        if (lockedChatRef.current) {
+                          lockedChatRef.current.triggerUnlock();
+                        } else {
+                          // Fallback if ref is missing (shouldn't happen if isLocked is true)
                           setIsUnlocked(false);
                         }
                       }
@@ -518,7 +526,7 @@ export default function ChatScreen() {
                   typing...
                 </Text>
               ) : (
-                <Text style={styles.onlineText}>
+                <Text style={[styles.onlineText, isUserOnline(otherProfile) && { color: '#4CAF50' }]}>
                   {getPresenceText(otherProfile)}
                 </Text>
               )}
@@ -564,13 +572,23 @@ export default function ChatScreen() {
         {/* Show locked screen if chat is locked and not unlocked */}
         {isLocked && !isUnlocked ? (
           <LockedChatScreen
+            unlockRef={lockedChatRef}
             otherUserName={otherProfile?.display_name || 'User'}
             onUnlock={async (pin) => {
               if (!user) return false;
               const isValid = await chatLockService.verifyPin(user.id, matchId, pin);
               if (isValid) {
-                setIsUnlocked(true);
+                // If this unlock was triggered by the "Remove Lock" button, then actually REMOVE the lock
+                if (isRemovingLock.current) {
+                  await chatLockService.unlockChat(user.id, matchId);
+                  setIsLocked(false);
+                  setIsUnlocked(false);
+                } else {
+                  // Otherwise just temporarily unlock for viewing
+                  setIsUnlocked(true);
+                }
               }
+              isRemovingLock.current = false;
               return isValid;
             }}
             onMaxAttempts={async () => {

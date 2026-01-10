@@ -46,7 +46,7 @@ export default function ProfileScreen() {
         mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [1, 1],
-        quality: 0.8,
+        quality: 0.5, // Balanced quality - compresses most photos under 200KB
       });
 
       if (!result.canceled && result.assets[0].uri) {
@@ -55,12 +55,23 @@ export default function ProfileScreen() {
 
         if (uploadError) {
           setUpdatingPhoto(false);
-          showAlert('Upload failed. Try picking a smaller image.');
+          console.error('[Profile] Photo upload error:', uploadError);
+          showAlert('Failed to upload photo. Please try again.');
           return;
         }
 
         if (photoUrl) {
-          await updateProfile({ photos: [photoUrl] });
+          // Update profile with new photo URL
+          const { error: updateError } = await updateProfile({ photos: [photoUrl] });
+
+          if (updateError) {
+            setUpdatingPhoto(false);
+            console.error('[Profile] Profile update error:', updateError);
+            showAlert('Failed to update profile. Please try again.');
+            return;
+          }
+
+          // Refresh profile to get latest data
           await refreshProfile();
         }
         setUpdatingPhoto(false);

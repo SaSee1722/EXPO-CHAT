@@ -16,14 +16,15 @@
         "UIBackgroundModes": [
           "audio",
           "fetch",
-          "voip"
+          "voip",
+          "remote-notification"
         ]
       }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
-        "backgroundColor": "#E91E63"
+        "backgroundColor": "#000000"
       },
       "edgeToEdgeEnabled": true,
       "permissions": [
@@ -56,7 +57,7 @@
           "image": "./assets/icon.png",
           "imageWidth": 240,
           "resizeMode": "contain",
-          "backgroundColor": "#050505",
+          "backgroundColor": "#000000",
           "userInterfaceStyle": "light"
         }
       ],
