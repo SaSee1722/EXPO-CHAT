@@ -80,18 +80,25 @@ export default function RootLayout() {
     };
 
     const initialize = async () => {
+      // 1. Setup minimal essentials
       await setupAudio();
-      await requestPermissions();
       await setupAndroidBranding();
+
+      // 2. Hide splash screen *before* asking for permissions
+      // This ensures the user sees the app UI even if they ignore the permission dialog
       if (fontsLoaded) {
-        // Keep splash screen a bit longer to ensure smooth transition
-        setTimeout(async () => {
-          await SplashScreen.hideAsync();
-        }, 500);
+        await SplashScreen.hideAsync();
       }
+
+      // 3. Request permissions after a short delay to allow UI to render
+      setTimeout(() => {
+        requestPermissions();
+      }, 1000);
     };
 
-    initialize();
+    if (fontsLoaded) {
+      initialize();
+    }
   }, [fontsLoaded]);
 
   if (!fontsLoaded) {
