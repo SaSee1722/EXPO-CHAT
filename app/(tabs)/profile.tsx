@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator
 import { Image } from 'expo-image';
 import { useAuth, useAlert } from '@/template';
 import { useProfileContext } from '@/context/ProfileContext';
-import { Spacing, BorderRadius } from '@/constants/theme';
+import { Spacing, BorderRadius, Typography } from '@/constants/theme';
 import { Button } from '@/components/ui/Button';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GradientText } from '@/components/GradientText';
@@ -353,7 +353,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  title: { fontSize: 28, fontWeight: Platform.OS === 'android' ? '700' : '900', letterSpacing: Platform.OS === 'android' ? 8 : 10 },
+  title: { ...Typography.header },
   editNameInput: {
     fontSize: 28,
     fontWeight: '800',

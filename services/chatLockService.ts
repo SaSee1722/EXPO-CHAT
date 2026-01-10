@@ -25,20 +25,27 @@ class ChatLockService {
 
     // Check if a chat is locked
     async isChatLocked(userId: string, matchId: string): Promise<boolean> {
-        const supabase = this.getSupabaseClient();
-        const { data, error } = await supabase
-            .from('chat_locks')
-            .select('id')
-            .eq('user_id', userId)
-            .eq('match_id', matchId)
-            .maybeSingle();
+        try {
+            const supabase = this.getSupabaseClient();
+            const { data, error } = await supabase
+                .from('chat_locks')
+                .select('id')
+                .eq('user_id', userId)
+                .eq('match_id', matchId)
+                .maybeSingle();
 
-        if (error) {
-            console.error('[ChatLock] Error checking lock status:', error);
+            if (error) {
+                // Silently fail - chat is not locked if we can't check
+                console.log('[ChatLock] Could not check lock status (table may not exist):', error.message);
+                return false;
+            }
+
+            return !!data;
+        } catch (error) {
+            // Network or other errors - assume unlocked
+            console.log('[ChatLock] Error checking lock status:', error);
             return false;
         }
-
-        return !!data;
     }
 
     // Get lock details

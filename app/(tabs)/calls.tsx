@@ -174,9 +174,7 @@ const styles = StyleSheet.create({
         borderBottomColor: 'rgba(255, 255, 255, 0.05)',
     },
     headerTitle: {
-        fontSize: 28,
-        fontWeight: Platform.OS === 'android' ? '700' : '900',
-        letterSpacing: Platform.OS === 'android' ? 8 : 10,
+        ...Typography.header,
     },
     listContent: {
         padding: 20,

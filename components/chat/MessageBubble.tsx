@@ -6,9 +6,10 @@ import { AudioPlayer } from './AudioPlayer';
 import { FullScreenImageViewer } from './FullScreenImageViewer';
 import { FullScreenVideoViewer } from './FullScreenVideoViewer';
 import * as Sharing from 'expo-sharing';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import React, { useState } from 'react';
 import { ReactionPicker } from './ReactionPicker';
+import { MessageActionsMenu } from './MessageActionsMenu';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -37,6 +38,7 @@ export function MessageBubble({ message, isOwn, onReaction, onReply, onReplyPres
   const [isVideoVisible, setIsVideoVisible] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isReactionVisible, setIsReactionVisible] = useState(false);
+  const [isActionsVisible, setIsActionsVisible] = useState(false);
   const [isFullEmojiPickerVisible, setIsFullEmojiPickerVisible] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [isDownloaded, setIsDownloaded] = useState(false);
@@ -152,14 +154,24 @@ export function MessageBubble({ message, isOwn, onReaction, onReply, onReplyPres
   };
 
   const handleLongPress = () => {
-    onSelect?.();
+    if (selectionMode) {
+      onSelect?.();
+    } else {
+      setIsActionsVisible(true);
+    }
   };
 
   const handlePress = () => {
     if (selectionMode) {
       onSelect?.();
     } else if (!message.deleted_for_everyone) {
-      setIsReactionVisible(true);
+      if (message.type === 'image' || message.type === 'sticker') {
+        if (!message.metadata?.isUploading && message.media_url) {
+          setIsViewerVisible(true);
+        }
+      } else {
+        setIsReactionVisible(true);
+      }
     }
   };
 
@@ -187,14 +199,24 @@ export function MessageBubble({ message, isOwn, onReaction, onReply, onReplyPres
     );
   };
 
+  const renderCaption = (text?: string, meta?: any) => {
+    const captionText = text || meta?.caption;
+    if (!captionText) return null;
+    return (
+      <Text style={[styles.caption, { color: isOwn ? '#000' : '#FFFFFF' }]}>
+        {captionText}
+      </Text>
+    );
+  };
+
   const renderContent = () => {
     const { type, content, media_url, metadata, deleted_for_everyone } = message;
 
     if (deleted_for_everyone) {
       return (
         <View style={styles.removedContainer}>
-          <Ionicons name="ban" size={14} color="rgba(255,255,255,0.4)" />
-          <Text style={styles.removedText}>Message removed</Text>
+          <Ionicons name="ban" size={14} color={isOwn ? "rgba(0,0,0,0.4)" : "rgba(255,255,255,0.4)"} />
+          <Text style={[styles.removedText, { color: isOwn ? "rgba(0,0,0,0.4)" : "#FFFFFF" }]}>Message removed</Text>
         </View>
       );
     }
@@ -203,56 +225,63 @@ export function MessageBubble({ message, isOwn, onReaction, onReply, onReplyPres
       case 'image':
       case 'sticker':
         return (
-          <TouchableOpacity
-            onPress={() => selectionMode ? onSelect?.() : (!message.metadata?.isUploading && setIsViewerVisible(true))}
-            onLongPress={handleLongPress}
-            activeOpacity={0.7}
-          >
-            <Image
-              source={{ uri: media_url }}
-              style={[styles.mediaImage, type === 'sticker' && styles.stickerImage]}
-              contentFit="cover"
-            />
-            {message.metadata?.isUploading && (
-              <View style={styles.uploadOverlay}>
-                <ActivityIndicator color="#FFF" size="large" />
-                <Text style={styles.uploadText}>Sending...</Text>
-              </View>
-            )}
-          </TouchableOpacity>
+          <View>
+            <View style={[styles.mediaWrapper, type === 'sticker' && styles.stickerWrapper]}>
+              <Image
+                source={{ uri: media_url ? (media_url.startsWith('http') ? encodeURI(media_url) : media_url) : undefined }}
+                style={[styles.mediaImage, type === 'sticker' && styles.stickerImage]}
+                contentFit="cover"
+                transition={200}
+                cachePolicy="memory-disk"
+                placeholder="rgba(255,255,255,0.05)"
+                priority="high"
+                onError={(e) => console.log('[ImageLoad] Error loading message image:', e.error, media_url)}
+              />
+              {message.metadata?.isUploading && (
+                <View style={styles.uploadOverlay}>
+                  <ActivityIndicator color="#FFF" size="large" />
+                  <Text style={styles.uploadText}>Sending...</Text>
+                </View>
+              )}
+            </View>
+            {renderCaption(content, metadata)}
+          </View>
         );
       case 'audio':
         return <AudioPlayer url={media_url!} isOwn={isOwn} duration={metadata?.duration} messageId={message.id} disabled={selectionMode} />;
       case 'video':
         return (
-          <TouchableOpacity
-            onPress={async () => {
-              if (selectionMode) { onSelect?.(); return; }
-              if (isDownloaded) setIsVideoVisible(true);
-              else await handleFilePress(true);
-            }}
-            onLongPress={handleLongPress}
-            activeOpacity={0.7}
-            style={styles.videoContainer}
-          >
-            <View style={styles.imagePlaceholder}>
-              <Ionicons name="videocam" size={40} color="rgba(255,255,255,0.2)" />
-            </View>
-            <Image source={{ uri: media_url }} style={[styles.mediaImage, { position: 'absolute' }]} contentFit="cover" />
-            <View style={styles.videoOverlay}>
-              {isDownloading ? (
-                <View style={styles.downloadCircle}>
-                  <ActivityIndicator color="#FFF" size="small" />
-                  <Text style={styles.progressText}>{Math.round(downloadProgress * 100)}%</Text>
-                </View>
-              ) : (
-                <View style={[styles.playCircle]}>
-                  <Ionicons name={isDownloaded ? "play" : "cloud-download"} size={28} color="#FFF" />
-                </View>
-              )}
-            </View>
-            {metadata?.duration && <Text style={styles.durationText}>{metadata.duration}</Text>}
-          </TouchableOpacity>
+          <View>
+            <TouchableOpacity
+              onPress={async () => {
+                if (selectionMode) { onSelect?.(); return; }
+                if (isDownloaded) setIsVideoVisible(true);
+                else await handleFilePress(true);
+              }}
+              onLongPress={handleLongPress}
+              activeOpacity={0.7}
+              style={styles.videoContainer}
+            >
+              <View style={styles.imagePlaceholder}>
+                <Ionicons name="videocam" size={40} color="rgba(255,255,255,0.2)" />
+              </View>
+              <Image source={{ uri: media_url }} style={[styles.mediaImage, { position: 'absolute' }]} contentFit="cover" />
+              <View style={styles.videoOverlay}>
+                {isDownloading ? (
+                  <View style={styles.downloadCircle}>
+                    <ActivityIndicator color="#FFF" size="small" />
+                    <Text style={styles.progressText}>{Math.round(downloadProgress * 100)}%</Text>
+                  </View>
+                ) : (
+                  <View style={[styles.playCircle]}>
+                    <Ionicons name={isDownloaded ? "play" : "cloud-download"} size={28} color="#FFF" />
+                  </View>
+                )}
+              </View>
+              {metadata?.duration && <Text style={styles.durationText}>{metadata.duration}</Text>}
+            </TouchableOpacity>
+            {renderCaption(content, metadata)}
+          </View>
         );
       case 'file':
         return (
@@ -272,7 +301,7 @@ export function MessageBubble({ message, isOwn, onReaction, onReply, onReplyPres
                 )}
               </View>
               <View style={styles.fileDetails}>
-                <Text style={[styles.fileName, { color: isOwn ? '#000' : '#FFF' }]} numberOfLines={1}>
+                <Text style={[styles.fileName, { color: isOwn ? '#000' : '#FFFFFF' }]} numberOfLines={1}>
                   {message.metadata?.isUploading ? 'Sending file...' : (metadata?.fileName || 'Document')}
                 </Text>
                 <Text style={styles.fileMeta}>
@@ -288,7 +317,7 @@ export function MessageBubble({ message, isOwn, onReaction, onReply, onReplyPres
           </TouchableOpacity>
         );
       default:
-        return <Text style={[styles.text, { color: isOwn ? '#000' : '#FFF' }]}>{content}</Text>;
+        return <Text style={[styles.text, { color: isOwn ? '#000' : '#FFFFFF' }]}>{content}</Text>;
     }
   };
 
@@ -348,7 +377,30 @@ export function MessageBubble({ message, isOwn, onReaction, onReply, onReplyPres
       </View>
       <FullScreenImageViewer visible={isViewerVisible} imageUri={message.media_url || ''} onClose={() => setIsViewerVisible(false)} />
       <FullScreenVideoViewer visible={isVideoVisible} videoUri={message.media_url ? `${(FileSystem as any).cacheDirectory}${message.metadata?.fileName || `${message.id}.mp4`}` : ''} onClose={() => setIsVideoVisible(false)} />
-      <ReactionPicker visible={isReactionVisible} onClose={() => setIsReactionVisible(false)} onSelect={(emoji) => onReaction?.(emoji)} onShowEmojiPicker={() => setIsFullEmojiPickerVisible(true)} activeReactions={Object.keys(message.reactions || {})} />
+      <ReactionPicker
+        visible={isReactionVisible}
+        onClose={() => setIsReactionVisible(false)}
+        onSelect={(emoji) => onReaction?.(emoji)}
+        onShowEmojiPicker={() => setIsFullEmojiPickerVisible(true)}
+        activeReactions={Object.keys(message.reactions || {})}
+      />
+      <MessageActionsMenu
+        visible={isActionsVisible}
+        onClose={() => setIsActionsVisible(false)}
+        onReply={() => onReply?.(message)}
+        onDelete={() => onDelete?.(message.id)}
+        onDeleteForEveryone={() => {
+          Alert.alert(
+            'Delete for Everyone',
+            'This message will be deleted for everyone in this chat.',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Delete', style: 'destructive', onPress: () => onDelete?.(message.id) }
+            ]
+          );
+        }}
+        isOwnMessage={isOwn}
+      />
       <Modal visible={isFullEmojiPickerVisible} transparent animationType="slide">
         <View style={styles.fullEmojiContainer}>
           <View style={styles.fullEmojiHeader}>
@@ -397,7 +449,9 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   footer: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  mediaImage: { width: 220, height: 220, borderRadius: 16 },
+  mediaImage: { width: 220, height: 220, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.05)' },
+  mediaWrapper: { borderRadius: 16, overflow: 'hidden' },
+  stickerWrapper: { backgroundColor: 'transparent' },
   stickerImage: { width: 120, height: 120, backgroundColor: 'transparent' },
   fileCard: { width: 240, borderRadius: 12, padding: 8 },
   fileContentRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
@@ -490,5 +544,12 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.4)',
     fontSize: 14,
     fontStyle: 'italic'
+  },
+  caption: {
+    ...Typography.body,
+    fontSize: 14,
+    marginTop: 8,
+    marginHorizontal: 4,
+    marginBottom: 4,
   },
 });

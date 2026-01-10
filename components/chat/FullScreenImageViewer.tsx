@@ -103,9 +103,10 @@ export function FullScreenImageViewer({ visible, imageUri, onClose }: FullScreen
                     <GestureDetector gesture={composed}>
                         <Animated.View style={animatedStyle}>
                             <Image
-                                source={{ uri: imageUri }}
+                                source={{ uri: imageUri ? (imageUri.startsWith('http') ? encodeURI(imageUri) : imageUri) : undefined }}
                                 style={styles.fullImage}
                                 contentFit="contain"
+                                priority="high"
                             />
                         </Animated.View>
                     </GestureDetector>

@@ -10,9 +10,13 @@ interface ReactionPickerProps {
     onSelect: (emoji: string) => void;
     onShowEmojiPicker: () => void;
     activeReactions?: string[];
+    onReply?: () => void;
+    onDelete?: () => void;
+    onDeleteForEveryone?: () => void;
+    isOwnMessage?: boolean;
 }
 
-export function ReactionPicker({ visible, onClose, onSelect, onShowEmojiPicker, activeReactions = [] }: ReactionPickerProps) {
+export function ReactionPicker({ visible, onClose, onSelect, onShowEmojiPicker, activeReactions = [], onReply, onDelete, onDeleteForEveryone, isOwnMessage }: ReactionPickerProps) {
     const [fadeAnim] = React.useState(new Animated.Value(0));
 
     React.useEffect(() => {
@@ -53,13 +57,33 @@ export function ReactionPicker({ visible, onClose, onSelect, onShowEmojiPicker, 
                             style={styles.plusItem}
                             onPress={() => {
                                 onShowEmojiPicker();
-                                // We keep it open or close it depending on how the next picker works
-                                // Usually close this one
                                 onClose();
                             }}
                         >
                             <Ionicons name="add" size={20} color="#888" />
                         </TouchableOpacity>
+                    </View>
+
+                    {/* Action Buttons */}
+                    <View style={styles.actionsContainer}>
+                        {onReply && (
+                            <TouchableOpacity style={styles.actionButton} onPress={() => { onReply(); onClose(); }}>
+                                <Ionicons name="arrow-undo" size={18} color="#87CEEB" />
+                                <Text style={styles.actionText}>Reply</Text>
+                            </TouchableOpacity>
+                        )}
+                        {onDelete && (
+                            <TouchableOpacity style={styles.actionButton} onPress={() => { onDelete(); onClose(); }}>
+                                <Ionicons name="trash-outline" size={18} color="#FF4458" />
+                                <Text style={styles.actionText}>Delete for Me</Text>
+                            </TouchableOpacity>
+                        )}
+                        {isOwnMessage && onDeleteForEveryone && (
+                            <TouchableOpacity style={styles.actionButton} onPress={() => { onDeleteForEveryone(); onClose(); }}>
+                                <Ionicons name="trash" size={18} color="#FF4458" />
+                                <Text style={styles.actionText}>Delete for Everyone</Text>
+                            </TouchableOpacity>
+                        )}
                     </View>
                 </Animated.View>
             </Pressable>
@@ -111,5 +135,25 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         marginLeft: 5,
+    },
+    actionsContainer: {
+        marginTop: 10,
+        paddingTop: 10,
+        borderTopWidth: 1,
+        borderTopColor: '#3A3A3A',
+        gap: 8,
+    },
+    actionButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 10,
+        borderRadius: 8,
+        backgroundColor: '#2C2C2E',
+        gap: 10,
+    },
+    actionText: {
+        color: '#FFF',
+        fontSize: 14,
+        fontWeight: '500',
     },
 });

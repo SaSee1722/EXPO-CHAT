@@ -1,6 +1,5 @@
 import { getSupabaseClient } from '@/template';
 import { Profile } from '@/types';
-import * as FileSystem from 'expo-file-system/legacy';
 import { Platform } from 'react-native';
 
 const supabase = getSupabaseClient();
@@ -146,44 +145,21 @@ export const profileService = {
 
       if (!supabaseUrl || !supabaseAnonKey) throw new Error('Supabase Config Missing');
 
-      // --- WEB UPLOAD LOGIC ---
-      if (Platform.OS === 'web') {
-        console.log('[PhotoDebug] 🌐 Starting Web Upload...');
-        const response = await fetch(uri);
-        const blob = await response.blob();
+      // --- UNIVERSAL BLOB UPLOAD (Web & Native) ---
+      console.log('[PhotoDebug] Fetching blob from URI');
+      const response = await fetch(uri);
+      const blob = await response.blob();
 
-        const { error: uploadError } = await supabase.storage
-          .from('profile-photos')
-          .upload(fileName, blob, {
-            contentType: 'image/jpeg',
-            cacheControl: '3600',
-            upsert: true
-          });
-
-        if (uploadError) throw uploadError;
-      }
-      // --- NATIVE UPLOAD LOGIC (iOS/Android) ---
-      else {
-        console.log('[PhotoDebug] 📱 Starting Native OS Upload...');
-        const uploadUrl = `${supabaseUrl}/storage/v1/object/profile-photos/${fileName}`;
-        const { data: { session } } = await supabase.auth.getSession();
-        const token = session?.access_token || supabaseAnonKey;
-
-        const result = await FileSystem.uploadAsync(uploadUrl, uri, {
-          httpMethod: 'POST',
-          uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'apikey': supabaseAnonKey,
-            'Content-Type': 'image/jpeg',
-            'x-upsert': 'true'
-          }
+      console.log('[PhotoDebug] Uploading to Supabase Storage...');
+      const { error: uploadError } = await supabase.storage
+        .from('profile-photos')
+        .upload(fileName, blob, {
+          contentType: 'image/jpeg',
+          cacheControl: '3600',
+          upsert: true
         });
 
-        if (result.status < 200 || result.status >= 300) {
-          throw new Error(`Upload Failed: ${result.status}`);
-        }
-      }
+      if (uploadError) throw uploadError;
 
       // --- COMMON: Generate Public URL ---
       const { data: { publicUrl } } = supabase.storage

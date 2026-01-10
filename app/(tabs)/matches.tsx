@@ -76,7 +76,6 @@ const styles = StyleSheet.create({
   },
   title: {
     ...Typography.h2,
-    letterSpacing: 2,
   },
   listContent: {
     padding: Spacing.md,

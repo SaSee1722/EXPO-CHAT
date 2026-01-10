@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
 import { GradientText } from '../GradientText';
+import { Typography } from '@/constants/theme';
 import MaskedView from '@react-native-masked-view/masked-view';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -254,10 +255,7 @@ const styles = StyleSheet.create({
         marginBottom: 24,
     },
     mainTitle: {
-        color: '#FFF',
-        fontSize: 34,
-        fontWeight: '900',
-        letterSpacing: -1,
+        ...Typography.h1,
     },
     subTitle: {
         color: 'rgba(255,255,255,0.4)',

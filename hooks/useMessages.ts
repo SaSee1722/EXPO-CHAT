@@ -130,7 +130,7 @@ export function useMessages(matchId: string | null, userId: string | null) {
       id: tempId,
       match_id: matchId,
       sender_id: userId,
-      content: '',
+      content: metadata?.caption || '',
       type,
       media_url: uri, // Use local URI for immediate preview
       metadata: { ...(typeof metadata === 'object' ? metadata : {}), isUploading: true },
@@ -159,7 +159,7 @@ export function useMessages(matchId: string | null, userId: string | null) {
     const { data: realMessage, error: sendError } = await matchService.sendMessage(
       matchId,
       userId,
-      '',
+      safeMetadata.caption || '',
       type,
       publicUrl,
       { ...safeMetadata, isUploading: false }

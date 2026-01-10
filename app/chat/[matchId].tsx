@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { View, Text, StyleSheet, TextInput, FlatList, KeyboardAvoidingView, Platform, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, TextInput, FlatList, KeyboardAvoidingView, Platform, TouchableOpacity, Alert, Modal } from 'react-native';
 import * as ExpoRouter from 'expo-router';
 import { useAuth, useAlert } from '@/template';
 import { useMessages } from '@/hooks/useMessages';
@@ -8,6 +8,7 @@ import { callService } from '@/services/callService';
 import { MessageBubble } from '@/components/chat/MessageBubble';
 import { Ionicons } from '@expo/vector-icons';
 import { Profile, Message } from '@/types';
+import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TypingIndicator } from '@/components/chat/TypingIndicator';
 import { MediaMenu } from '@/components/chat/MediaMenu';
@@ -55,6 +56,8 @@ export default function ChatScreen() {
   // Use global call state from NotificationContext
   const { setActiveCall, setCallOtherProfile, setIsCallIncoming } = useNotifications();
 
+  const [selectedMedia, setSelectedMedia] = React.useState<{ uri: string, type: 'image' | 'video' | 'file', metadata?: any } | null>(null);
+  const [caption, setCaption] = React.useState('');
   const typingChannelRef = React.useRef<any>(null);
 
   // Check if chat is locked on mount
@@ -379,14 +382,14 @@ export default function ChatScreen() {
             return;
           }
           const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.All,
+            mediaTypes: ['images', 'videos'],
             quality: 0.8,
             videoMaxDuration: 60,
           });
           if (!result.canceled) {
             const asset = result.assets[0];
             const isVideo = asset.type === 'video' || asset.uri.includes('.mp4') || asset.uri.includes('.mov');
-            await sendMediaMessage(asset.uri, isVideo ? 'video' : 'image');
+            setSelectedMedia({ uri: asset.uri, type: isVideo ? 'video' : 'image' });
           }
           break;
         }
@@ -397,14 +400,14 @@ export default function ChatScreen() {
             return;
           }
           const result = await ImagePicker.launchCameraAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.All,
+            mediaTypes: ['images', 'videos'],
             quality: 0.8,
             videoMaxDuration: 60,
           });
           if (!result.canceled) {
             const asset = result.assets[0];
             const isVideo = asset.type === 'video' || asset.uri.includes('.mp4') || asset.uri.includes('.mov');
-            await sendMediaMessage(asset.uri, isVideo ? 'video' : 'image');
+            setSelectedMedia({ uri: asset.uri, type: isVideo ? 'video' : 'image' });
           }
           break;
         }
@@ -468,245 +471,302 @@ export default function ChatScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={[styles.container, { backgroundColor: '#000000' }]}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
-    >
-      <View style={[styles.header, { paddingTop: insets.top }]}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={28} color="#FFF" />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.headerInfo}
-          onLongPress={() => {
-            if (isLocked) {
-              Alert.alert(
-                'Unlock Chat',
-                'Remove lock from this chat?',
-                [
-                  { text: 'Cancel', style: 'cancel' },
-                  {
-                    text: 'Unlock',
-                    onPress: async () => {
-                      if (user) {
-                        await chatLockService.unlockChat(user.id, matchId);
-                        setIsLocked(false);
-                        setIsUnlocked(false);
-                      }
-                    }
-                  }
-                ]
-              );
-            } else {
-              setShowPinSetup(true);
-            }
-          }}
-          activeOpacity={1}
-        >
-          <Text style={styles.headerName} numberOfLines={1}>
-            {otherProfile?.display_name || 'Chat'}
-          </Text>
-          <View style={styles.onlineIndicator}>
-            {typingMap[matchId] ? (
-              <Text style={styles.typingText}>
-                typing...
-              </Text>
-            ) : (
-              <Text style={styles.onlineText}>
-                {getPresenceText(otherProfile)}
-              </Text>
-            )}
-          </View>
-        </TouchableOpacity>
-
-        <View style={styles.headerActions}>
-          <TouchableOpacity onPress={() => initiateCall('voice')} style={styles.headerActionBtn}>
-            <Ionicons name="call" size={22} color="#87CEEB" />
+    <>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={[styles.container, { backgroundColor: '#000000' }]}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+      >
+        <View style={[styles.header, { paddingTop: insets.top }]}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <Ionicons name="chevron-back" size={28} color="#FFF" />
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => initiateCall('video')} style={styles.headerActionBtn}>
-            <Ionicons name="videocam" size={24} color="#87CEEB" />
-          </TouchableOpacity>
-
 
           <TouchableOpacity
-            onPress={() => {
-              Alert.alert(
-                'Safety & Privacy',
-                `Are you sure you want to block ${otherProfile?.display_name || 'this user'}? You won't see their messages anymore.`,
-                [
-                  { text: 'Cancel', style: 'cancel' },
-                  {
-                    text: 'Block',
-                    style: 'destructive',
-                    onPress: async () => {
-                      if (user && otherProfile) {
-                        await matchService.blockUser(user.id, otherProfile.id);
-                        router.replace('/(tabs)/matches');
+            style={styles.headerInfo}
+            onLongPress={() => {
+              if (isLocked) {
+                Alert.alert(
+                  'Unlock Chat',
+                  'Remove lock from this chat?',
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                      text: 'Unlock',
+                      onPress: async () => {
+                        if (user) {
+                          await chatLockService.unlockChat(user.id, matchId);
+                          setIsLocked(false);
+                          setIsUnlocked(false);
+                        }
                       }
                     }
-                  }
-                ]
-              );
-            }}
-            style={styles.headerActionBtn}
-          >
-            <Ionicons name="shield-checkmark" size={20} color="#FF3B30" />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Show locked screen if chat is locked and not unlocked */}
-      {isLocked && !isUnlocked ? (
-        <LockedChatScreen
-          otherUserName={otherProfile?.display_name || 'User'}
-          onUnlock={async (pin) => {
-            if (!user) return false;
-            const isValid = await chatLockService.verifyPin(user.id, matchId, pin);
-            if (isValid) {
-              setIsUnlocked(true);
-            }
-            return isValid;
-          }}
-          onMaxAttempts={async () => {
-            if (matchId && user) {
-              Alert.alert(`${otherProfile?.display_name || 'User'} says you are Genius 🤡🤣 !`, "");
-              await matchService.deleteAllMessagesInMatch(matchId);
-              await chatLockService.unlockChat(user.id, matchId);
-              setIsUnlocked(true);
-              setIsLocked(false);
-            }
-          }}
-        />
-      ) : (
-        <>
-          <FlatList
-            ref={flatListRef}
-            data={messagesWithDates}
-            style={{ flex: 1 }}
-            inverted={true}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => {
-              if (item.type === 'date-header') {
-                return renderDateHeader(item.date);
+                  ]
+                );
+              } else {
+                setShowPinSetup(true);
               }
-
-              return (
-                <MessageBubble
-                  message={item}
-                  isOwn={item.sender_id === user?.id}
-                  onReaction={(emoji: string) => toggleReaction(item.id, emoji)}
-                  onReply={(msg) => setReplyingTo(msg)}
-                  onReplyPress={handleReplyPress}
-                  onDelete={(id) => deleteMessage(id)}
-                />
-              );
             }}
-            ListHeaderComponent={typingMap[matchId] ? <TypingIndicator /> : null}
-            contentContainerStyle={styles.messageList}
-            showsVerticalScrollIndicator={false}
-            // Important for scrollToIndex
-            onScrollToIndexFailed={(info) => {
-              flatListRef.current?.scrollToOffset({
-                offset: info.averageItemLength * info.index,
-                animated: true,
-              });
+            activeOpacity={1}
+          >
+            <Text style={styles.headerName} numberOfLines={1}>
+              {otherProfile?.display_name || 'Chat'}
+            </Text>
+            <View style={styles.onlineIndicator}>
+              {typingMap[matchId] ? (
+                <Text style={styles.typingText}>
+                  typing...
+                </Text>
+              ) : (
+                <Text style={styles.onlineText}>
+                  {getPresenceText(otherProfile)}
+                </Text>
+              )}
+            </View>
+          </TouchableOpacity>
+
+          <View style={styles.headerActions}>
+            <TouchableOpacity onPress={() => initiateCall('voice')} style={styles.headerActionBtn}>
+              <Ionicons name="call" size={22} color="#87CEEB" />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => initiateCall('video')} style={styles.headerActionBtn}>
+              <Ionicons name="videocam" size={24} color="#87CEEB" />
+            </TouchableOpacity>
+
+
+            <TouchableOpacity
+              onPress={() => {
+                Alert.alert(
+                  'Safety & Privacy',
+                  `Are you sure you want to block ${otherProfile?.display_name || 'this user'}? You won't see their messages anymore.`,
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                      text: 'Block',
+                      style: 'destructive',
+                      onPress: async () => {
+                        if (user && otherProfile) {
+                          await matchService.blockUser(user.id, otherProfile.id);
+                          router.replace('/(tabs)/matches');
+                        }
+                      }
+                    }
+                  ]
+                );
+              }}
+              style={styles.headerActionBtn}
+            >
+              <Ionicons name="shield-checkmark" size={20} color="#FF3B30" />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Show locked screen if chat is locked and not unlocked */}
+        {isLocked && !isUnlocked ? (
+          <LockedChatScreen
+            otherUserName={otherProfile?.display_name || 'User'}
+            onUnlock={async (pin) => {
+              if (!user) return false;
+              const isValid = await chatLockService.verifyPin(user.id, matchId, pin);
+              if (isValid) {
+                setIsUnlocked(true);
+              }
+              return isValid;
+            }}
+            onMaxAttempts={async () => {
+              if (matchId && user) {
+                Alert.alert(`${otherProfile?.display_name || 'User'} says you are Genius 🤡🤣 !`, "");
+                await matchService.deleteAllMessagesInMatch(matchId);
+                await chatLockService.unlockChat(user.id, matchId);
+                setIsUnlocked(true);
+                setIsLocked(false);
+              }
             }}
           />
+        ) : (
+          <>
+            <FlatList
+              ref={flatListRef}
+              data={messagesWithDates}
+              style={{ flex: 1 }}
+              inverted={true}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => {
+                if (item.type === 'date-header') {
+                  return renderDateHeader(item.date);
+                }
 
-          <View style={[styles.inputContainer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
-            {replyingTo && (
-              <View style={styles.replyBarContainer}>
-                <View style={styles.replyBarHighlight} />
-                <View style={styles.replyBarContent}>
-                  <Text style={styles.replyBarSender}>
-                    {replyingTo.sender_id === user?.id ? 'Replying to yourself' : 'Replying to message'}
-                  </Text>
-                  <Text style={styles.replyBarText} numberOfLines={1}>
-                    {replyingTo.type === 'image' ? '📷 Photo' :
-                      replyingTo.type === 'audio' ? '🎵 Audio' :
-                        replyingTo.type === 'file' ? '📄 File' :
-                          replyingTo.content}
-                  </Text>
+                return (
+                  <MessageBubble
+                    message={item}
+                    isOwn={item.sender_id === user?.id}
+                    onReaction={(emoji: string) => toggleReaction(item.id, emoji)}
+                    onReply={(msg) => setReplyingTo(msg)}
+                    onReplyPress={handleReplyPress}
+                    onDelete={(id) => deleteMessage(id)}
+                  />
+                );
+              }}
+              ListHeaderComponent={typingMap[matchId] ? <TypingIndicator /> : null}
+              contentContainerStyle={styles.messageList}
+              showsVerticalScrollIndicator={false}
+              // Important for scrollToIndex
+              onScrollToIndexFailed={(info) => {
+                flatListRef.current?.scrollToOffset({
+                  offset: info.averageItemLength * info.index,
+                  animated: true,
+                });
+              }}
+            />
+
+            <View style={[styles.inputContainer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+              {replyingTo && (
+                <View style={styles.replyBarContainer}>
+                  <View style={styles.replyBarHighlight} />
+                  <View style={styles.replyBarContent}>
+                    <Text style={styles.replyBarSender}>
+                      {replyingTo.sender_id === user?.id ? 'Replying to yourself' : 'Replying to message'}
+                    </Text>
+                    <Text style={styles.replyBarText} numberOfLines={1}>
+                      {replyingTo.type === 'image' ? '📷 Photo' :
+                        replyingTo.type === 'audio' ? '🎵 Audio' :
+                          replyingTo.type === 'file' ? '📄 File' :
+                            replyingTo.content}
+                    </Text>
+                  </View>
+                  <TouchableOpacity onPress={() => setReplyingTo(null)} style={styles.closeReplyBtn}>
+                    <Ionicons name="close-circle" size={24} color="#888" />
+                  </TouchableOpacity>
                 </View>
-                <TouchableOpacity onPress={() => setReplyingTo(null)} style={styles.closeReplyBtn}>
-                  <Ionicons name="close-circle" size={24} color="#888" />
-                </TouchableOpacity>
-              </View>
-            )}
-            {isRecording ? (
-              useWhatsAppStyle ? (
-                <WhatsAppVoiceNote
-                  onRecordingComplete={handleVoiceRecordingComplete}
-                  onCancel={() => setIsRecording(false)}
-                />
-              ) : (
-                <VoiceRecorder
-                  onRecordingComplete={handleVoiceRecordingComplete}
-                  onCancel={() => setIsRecording(false)}
-                />
-              )
-            ) : (
-              <View style={styles.inputWrapper}>
-                <TouchableOpacity
-                  onPress={() => setShowMediaMenu(true)}
-                  style={styles.mediaButton}
-                >
-                  <Ionicons name="add" size={24} color="#87CEEB" />
-                </TouchableOpacity>
-
-                <TextInput
-                  style={styles.input}
-                  placeholder="Type a message..."
-                  placeholderTextColor="rgba(255, 255, 255, 0.4)"
-                  value={inputText}
-                  onChangeText={handleInputChange}
-                  multiline
-                  maxLength={500}
-                />
-
-                {inputText.trim() ? (
-                  <TouchableOpacity
-                    onPress={handleSend}
-                    disabled={sending}
-                    style={[styles.sendButton, { backgroundColor: '#87CEEB' }]}
-                  >
-                    <Ionicons name="send" size={20} color="#000" />
-                  </TouchableOpacity>
+              )}
+              {isRecording ? (
+                useWhatsAppStyle ? (
+                  <WhatsAppVoiceNote
+                    onRecordingComplete={handleVoiceRecordingComplete}
+                    onCancel={() => setIsRecording(false)}
+                  />
                 ) : (
+                  <VoiceRecorder
+                    onRecordingComplete={handleVoiceRecordingComplete}
+                    onCancel={() => setIsRecording(false)}
+                  />
+                )
+              ) : (
+                <View style={styles.inputWrapper}>
                   <TouchableOpacity
-                    onPress={() => setIsRecording(true)}
-                    disabled={sending}
-                    style={[styles.sendButton, { backgroundColor: 'rgba(255, 255, 255, 0.1)' }]}
+                    onPress={() => setShowMediaMenu(true)}
+                    style={styles.mediaButton}
                   >
-                    <Ionicons name="mic" size={22} color="#FFF" />
+                    <Ionicons name="add" size={24} color="#87CEEB" />
                   </TouchableOpacity>
-                )}
+
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Type a message..."
+                    placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                    value={inputText}
+                    onChangeText={handleInputChange}
+                    multiline
+                    maxLength={500}
+                  />
+
+                  {inputText.trim() ? (
+                    <TouchableOpacity
+                      onPress={handleSend}
+                      disabled={sending}
+                      style={[styles.sendButton, { backgroundColor: '#87CEEB' }]}
+                    >
+                      <Ionicons name="send" size={20} color="#000" />
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity
+                      onPress={() => setIsRecording(true)}
+                      disabled={sending}
+                      style={[styles.sendButton, { backgroundColor: 'rgba(255, 255, 255, 0.1)' }]}
+                    >
+                      <Ionicons name="mic" size={22} color="#FFF" />
+                    </TouchableOpacity>
+                  )}
+                </View>
+              )}
+            </View>
+          </>
+        )}
+
+        <MediaMenu
+          visible={showMediaMenu}
+          onClose={() => setShowMediaMenu(false)}
+          onSelect={handleMediaSelect}
+        />
+
+        <PinSetupModal
+          visible={showPinSetup}
+          onComplete={async (pin) => {
+            if (user) {
+              await chatLockService.lockChat(user.id, matchId, pin);
+              setIsLocked(true);
+              setShowPinSetup(false);
+            }
+          }}
+          onCancel={() => setShowPinSetup(false)}
+        />
+      </KeyboardAvoidingView>
+
+      {/* Media Preview Modal */}
+      <Modal visible={!!selectedMedia} transparent animationType="slide">
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.previewOverlay}>
+          <View style={styles.previewHeader}>
+            <TouchableOpacity onPress={() => { setSelectedMedia(null); setCaption(''); }} style={styles.previewClose}>
+              <Ionicons name="close" size={28} color="#FFF" />
+            </TouchableOpacity>
+            <Text style={styles.previewTitle}>Preview</Text>
+            <View style={{ width: 40 }} />
+          </View>
+
+          <View style={styles.previewContent}>
+            {selectedMedia?.type === 'image' ? (
+              <Image
+                source={{ uri: selectedMedia.uri }}
+                style={styles.previewImage}
+                contentFit="contain"
+                priority="high"
+              />
+            ) : (
+              <View style={styles.videoPreviewPlaceholder}>
+                <Ionicons name="videocam" size={80} color="rgba(255,255,255,0.2)" />
+                <Text style={styles.videoPreviewText}>Video Selected</Text>
               </View>
             )}
           </View>
-        </>
-      )}
 
-      <MediaMenu
-        visible={showMediaMenu}
-        onClose={() => setShowMediaMenu(false)}
-        onSelect={handleMediaSelect}
-      />
-
-      <PinSetupModal
-        visible={showPinSetup}
-        onComplete={async (pin) => {
-          if (user) {
-            await chatLockService.lockChat(user.id, matchId, pin);
-            setIsLocked(true);
-            setShowPinSetup(false);
-          }
-        }}
-        onCancel={() => setShowPinSetup(false)}
-      />
-    </KeyboardAvoidingView>
+          <View style={[styles.previewFooter, { paddingBottom: Math.max(insets.bottom, 20) }]}>
+            <View style={styles.previewInputContainer}>
+              <TextInput
+                style={styles.previewInput}
+                placeholder="Add a caption..."
+                placeholderTextColor="rgba(255,255,255,0.5)"
+                value={caption}
+                onChangeText={setCaption}
+                multiline
+              />
+              <TouchableOpacity
+                style={styles.previewSendBtn}
+                onPress={async () => {
+                  if (!selectedMedia) return;
+                  const media = selectedMedia;
+                  const text = caption;
+                  setSelectedMedia(null);
+                  setCaption('');
+                  await sendMediaMessage(media.uri, media.type, { ...media.metadata, caption: text });
+                }}
+              >
+                <Ionicons name="send" size={24} color="#FFF" />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+    </>
   );
 }
 
@@ -852,4 +912,17 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textTransform: 'uppercase',
   },
+  // Preview Styles
+  previewOverlay: { flex: 1, backgroundColor: '#000' },
+  previewHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingTop: Platform.OS === 'ios' ? 50 : 20, paddingBottom: 10 },
+  previewClose: { padding: 8 },
+  previewTitle: { ...Typography.header, color: '#FFF' },
+  previewContent: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  previewImage: { width: '100%', height: '100%' },
+  videoPreviewPlaceholder: { alignItems: 'center', gap: 12 },
+  videoPreviewText: { ...Typography.body, color: '#FFF' },
+  previewFooter: { paddingHorizontal: 16, paddingTop: 10 },
+  previewInputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1A1A1A', borderRadius: 25, paddingHorizontal: 16, paddingVertical: 8, gap: 12 },
+  previewInput: { flex: 1, color: '#FFF', ...Typography.body, maxHeight: 100 },
+  previewSendBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.light.primary, justifyContent: 'center', alignItems: 'center' },
 });

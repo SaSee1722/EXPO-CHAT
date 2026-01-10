@@ -29,7 +29,7 @@ export const Colors = {
     shadow: 'rgba(0, 0, 0, 0.1)',
 
     bubbleSender: '#87CEEB',
-    bubbleReceiver: '#F0F0F0', // Light grey for light mode receiver
+    bubbleReceiver: '#333333',
   },
   dark: {
     primary: '#87CEEB',
@@ -59,7 +59,7 @@ export const Colors = {
     shadow: 'rgba(0, 0, 0, 0.3)',
 
     bubbleSender: '#87CEEB',
-    bubbleReceiver: '#1A1A1A',
+    bubbleReceiver: '#333333',
   },
 };
 
@@ -80,29 +80,39 @@ export const BorderRadius = {
   round: 999,
 };
 
-// Typography configured for SpaceMono (No autonomy - exact match to user request)
+// Typography configured for SpaceMono
 const fontConfig = {
   fontFamily: 'SpaceMono',
 };
 
 export const Typography = {
+  header: {
+    ...fontConfig,
+    fontSize: 28,
+    fontWeight: Platform.OS === 'ios' ? '900' : '700' as any,
+    lineHeight: 34,
+    letterSpacing: Platform.OS === 'ios' ? 8 : 12,
+  },
   h1: {
     ...fontConfig,
     fontSize: 32,
     fontWeight: '700' as const,
     lineHeight: 40,
+    letterSpacing: Platform.OS === 'ios' ? 2 : 4,
   },
   h2: {
     ...fontConfig,
     fontSize: 24,
     fontWeight: '700' as const,
     lineHeight: 32,
+    letterSpacing: Platform.OS === 'ios' ? 2 : 4,
   },
   h3: {
     ...fontConfig,
     fontSize: 20,
     fontWeight: '600' as const,
     lineHeight: 28,
+    letterSpacing: Platform.OS === 'ios' ? 1 : 2,
   },
   chat: {
     ...fontConfig,
@@ -164,4 +174,3 @@ export const Shadows = {
   medium: getShadow('medium'),
   large: getShadow('large'),
 };
-

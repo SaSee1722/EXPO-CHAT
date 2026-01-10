@@ -1,6 +1,5 @@
 import { getSupabaseClient } from '@/template';
 import { Message } from '@/types';
-import * as FileSystem from 'expo-file-system/legacy';
 import { Platform } from 'react-native';
 
 const supabase = getSupabaseClient();
@@ -175,67 +174,80 @@ export const matchService = {
     try {
       console.log(`[MediaUpload] Starting upload for ${type}:`, uri.substring(0, 100));
 
-      const isDataUri = uri.startsWith('data:');
       const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
       const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
       if (!supabaseUrl || !supabaseAnonKey) throw new Error('Supabase configuration missing');
 
-      // 1. Generate fileName and path
+      // Import FileSystem dynamically
+      const FileSystem = require('expo-file-system/legacy');
+
+      // 1. Read file as base64 (works reliably on iOS)
+      console.log('[MediaUpload] Reading file as base64...');
+      const base64 = await FileSystem.readAsStringAsync(uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+
+      console.log('[MediaUpload] Base64 length:', base64.length);
+
+      if (!base64 || base64.length === 0) {
+        throw new Error('Failed to read file data');
+      }
+
+      // 2. Determine content type
+      let contentType = 'application/octet-stream';
+      let fileExtension = '';
+
+      if (type === 'image') {
+        // Detect image type from base64 header
+        if (base64.startsWith('iVBOR')) {
+          contentType = 'image/png';
+          fileExtension = '.png';
+        } else if (base64.startsWith('/9j/')) {
+          contentType = 'image/jpeg';
+          fileExtension = '.jpg';
+        } else {
+          contentType = 'image/jpeg';
+          fileExtension = '.jpg';
+        }
+      } else if (type === 'audio') {
+        contentType = 'audio/x-m4a';
+        fileExtension = '.m4a';
+      } else if (type === 'video') {
+        contentType = 'video/mp4';
+        fileExtension = '.mp4';
+      }
+
+      // 3. Convert base64 to Uint8Array
+      const binaryString = atob(base64);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+
+      console.log('[MediaUpload] Binary data size:', bytes.length, 'bytes');
+
+      if (bytes.length === 0) {
+        throw new Error('Binary data is empty after conversion');
+      }
+
+      // 4. Generate filename
       const rawFileName = uri.split('/').pop()?.split('?')[0] || 'upload';
       const sanitizedName = rawFileName.replace(/[^a-zA-Z0-9.]/g, '_');
-      const fileName = `${matchId}/${Date.now()}_${sanitizedName}${type === 'audio' && !sanitizedName.endsWith('.m4a') ? '.m4a' : ''}`;
+      const fileName = `${matchId}/${Date.now()}_${sanitizedName}${fileExtension}`;
 
-      const contentType = type === 'image' ? 'image/jpeg' :
-        type === 'audio' ? 'audio/x-m4a' :
-          'application/octet-stream';
+      console.log('[MediaUpload] Uploading to Supabase Storage...');
+      console.log('[MediaUpload] FileName:', fileName, 'ContentType:', contentType);
 
-      // 2. Handle Data URIs (Web or base64 recordings)
-      if (isDataUri) {
-        console.log('[MediaUpload] Handling base64 data URI');
-        const response = await fetch(uri);
-        const blob = await response.blob();
-
-        const { error } = await supabase.storage
-          .from('chat-media')
-          .upload(fileName, blob, { contentType, upsert: true });
-
-        if (error) throw error;
-      }
-      // 3. Handle Native File Uploads
-      else if (Platform.OS !== 'web') {
-        console.log('[MediaUpload] Handling native file upload using FileSystem');
-        const uploadUrl = `${supabaseUrl}/storage/v1/object/chat-media/${fileName}`;
-        const { data: { session } } = await supabase.auth.getSession();
-        const token = session?.access_token || supabaseAnonKey;
-
-        const result = await FileSystem.uploadAsync(uploadUrl, uri, {
-          httpMethod: 'PUT',
-          uploadType: (FileSystem as any).UploadType?.BINARY_CONTENT || (FileSystem as any).FileSystemUploadType?.BINARY_CONTENT,
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'apikey': supabaseAnonKey,
-            'Content-Type': contentType,
-            'x-upsert': 'true'
-          }
+      const { error: uploadError } = await supabase.storage
+        .from('chat-media')
+        .upload(fileName, bytes.buffer, {
+          contentType,
+          upsert: true,
+          cacheControl: '3600'
         });
 
-        if (result.status < 200 || result.status >= 300) {
-          throw new Error(`Upload failed with status ${result.status}: ${result.body}`);
-        }
-      }
-      // 4. Handle Web File Uploads
-      else {
-        console.log('[MediaUpload] Handling web file upload');
-        const response = await fetch(uri);
-        const blob = await response.blob();
-
-        const { error } = await supabase.storage
-          .from('chat-media')
-          .upload(fileName, blob, { contentType, upsert: true });
-
-        if (error) throw error;
-      }
+      if (uploadError) throw uploadError;
 
       // 5. Get and return Public URL
       const { data: { publicUrl } } = supabase.storage
