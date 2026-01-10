@@ -61,7 +61,7 @@ export function MatchModal({ visible, profile, onSendMessage, onKeepSwiping }: M
     >
       <View style={styles.overlay}>
         <LinearGradient
-          colors={[colors.gradientStart, colors.gradientEnd]}
+          colors={[colors.primary, colors.secondary]}
           style={StyleSheet.absoluteFill}
         />
 
