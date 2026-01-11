@@ -1,4 +1,5 @@
 import { getSupabaseClient } from '@/template';
+import { notificationService } from './notificationService';
 import { Message } from '@/types';
 import { Platform } from 'react-native';
 
@@ -166,6 +167,42 @@ export const matchService = {
       })
       .select()
       .single();
+
+    if (!error && data) {
+      // Optimistically send push notification (don't await strictly to block UI, but good to handle)
+      (async () => {
+        try {
+          // 1. Find who is the receiver
+          const { data: match } = await supabase.from('matches').select('user1_id, user2_id').eq('id', match_id).single();
+          if (!match) return;
+
+          const receiverId = match.user1_id === sender_id ? match.user2_id : match.user1_id;
+
+          // 2. Get receiver's push token and Sender's name
+          const { data: receiverProfile } = await supabase.from('profiles').select('push_token').eq('id', receiverId).single();
+          const { data: senderProfile } = await supabase.from('profiles').select('display_name').eq('id', sender_id).single();
+
+          if (receiverProfile?.push_token) {
+            const title = senderProfile?.display_name || 'New Message';
+            const body = type === 'image' ? '📷 Photo' :
+              type === 'audio' ? '🎵 Audio' :
+                type === 'video' ? '🎥 Video' :
+                  type === 'file' ? '📄 File' :
+                    content;
+
+            await notificationService.sendPushNotification(
+              receiverProfile.push_token,
+              title,
+              body,
+              { matchId: match_id }, // Payload for navigation
+              'message'
+            );
+          }
+        } catch (e) {
+          console.error('Failed to send push notification:', e);
+        }
+      })();
+    }
 
     return { data, error };
   },

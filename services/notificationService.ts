@@ -102,5 +102,34 @@ export const notificationService = {
             },
             trigger: null, // Immediate
         });
+    },
+
+    async sendPushNotification(expoPushToken: string, title: string, body: string, data: any, type: 'message' | 'call' = 'message') {
+        const message = {
+            to: expoPushToken,
+            sound: 'default',
+            title: title,
+            body: body,
+            data: { ...data, type }, // Ensure type is in data for handling
+            channelId: type === 'call' ? 'calls' : 'default',
+            priority: type === 'call' ? 'high' : 'normal',
+            ttl: type === 'call' ? 60 : 2419200, // Calls expire quickly (60s), messages last 4 weeks
+        };
+
+        try {
+            const response = await fetch('https://exp.host/--/api/v2/push/send', {
+                method: 'POST',
+                headers: {
+                    Accept: 'application/json',
+                    'Accept-encoding': 'gzip, deflate',
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(message),
+            });
+            const result = await response.json();
+            // console.log('Push send result:', result);
+        } catch (error) {
+            console.error('Error sending push notification:', error);
+        }
     }
 };

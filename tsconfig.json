@@ -1,7 +1,9 @@
 {
   "extends": "expo/tsconfig.base.json",
   "compilerOptions": {
+    "module": "esnext",
     "strict": true,
+    "forceConsistentCasingInFileNames": true,
     "paths": {
       "@/*": [
         "./*"

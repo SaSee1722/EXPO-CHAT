@@ -1,6 +1,7 @@
 import React, { createContext, useEffect, useState, useRef, useCallback } from 'react';
 import * as Notifications from 'expo-notifications';
 import { useRouter, useSegments, useGlobalSearchParams } from 'expo-router';
+import { Vibration } from 'react-native';
 import { notificationService } from '@/services/notificationService';
 import { matchService } from '@/services/matchService';
 import { callService } from '@/services/callService';
@@ -112,6 +113,9 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         setCallOtherProfile(callerProfile);
         setIsCallIncoming(true);
 
+        // Start vibration pattern (wait 0ms, vibrate 500ms, wait 1000ms, repeat)
+        Vibration.vibrate([0, 500, 1000], true);
+
         // Signaling initialized above already
 
         // Also show a banner for redundancy/visibility
@@ -130,6 +134,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
     // --- Call Actions ---
     const handleAcceptCall = async () => {
+        Vibration.cancel();
         if (!activeCall) return;
 
         // 1. Broadcast acceptance
@@ -148,6 +153,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     };
 
     const handleRejectCall = async () => {
+        Vibration.cancel();
         if (!activeCall || !user) return;
         await callService.updateCallStatus(activeCall.id, 'rejected');
 
@@ -158,6 +164,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     };
 
     const handleEndCall = async () => {
+        Vibration.cancel();
         if (!activeCall || !user) return;
 
         // Calculate duration if call was active
@@ -205,6 +212,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
                 setActiveCall(null);
                 setCallOtherProfile(null);
                 setIsCallIncoming(false);
+                Vibration.cancel();
                 webrtcService.cleanup('db_poll_terminated');
             }
         }, 2000);
@@ -232,11 +240,38 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         };
 
         const notificationListener = Notifications.addNotificationReceivedListener(_ => { });
-        const responseListener = Notifications.addNotificationResponseReceivedListener(response => {
+        const responseListener = Notifications.addNotificationResponseReceivedListener(async response => {
             const data = response.notification.request.content.data as any;
-            if (data.matchId) {
+
+            // Handle Call Notification Click
+            if (data.type === 'call' && data.callId) {
+                // Fetch call details immediately to show overlay
+                const { data: callData } = await getSupabaseClient()
+                    .from('calls')
+                    .select('*')
+                    .eq('id', data.callId)
+                    .single();
+
+                if (callData && callData.status === 'calling') {
+                    // We also need the caller profile
+                    const { data: callerProfile } = await getSupabaseClient()
+                        .from('profiles')
+                        .select('*')
+                        .eq('id', callData.caller_id)
+                        .single();
+
+                    if (callerProfile) {
+                        setActiveCall(callData);
+                        setCallOtherProfile(callerProfile);
+                        setIsCallIncoming(true);
+                        webrtcService.initialize(user.id, callData.match_id, false, callData.call_type === 'video');
+                    }
+                }
+            }
+            // Handle Message Notification Click
+            else if (data.matchId) {
                 const currentSegments = segmentsRef.current as string[];
-                const currentParams = paramsRef.current;
+                const currentParams = paramsRef.current as any;
                 const isSameChat = currentSegments.includes('chat') && (currentParams.matchId === data.matchId);
 
                 if (!isSameChat) {

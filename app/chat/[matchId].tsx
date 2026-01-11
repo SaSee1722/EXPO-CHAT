@@ -709,7 +709,7 @@ export default function ChatScreen() {
                       style={styles.mediaButton}
                     >
                       <Ionicons
-                        name={showEmojiPicker ? "keyboard" : "happy-outline"}
+                        name={showEmojiPicker ? "keypad" : "happy-outline"}
                         size={24}
                         color="#87CEEB"
                       />

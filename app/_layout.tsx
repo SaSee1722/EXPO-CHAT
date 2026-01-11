@@ -13,6 +13,7 @@ import { StatusBar } from 'expo-status-bar';
 import * as NavigationBar from 'expo-navigation-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import { useFonts } from 'expo-font';
+import { Camera } from 'expo-camera';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -41,13 +42,28 @@ export default function RootLayout() {
 
     const requestPermissions = async () => {
       try {
-        // Request microphone permission
+        console.log('[RootLayout] 🔐 Requesting all permissions...');
+
+        // 1. Notifications (Required for Android 13+)
+        const { status: notifStatus } = await import('expo-notifications').then(n => n.requestPermissionsAsync());
+        console.log('[RootLayout] Notification permission:', notifStatus);
+
+        // 2. Microphone (Required for Voice Messages & Calls)
         const { status: audioStatus } = await Audio.requestPermissionsAsync();
         console.log('[RootLayout] Microphone permission:', audioStatus);
 
-        // Request camera permission (for video calls)
+        // 3. Camera (Required for Video Calls)
         if (Platform.OS === 'android') {
           const { PermissionsAndroid } = require('react-native');
+
+          // Android 13+ Notification Permission (explicit check)
+          if (Platform.Version >= 33) {
+            const granted = await PermissionsAndroid.request(
+              PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS
+            );
+            console.log('[RootLayout] Android 13+ Notification permission:', granted);
+          }
+
           const cameraGranted = await PermissionsAndroid.request(
             PermissionsAndroid.PERMISSIONS.CAMERA,
             {
@@ -60,8 +76,9 @@ export default function RootLayout() {
           );
           console.log('[RootLayout] Camera permission:', cameraGranted);
         } else {
-          // iOS camera permission will be requested when needed
-          console.log('[RootLayout] iOS camera permission will be requested on first use');
+          // iOS
+          const { status: cameraStatus } = await Camera.requestCameraPermissionsAsync();
+          console.log('[RootLayout] iOS Camera permission:', cameraStatus);
         }
       } catch (e) {
         console.error('[RootLayout] Failed to request permissions:', e);

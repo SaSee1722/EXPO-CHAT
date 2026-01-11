@@ -361,6 +361,7 @@ export function MessageBubble({ message, isOwn, onReaction, onReply, onReplyPres
               },
             ]}
           >
+            {renderReplyPreview()}
             {renderContent()}
           </TouchableOpacity>
           {isSelected && (
@@ -421,10 +422,11 @@ export function MessageBubble({ message, isOwn, onReaction, onReply, onReplyPres
 }
 
 const styles = StyleSheet.create({
-  container: { marginBottom: 16, alignItems: 'flex-start', maxWidth: '85%' },
+  container: { marginBottom: 16, alignItems: 'flex-start', maxWidth: '80%' },
   ownContainer: { alignSelf: 'flex-end', alignItems: 'flex-end' },
   bubble: {
     ...Shadows.small,
+    minWidth: 120, // Ensure minimum width for replies
   },
   senderBubble: {
     borderTopLeftRadius: 20,
