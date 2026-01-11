@@ -26,6 +26,7 @@ export default function ProfileScreen() {
   const [editedName, setEditedName] = useState('');
   const [editedAge, setEditedAge] = useState('');
   const [editedBio, setEditedBio] = useState('');
+  const [editedLocation, setEditedLocation] = useState('');
   const [saving, setSaving] = useState(false);
 
   const onRefresh = useCallback(async () => {
@@ -86,6 +87,7 @@ export default function ProfileScreen() {
     setEditedName(profile?.display_name || '');
     setEditedAge(profile?.age?.toString() || '');
     setEditedBio(profile?.bio || '');
+    setEditedLocation(profile?.location || '');
     setIsEditing(true);
   };
 
@@ -106,6 +108,7 @@ export default function ProfileScreen() {
         display_name: editedName.trim(),
         age: age,
         bio: editedBio.trim(),
+        location: editedLocation.trim(),
       });
       await refreshProfile();
       setIsEditing(false);
@@ -213,28 +216,52 @@ export default function ProfileScreen() {
 
             <CardWrapper intensity={20} tint="dark" style={[styles.infoCard, Platform.OS === 'android' && styles.androidCard]}>
               <InfoRow icon="mail" label="EMAIL" value={user?.email || 'Not set'} color="#87CEEB" />
-              <InfoRow icon="location" label="LOCATION" value={profile.location || 'Not set'} color="#FFB6C1" />
+
               {isEditing ? (
-                <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
-                  <View style={[styles.infoIconBox, { backgroundColor: '#87CEEB15' }]}>
-                    <Ionicons name="document-text" size={18} color="#87CEEB" />
+                <>
+                  <View style={styles.infoRow}>
+                    <View style={[styles.infoIconBox, { backgroundColor: '#FFB6C115' }]}>
+                      <Ionicons name="location" size={18} color="#FFB6C1" />
+                    </View>
+                    <View style={styles.infoContent}>
+                      <Text style={styles.infoLabel}>LOCATION</Text>
+                      <TextInput
+                        style={styles.editBioInput}
+                        value={editedLocation}
+                        onChangeText={setEditedLocation}
+                        placeholder="Add location"
+                        placeholderTextColor="rgba(255,255,255,0.3)"
+                        maxLength={50}
+                        numberOfLines={1}
+                        multiline={false}
+                      />
+                    </View>
                   </View>
-                  <View style={styles.infoContent}>
-                    <Text style={styles.infoLabel}>BIO</Text>
-                    <TextInput
-                      style={styles.editBioInput}
-                      value={editedBio}
-                      onChangeText={setEditedBio}
-                      placeholder="Tell us about yourself..."
-                      placeholderTextColor="rgba(255,255,255,0.3)"
-                      multiline
-                      maxLength={200}
-                      numberOfLines={3}
-                    />
+
+                  <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
+                    <View style={[styles.infoIconBox, { backgroundColor: '#87CEEB15' }]}>
+                      <Ionicons name="document-text" size={18} color="#87CEEB" />
+                    </View>
+                    <View style={styles.infoContent}>
+                      <Text style={styles.infoLabel}>BIO</Text>
+                      <TextInput
+                        style={styles.editBioInput}
+                        value={editedBio}
+                        onChangeText={setEditedBio}
+                        placeholder="Tell us about yourself..."
+                        placeholderTextColor="rgba(255,255,255,0.3)"
+                        multiline
+                        maxLength={200}
+                        numberOfLines={3}
+                      />
+                    </View>
                   </View>
-                </View>
+                </>
               ) : (
-                <InfoRow icon="document-text" label="BIO" value={profile.bio || 'No bio yet'} color="#87CEEB" last />
+                <>
+                  <InfoRow icon="location" label="LOCATION" value={profile.location || 'Not set'} color="#FFB6C1" />
+                  <InfoRow icon="document-text" label="BIO" value={profile.bio || 'No bio yet'} color="#87CEEB" last />
+                </>
               )}
             </CardWrapper>
 
