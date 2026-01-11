@@ -8,10 +8,11 @@ import { Image } from 'expo-image';
 interface EmojiPickerProps {
     onEmojiSelected: (emoji: { emoji: string }) => void;
     onStickerSelected?: (sticker: any) => void;
+    onStickerCreate?: () => void;
     height?: number;
 }
 
-export const EmojiPicker = ({ onEmojiSelected, onStickerSelected, height = 300 }: EmojiPickerProps) => {
+export const EmojiPicker = ({ onEmojiSelected, onStickerSelected, onStickerCreate, height = 300 }: EmojiPickerProps) => {
     const [activeTab, setActiveTab] = useState<'emojis' | 'stickers'>('emojis');
 
     // Placeholder stickers (using emojis as stickers for now)
@@ -55,6 +56,16 @@ export const EmojiPicker = ({ onEmojiSelected, onStickerSelected, height = 300 }
                     />
                 ) : (
                     <View style={styles.stickerGrid}>
+                        <TouchableOpacity
+                            style={styles.stickerItem}
+                            onPress={onStickerCreate}
+                        >
+                            <View style={styles.createStickerIcon}>
+                                <Ionicons name="add" size={32} color="#87CEEB" />
+                            </View>
+                            <Text style={styles.createStickerText}>Create</Text>
+                        </TouchableOpacity>
+
                         {stickers.map(sticker => (
                             <TouchableOpacity
                                 key={sticker.id}
@@ -142,5 +153,13 @@ const styles = StyleSheet.create({
     stickerImage: {
         width: 60,
         height: 60,
+    },
+    createStickerIcon: {
+        marginBottom: 4,
+    },
+    createStickerText: {
+        color: '#87CEEB',
+        fontSize: 12,
+        fontWeight: '600',
     }
 });

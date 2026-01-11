@@ -732,10 +732,35 @@ export default function ChatScreen() {
               </View>
             </View>
 
+  const handleCreateSticker = async () => {
+    try {
+      const {status} = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (status !== 'granted') {
+              showAlert('Permission to access photos is required');
+            return;
+      }
+            const result = await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ImagePicker.MediaTypeOptions.Images, // Stickers are usually images
+            quality: 0.8,
+            allowsEditing: true, // Allow user to crop/square it ideally
+      });
+
+            if (!result.canceled) {
+        const asset = result.assets[0];
+            // Send as sticker (which is just an image with a specific type/metadata in our case)
+            await sendMediaMessage(asset.uri, 'sticker', {caption: 'Custom Sticker' });
+      }
+    } catch (error) {
+              console.error('Error creating sticker:', error);
+            showAlert('Failed to create sticker');
+    }
+  };
+
             {showEmojiPicker && (
               <EmojiPicker
                 onEmojiSelected={handleEmojiSelect}
                 onStickerSelected={handleStickerSelect}
+                onStickerCreate={handleCreateSticker}
                 height={300}
               />
             )}
