@@ -643,37 +643,56 @@ export default function ChatScreen() {
                 </View>
               )}
               <View style={styles.inputWrapper}>
-                <TouchableOpacity
-                  onPress={() => setShowMediaMenu(true)}
-                  style={styles.mediaButton}
-                >
-                  <Ionicons name="add" size={24} color="#87CEEB" />
-                </TouchableOpacity>
+                {isRecording ? (
+                  useWhatsAppStyle ? (
+                    <WhatsAppVoiceNote
+                      onRecordingComplete={handleVoiceRecordingComplete}
+                      onCancel={() => setIsRecording(false)}
+                    />
+                  ) : (
+                    <VoiceRecorder
+                      onRecordingComplete={handleVoiceRecordingComplete}
+                      onCancel={() => setIsRecording(false)}
+                    />
+                  )
+                ) : (
+                  <>
+                    <TouchableOpacity
+                      onPress={() => setShowMediaMenu(true)}
+                      style={styles.mediaButton}
+                    >
+                      <Ionicons name="add" size={24} color="#87CEEB" />
+                    </TouchableOpacity>
 
-                <TextInput
-                  style={styles.input}
-                  placeholder="Type a message..."
-                  placeholderTextColor="rgba(255, 255, 255, 0.4)"
-                  value={inputText}
-                  onChangeText={handleInputChange}
-                  multiline
-                  maxLength={500}
-                />
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Type a message..."
+                      placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                      value={inputText}
+                      onChangeText={handleInputChange}
+                      multiline
+                      maxLength={500}
+                    />
 
-                <TouchableOpacity
-                  onPress={handleSend}
-                  disabled={sending || !inputText.trim()}
-                  style={[
-                    styles.sendButton,
-                    { backgroundColor: inputText.trim() ? '#87CEEB' : 'rgba(255, 255, 255, 0.1)' }
-                  ]}
-                >
-                  <Ionicons
-                    name="send"
-                    size={20}
-                    color={inputText.trim() ? '#000' : 'rgba(255, 255, 255, 0.3)'}
-                  />
-                </TouchableOpacity>
+                    {inputText.trim() ? (
+                      <TouchableOpacity
+                        onPress={handleSend}
+                        disabled={sending}
+                        style={[styles.sendButton, { backgroundColor: '#87CEEB' }]}
+                      >
+                        <Ionicons name="send" size={20} color="#000" />
+                      </TouchableOpacity>
+                    ) : (
+                      <TouchableOpacity
+                        onPress={() => setIsRecording(true)}
+                        disabled={sending}
+                        style={[styles.sendButton, { backgroundColor: 'rgba(255, 255, 255, 0.1)' }]}
+                      >
+                        <Ionicons name="mic" size={22} color="#FFF" />
+                      </TouchableOpacity>
+                    )}
+                  </>
+                )}
               </View>
             </View>
           </>
