@@ -191,12 +191,13 @@ export default function ProfileScreen() {
               {isEditing ? (
                 <>
                   <TextInput
-                    style={[styles.editNameInput, { color: getGenderColor(editedGender) }]}
+                    style={styles.editNameInput}
                     value={editedName}
                     onChangeText={setEditedName}
                     placeholder="Display Name"
                     placeholderTextColor="rgba(255,255,255,0.3)"
-                    maxLength={30}
+                    maxLength={60}
+                    autoCorrect={false}
                   />
 
                   {/* Gender Selector */}
