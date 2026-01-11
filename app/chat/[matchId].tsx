@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { View, Text, StyleSheet, TextInput, FlatList, KeyboardAvoidingView, Platform, TouchableOpacity, Alert, Modal } from 'react-native';
+import { View, Text, StyleSheet, TextInput, FlatList, KeyboardAvoidingView, Platform, TouchableOpacity, Alert, Modal, Keyboard } from 'react-native';
 import * as ExpoRouter from 'expo-router';
 import { useAuth, useAlert } from '@/template';
 import { useMessages } from '@/hooks/useMessages';
@@ -11,6 +11,7 @@ import { Profile, Message } from '@/types';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TypingIndicator } from '@/components/chat/TypingIndicator';
+import { EmojiPicker } from '@/components/chat/EmojiPicker';
 import { MediaMenu } from '@/components/chat/MediaMenu';
 import { VoiceRecorder } from '@/components/chat/VoiceRecorder';
 import WhatsAppVoiceNote from '@/components/chat/WhatsAppVoiceNote';
@@ -59,6 +60,28 @@ export default function ChatScreen() {
   const [selectedMedia, setSelectedMedia] = React.useState<{ uri: string, type: 'image' | 'video' | 'file', metadata?: any } | null>(null);
   const [caption, setCaption] = React.useState('');
   const typingChannelRef = React.useRef<any>(null);
+
+  const [showEmojiPicker, setShowEmojiPicker] = React.useState(false);
+  const inputRef = React.useRef<TextInput>(null);
+
+  const handleEmojiSelect = (emojiObj: { emoji: string }) => {
+    setInputText((prev) => prev + emojiObj.emoji);
+  };
+
+  const handleStickerSelect = async (sticker: any) => {
+    // Send sticker as image for now
+    await sendMediaMessage(sticker.url, 'image', { caption: 'Sticker' });
+  };
+
+  const toggleEmojiPicker = () => {
+    if (showEmojiPicker) {
+      inputRef.current?.focus();
+      setShowEmojiPicker(false);
+    } else {
+      Keyboard.dismiss();
+      setShowEmojiPicker(true);
+    }
+  };
 
   // Check if chat is locked on mount
   React.useEffect(() => {
@@ -622,7 +645,7 @@ export default function ChatScreen() {
               }}
             />
 
-            <View style={[styles.inputContainer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+            <View style={[styles.inputContainer, { paddingBottom: showEmojiPicker ? 0 : Math.max(insets.bottom, 16) }]}>
               {replyingTo && (
                 <View style={styles.replyBarContainer}>
                   <View style={styles.replyBarHighlight} />
@@ -658,6 +681,17 @@ export default function ChatScreen() {
                 ) : (
                   <>
                     <TouchableOpacity
+                      onPress={toggleEmojiPicker}
+                      style={styles.mediaButton}
+                    >
+                      <Ionicons
+                        name={showEmojiPicker ? "keyboard" : "happy-outline"}
+                        size={24}
+                        color="#87CEEB"
+                      />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
                       onPress={() => setShowMediaMenu(true)}
                       style={styles.mediaButton}
                     >
@@ -665,11 +699,13 @@ export default function ChatScreen() {
                     </TouchableOpacity>
 
                     <TextInput
+                      ref={inputRef}
                       style={styles.input}
                       placeholder="Type a message..."
                       placeholderTextColor="rgba(255, 255, 255, 0.4)"
                       value={inputText}
                       onChangeText={handleInputChange}
+                      onFocus={() => setShowEmojiPicker(false)}
                       multiline
                       maxLength={500}
                     />
@@ -695,6 +731,14 @@ export default function ChatScreen() {
                 )}
               </View>
             </View>
+
+            {showEmojiPicker && (
+              <EmojiPicker
+                onEmojiSelected={handleEmojiSelect}
+                onStickerSelected={handleStickerSelect}
+                height={300}
+              />
+            )}
           </>
         )}
 
