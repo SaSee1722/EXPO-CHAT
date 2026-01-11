@@ -174,3 +174,12 @@ export const Shadows = {
   medium: getShadow('medium'),
   large: getShadow('large'),
 };
+
+export const getGenderColor = (gender?: string) => {
+  if (!gender) return '#FFFFFF'; // Default
+  const lowerGender = gender.toLowerCase();
+
+  if (lowerGender === 'male') return '#87CEEB'; // Sky Blue
+  if (lowerGender === 'female') return '#FFB6C1'; // Baby Pink
+  return '#BF5AF2'; // Others (Mix/Purple) as visual mix
+};

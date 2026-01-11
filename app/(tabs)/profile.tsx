@@ -27,6 +27,7 @@ export default function ProfileScreen() {
   const [editedAge, setEditedAge] = useState('');
   const [editedBio, setEditedBio] = useState('');
   const [editedLocation, setEditedLocation] = useState('');
+  const [editedGender, setEditedGender] = useState<string>('male');
   const [saving, setSaving] = useState(false);
 
   const onRefresh = useCallback(async () => {
@@ -42,12 +43,13 @@ export default function ProfileScreen() {
   }, [profile?.photos]);
 
   const handleUpdatePhoto = async () => {
+    // ... existing photo code ...
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [1, 1],
-        quality: 0.5, // Balanced quality - compresses most photos under 200KB
+        quality: 0.5,
       });
 
       if (!result.canceled && result.assets[0].uri) {
@@ -56,23 +58,17 @@ export default function ProfileScreen() {
 
         if (uploadError) {
           setUpdatingPhoto(false);
-          console.error('[Profile] Photo upload error:', uploadError);
-          showAlert('Failed to upload photo. Please try again.');
+          showAlert('Failed to upload photo');
           return;
         }
 
         if (photoUrl) {
-          // Update profile with new photo URL
           const { error: updateError } = await updateProfile({ photos: [photoUrl] });
-
           if (updateError) {
             setUpdatingPhoto(false);
-            console.error('[Profile] Profile update error:', updateError);
-            showAlert('Failed to update profile. Please try again.');
+            showAlert('Failed to update profile');
             return;
           }
-
-          // Refresh profile to get latest data
           await refreshProfile();
         }
         setUpdatingPhoto(false);
@@ -88,6 +84,7 @@ export default function ProfileScreen() {
     setEditedAge(profile?.age?.toString() || '');
     setEditedBio(profile?.bio || '');
     setEditedLocation(profile?.location || '');
+    setEditedGender(profile?.gender || 'male');
     setIsEditing(true);
   };
 
@@ -109,6 +106,7 @@ export default function ProfileScreen() {
         age: age,
         bio: editedBio.trim(),
         location: editedLocation.trim(),
+        gender: editedGender,
       });
       await refreshProfile();
       setIsEditing(false);
@@ -121,8 +119,18 @@ export default function ProfileScreen() {
 
   const CardWrapper = Platform.OS === 'ios' ? BlurView : View;
 
+  // Helper to import getGenderColor if not already imported or duplication
+  const getGenderColor = (gender?: string) => {
+    if (!gender) return '#FFFFFF';
+    const lowerGender = gender.toLowerCase();
+    if (lowerGender === 'male') return '#87CEEB';
+    if (lowerGender === 'female') return '#FFB6C1';
+    return '#BF5AF2';
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: '#000000', paddingTop: insets.top }]}>
+      {/* ... header code ... */}
       <View style={[styles.header, { paddingTop: Platform.OS === 'android' ? 20 : 0 }]}>
         <View style={{ width: 40 }} />
         <GradientText style={styles.title}>Profile</GradientText>
@@ -136,11 +144,7 @@ export default function ProfileScreen() {
               <Ionicons name="close" size={20} color="#FF4458" />
             </TouchableOpacity>
             <TouchableOpacity onPress={handleSave} style={styles.saveButton} disabled={saving}>
-              {saving ? (
-                <ActivityIndicator size="small" color="#FFF" />
-              ) : (
-                <Ionicons name="checkmark" size={20} color="#FFF" />
-              )}
+              {saving ? <ActivityIndicator size="small" color="#FFF" /> : <Ionicons name="checkmark" size={20} color="#FFF" />}
             </TouchableOpacity>
           </View>
         )}
@@ -155,6 +159,7 @@ export default function ProfileScreen() {
           <>
             <View style={styles.avatarSection}>
               <View style={styles.avatarContainer}>
+                {/* ... avatar display ... */}
                 <TouchableOpacity
                   onPress={() => remoteUrl && setIsImageViewerVisible(true)}
                   activeOpacity={0.9}
@@ -186,13 +191,35 @@ export default function ProfileScreen() {
               {isEditing ? (
                 <>
                   <TextInput
-                    style={styles.editNameInput}
+                    style={[styles.editNameInput, { color: getGenderColor(editedGender) }]}
                     value={editedName}
                     onChangeText={setEditedName}
                     placeholder="Display Name"
                     placeholderTextColor="rgba(255,255,255,0.3)"
                     maxLength={30}
                   />
+
+                  {/* Gender Selector */}
+                  <View style={styles.genderSelectContainer}>
+                    {['male', 'female', 'others'].map((g) => (
+                      <TouchableOpacity
+                        key={g}
+                        style={[
+                          styles.genderOption,
+                          editedGender === g && { backgroundColor: getGenderColor(g), borderColor: getGenderColor(g) }
+                        ]}
+                        onPress={() => setEditedGender(g)}
+                      >
+                        <Text style={[
+                          styles.genderOptionText,
+                          editedGender === g ? { color: '#000', fontWeight: 'bold' } : { color: '#888' }
+                        ]}>
+                          {g.charAt(0).toUpperCase() + g.slice(1)}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
                   <View style={styles.ageInputContainer}>
                     <TextInput
                       style={styles.editAgeInput}
@@ -203,12 +230,12 @@ export default function ProfileScreen() {
                       keyboardType="number-pad"
                       maxLength={3}
                     />
-                    <Text style={styles.ageText}>years old • Refined Member</Text>
+                    <Text style={styles.ageText}>years old</Text>
                   </View>
                 </>
               ) : (
                 <>
-                  <Text style={styles.displayName}>{profile.display_name}</Text>
+                  <Text style={[styles.displayName, { color: getGenderColor(profile.gender) }]}>{profile.display_name}</Text>
                   <Text style={styles.ageText}>{profile.age} years old • Refined Member</Text>
                 </>
               )}
@@ -536,5 +563,25 @@ const styles = StyleSheet.create({
   imageViewerImage: {
     width: '100%',
     height: '100%',
+  },
+  genderSelectContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 12,
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  genderOption: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+  },
+  genderOptionText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#888',
   },
 });

@@ -22,7 +22,7 @@ import { useProfileContext } from '@/context/ProfileContext';
 import { chatLockService } from '@/services/chatLockService';
 import { PinSetupModal } from '@/components/chat/PinSetupModal';
 import { LockedChatScreen } from '@/components/chat/LockedChatScreen';
-import { Colors, Typography, Shadows, Spacing, BorderRadius } from '@/constants/theme';
+import { Colors, Typography, Shadows, Spacing, BorderRadius, getGenderColor } from '@/constants/theme';
 
 export default function ChatScreen() {
   const { matchId } = ExpoRouter.useLocalSearchParams<{ matchId: string }>();
@@ -502,7 +502,7 @@ export default function ChatScreen() {
             }}
             activeOpacity={1}
           >
-            <Text style={styles.headerName} numberOfLines={1}>
+            <Text style={[styles.headerName, { color: getGenderColor(otherProfile?.gender) }]} numberOfLines={1}>
               {otherProfile?.display_name || 'Chat'}
             </Text>
             <View style={styles.onlineIndicator}>

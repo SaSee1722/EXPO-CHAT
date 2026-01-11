@@ -3,7 +3,7 @@ import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import { FullScreenImageViewer } from '../chat/FullScreenImageViewer';
-import { Spacing, Colors, Typography, Shadows, BorderRadius } from '@/constants/theme';
+import { Spacing, Colors, Typography, Shadows, BorderRadius, getGenderColor } from '@/constants/theme';
 import { Match } from '@/types';
 import { useProfileContext } from '@/context/ProfileContext';
 import { BlurView } from 'expo-blur';
@@ -37,6 +37,7 @@ export function MatchItem({ match, onPress }: MatchItemProps) {
   };
 
   const isOnline = isUserOnline(profile || null);
+  const nameColor = getGenderColor(profile?.gender);
 
   return (
     <TouchableOpacity
@@ -55,7 +56,7 @@ export function MatchItem({ match, onPress }: MatchItemProps) {
 
       <View style={styles.content}>
         <View style={styles.header}>
-          <Text style={styles.name} numberOfLines={1}>
+          <Text style={[styles.name, { color: nameColor }]} numberOfLines={1}>
             {profile?.display_name || 'Gossip User'}
           </Text>
           {lastMessage && (
