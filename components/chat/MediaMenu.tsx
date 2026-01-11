@@ -1,8 +1,16 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal, Pressable } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, Pressable, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
-import { Typography, Colors, Shadows, Spacing, BorderRadius } from '@/constants/theme';
+import Animated, {
+    useSharedValue,
+    useAnimatedStyle,
+    withSpring,
+    withTiming,
+    SlideInDown,
+    FadeIn
+} from 'react-native-reanimated';
+import { Typography, Colors, Shadows, BorderRadius } from '@/constants/theme';
 
 interface MediaMenuProps {
     visible: boolean;
@@ -10,44 +18,81 @@ interface MediaMenuProps {
     onSelect: (type: 'image' | 'file' | 'audio' | 'camera') => void;
 }
 
+const { width } = Dimensions.get('window');
+
 export function MediaMenu({ visible, onClose, onSelect }: MediaMenuProps) {
     const menuItems = [
-        { id: 'image', label: 'Gallery', icon: 'images', color: '#87CEEB' }, // Sky Blue
-        { id: 'camera', label: 'Camera', icon: 'camera', color: '#87CEEB' },
-        { id: 'file', label: 'Document', icon: 'document', color: '#87CEEB' },
+        {
+            id: 'camera',
+            label: 'Camera',
+            icon: 'camera',
+            color: '#FF453A',
+            bgColor: 'rgba(255, 69, 58, 0.15)'
+        },
+        {
+            id: 'image',
+            label: 'Photos',
+            icon: 'images',
+            color: '#0A84FF',
+            bgColor: 'rgba(10, 132, 255, 0.15)'
+        },
+        {
+            id: 'file',
+            label: 'Document',
+            icon: 'document-text',
+            color: '#BF5AF2',
+            bgColor: 'rgba(191, 90, 242, 0.15)'
+        },
     ];
+
+    if (!visible) return null;
 
     return (
         <Modal
             visible={visible}
             transparent
-            animationType="slide"
+            animationType="none"
             onRequestClose={onClose}
         >
             <Pressable style={styles.overlay} onPress={onClose}>
-                <View style={styles.contentWrapper}>
-                    <BlurView intensity={30} tint="dark" style={styles.menuContainer}>
-                        <View style={styles.indicator} />
+                <Animated.View
+                    entering={FadeIn.duration(200)}
+                    style={StyleSheet.absoluteFill}
+                >
+                    <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
+                </Animated.View>
+
+                <Animated.View
+                    entering={SlideInDown.springify().damping(15)}
+                    style={styles.sheetContainer}
+                >
+                    <BlurView intensity={80} tint="dark" style={styles.blurContainer}>
+                        <View style={styles.handle} />
+
                         <View style={styles.grid}>
-                            {menuItems.map((item) => (
+                            {menuItems.map((item, index) => (
                                 <TouchableOpacity
                                     key={item.id}
-                                    style={styles.item}
+                                    style={styles.itemContainer}
                                     onPress={() => {
                                         onSelect(item.id as any);
                                         onClose();
                                     }}
                                     activeOpacity={0.7}
                                 >
-                                    <View style={[styles.iconBg, { backgroundColor: 'rgba(135, 206, 235, 0.1)' }]}>
-                                        <Ionicons name={item.icon as any} size={24} color={item.color} />
+                                    <View style={[styles.iconCircle, { backgroundColor: item.bgColor }]}>
+                                        <Ionicons name={item.icon as any} size={28} color={item.color} />
                                     </View>
                                     <Text style={styles.label}>{item.label}</Text>
                                 </TouchableOpacity>
                             ))}
                         </View>
+
+                        <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+                            <Text style={styles.closeText}>Cancel</Text>
+                        </TouchableOpacity>
                     </BlurView>
-                </View>
+                </Animated.View>
             </Pressable>
         </Modal>
     );
@@ -56,51 +101,68 @@ export function MediaMenu({ visible, onClose, onSelect }: MediaMenuProps) {
 const styles = StyleSheet.create({
     overlay: {
         flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.6)',
         justifyContent: 'flex-end',
+        backgroundColor: 'rgba(0,0,0,0.3)',
     },
-    contentWrapper: {
-        borderTopLeftRadius: 32,
-        borderTopRightRadius: 32,
+    sheetContainer: {
+        width: '100%',
+        borderTopLeftRadius: 30,
+        borderTopRightRadius: 30,
         overflow: 'hidden',
+        backgroundColor: 'rgba(30, 30, 30, 0.8)',
     },
-    menuContainer: {
-        backgroundColor: 'rgba(20, 20, 20, 0.95)',
-        padding: 24,
-        paddingBottom: 48,
+    blurContainer: {
+        padding: 20,
+        paddingBottom: 40,
+        width: '100%',
     },
-    indicator: {
+    handle: {
         width: 40,
-        height: 5,
-        backgroundColor: 'rgba(255, 255, 255, 0.2)',
-        borderRadius: 2.5,
+        height: 4,
+        backgroundColor: 'rgba(255, 255, 255, 0.3)',
+        borderRadius: 2,
         alignSelf: 'center',
-        marginBottom: 24,
+        marginBottom: 25,
     },
     grid: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        justifyContent: 'space-between',
-        paddingHorizontal: 8,
+        justifyContent: 'space-around',
+        marginBottom: 20,
     },
-    item: {
+    itemContainer: {
         alignItems: 'center',
-        width: '22%',
-        marginBottom: 8,
+        width: width / 3.5,
+        marginBottom: 20,
     },
-    iconBg: {
-        width: 56,
-        height: 56,
-        borderRadius: 20,
+    iconCircle: {
+        width: 64,
+        height: 64,
+        borderRadius: 22,
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: 10,
+        marginBottom: 8,
         borderWidth: 1,
-        borderColor: 'rgba(135, 206, 235, 0.15)',
+        borderColor: 'rgba(255, 255, 255, 0.05)',
+        ...Shadows.medium,
     },
     label: {
         ...Typography.caption,
         color: '#FFF',
-        fontWeight: '600',
+        fontSize: 13,
+        fontWeight: '500',
     },
+    closeButton: {
+        width: '100%',
+        paddingVertical: 16,
+        backgroundColor: 'rgba(255, 255, 255, 0.08)',
+        borderRadius: 16,
+        alignItems: 'center',
+        marginTop: 10,
+    },
+    closeText: {
+        ...Typography.body,
+        color: '#FFF',
+        fontWeight: '600',
+    }
 });
