@@ -179,69 +179,44 @@ export const matchService = {
 
       if (!supabaseUrl || !supabaseAnonKey) throw new Error('Supabase configuration missing');
 
-      // Import FileSystem dynamically
-      const FileSystem = require('expo-file-system/legacy');
-
-      // 1. Read file as base64 (works reliably on iOS)
-      console.log('[MediaUpload] Reading file as base64...');
-      const base64 = await FileSystem.readAsStringAsync(uri, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
-
-      console.log('[MediaUpload] Base64 length:', base64.length);
-
-      if (!base64 || base64.length === 0) {
-        throw new Error('Failed to read file data');
-      }
-
-      // 2. Determine content type
-      let contentType = 'application/octet-stream';
+      // 1. Determine file extension
       let fileExtension = '';
+      let contentType = 'application/octet-stream';
 
       if (type === 'image') {
-        // Detect image type from base64 header
-        if (base64.startsWith('iVBOR')) {
-          contentType = 'image/png';
-          fileExtension = '.png';
-        } else if (base64.startsWith('/9j/')) {
-          contentType = 'image/jpeg';
-          fileExtension = '.jpg';
-        } else {
-          contentType = 'image/jpeg';
-          fileExtension = '.jpg';
-        }
+        fileExtension = uri.endsWith('.png') ? '.png' : '.jpg';
+        contentType = fileExtension === '.png' ? 'image/png' : 'image/jpeg';
       } else if (type === 'audio') {
-        contentType = 'audio/x-m4a';
         fileExtension = '.m4a';
+        contentType = 'audio/x-m4a';
       } else if (type === 'video') {
-        contentType = 'video/mp4';
         fileExtension = '.mp4';
+        contentType = 'video/mp4';
       }
 
-      // 3. Convert base64 to Uint8Array
-      const binaryString = atob(base64);
-      const bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
-
-      console.log('[MediaUpload] Binary data size:', bytes.length, 'bytes');
-
-      if (bytes.length === 0) {
-        throw new Error('Binary data is empty after conversion');
-      }
-
-      // 4. Generate filename
+      // 2. Generate filename
       const rawFileName = uri.split('/').pop()?.split('?')[0] || 'upload';
       const sanitizedName = rawFileName.replace(/[^a-zA-Z0-9.]/g, '_');
-      const fileName = `${matchId}/${Date.now()}_${sanitizedName}${fileExtension}`;
+      const timestamp = Date.now();
+      const fileName = `${matchId}/${timestamp}_${sanitizedName}${fileExtension.startsWith('.') ? '' : fileExtension}`; // appending ext only if necessary, but sanitizedName might have it. Safest is explicit.
+      // Actually, safest is to trust the sanitized name unless we are forcing type.
+      // Let's use a simpler consistent naming:
+      const finalFileName = `${matchId}/${timestamp}_${type}${fileExtension}`;
 
-      console.log('[MediaUpload] Uploading to Supabase Storage...');
-      console.log('[MediaUpload] FileName:', fileName, 'ContentType:', contentType);
+      console.log('[MediaUpload] Fetching blob from URI...');
+
+      // 3. Create Blob from URI (Efficient)
+      const response = await fetch(uri);
+      const blob = await response.blob();
+
+      console.log('[MediaUpload] Blob created. Size:', blob.size);
+
+      // 4. Upload to Supabase
+      console.log('[MediaUpload] Uploading to Supabase Storage as', finalFileName);
 
       const { error: uploadError } = await supabase.storage
         .from('chat-media')
-        .upload(fileName, bytes.buffer, {
+        .upload(finalFileName, blob, {
           contentType,
           upsert: true,
           cacheControl: '3600'
@@ -249,10 +224,10 @@ export const matchService = {
 
       if (uploadError) throw uploadError;
 
-      // 5. Get and return Public URL
+      // 5. Get Public URL
       const { data: { publicUrl } } = supabase.storage
         .from('chat-media')
-        .getPublicUrl(fileName);
+        .getPublicUrl(finalFileName);
 
       console.log('[MediaUpload] ✅ Success! Public URL:', publicUrl);
       return { data: publicUrl, error: null };

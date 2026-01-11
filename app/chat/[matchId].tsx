@@ -386,13 +386,13 @@ export default function ChatScreen() {
             return;
           }
           const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ['images', 'videos'],
+            mediaTypes: ImagePicker.MediaTypeOptions.All,
             quality: 0.8,
             videoMaxDuration: 60,
           });
           if (!result.canceled) {
             const asset = result.assets[0];
-            const isVideo = asset.type === 'video' || asset.uri.includes('.mp4') || asset.uri.includes('.mov');
+            const isVideo = asset.type === 'video' || asset.uri.endsWith('.mp4') || asset.uri.endsWith('.mov');
             setSelectedMedia({ uri: asset.uri, type: isVideo ? 'video' : 'image' });
           }
           break;
@@ -404,13 +404,13 @@ export default function ChatScreen() {
             return;
           }
           const result = await ImagePicker.launchCameraAsync({
-            mediaTypes: ['images', 'videos'],
+            mediaTypes: ImagePicker.MediaTypeOptions.All,
             quality: 0.8,
             videoMaxDuration: 60,
           });
           if (!result.canceled) {
             const asset = result.assets[0];
-            const isVideo = asset.type === 'video' || asset.uri.includes('.mp4') || asset.uri.includes('.mov');
+            const isVideo = asset.type === 'video' || asset.uri.endsWith('.mp4') || asset.uri.endsWith('.mov');
             setSelectedMedia({ uri: asset.uri, type: isVideo ? 'video' : 'image' });
           }
           break;
@@ -426,21 +426,6 @@ export default function ChatScreen() {
               fileName: asset.name || 'document',
               fileSize: asset.size || 0,
               mimeType: asset.mimeType || 'application/octet-stream',
-            });
-          }
-          break;
-        }
-        case 'audio': {
-          const result = await DocumentPicker.getDocumentAsync({
-            type: 'audio/*',
-            copyToCacheDirectory: true,
-          });
-          if (!result.canceled) {
-            const asset = result.assets[0];
-            await sendMediaMessage(asset.uri, 'audio', {
-              fileName: asset.name || 'audio',
-              fileSize: asset.size || 0,
-              mimeType: asset.mimeType || 'audio/mpeg',
             });
           }
           break;
@@ -657,56 +642,39 @@ export default function ChatScreen() {
                   </TouchableOpacity>
                 </View>
               )}
-              {isRecording ? (
-                useWhatsAppStyle ? (
-                  <WhatsAppVoiceNote
-                    onRecordingComplete={handleVoiceRecordingComplete}
-                    onCancel={() => setIsRecording(false)}
-                  />
-                ) : (
-                  <VoiceRecorder
-                    onRecordingComplete={handleVoiceRecordingComplete}
-                    onCancel={() => setIsRecording(false)}
-                  />
-                )
-              ) : (
-                <View style={styles.inputWrapper}>
-                  <TouchableOpacity
-                    onPress={() => setShowMediaMenu(true)}
-                    style={styles.mediaButton}
-                  >
-                    <Ionicons name="add" size={24} color="#87CEEB" />
-                  </TouchableOpacity>
+              <View style={styles.inputWrapper}>
+                <TouchableOpacity
+                  onPress={() => setShowMediaMenu(true)}
+                  style={styles.mediaButton}
+                >
+                  <Ionicons name="add" size={24} color="#87CEEB" />
+                </TouchableOpacity>
 
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Type a message..."
-                    placeholderTextColor="rgba(255, 255, 255, 0.4)"
-                    value={inputText}
-                    onChangeText={handleInputChange}
-                    multiline
-                    maxLength={500}
-                  />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Type a message..."
+                  placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                  value={inputText}
+                  onChangeText={handleInputChange}
+                  multiline
+                  maxLength={500}
+                />
 
-                  {inputText.trim() ? (
-                    <TouchableOpacity
-                      onPress={handleSend}
-                      disabled={sending}
-                      style={[styles.sendButton, { backgroundColor: '#87CEEB' }]}
-                    >
-                      <Ionicons name="send" size={20} color="#000" />
-                    </TouchableOpacity>
-                  ) : (
-                    <TouchableOpacity
-                      onPress={() => setIsRecording(true)}
-                      disabled={sending}
-                      style={[styles.sendButton, { backgroundColor: 'rgba(255, 255, 255, 0.1)' }]}
-                    >
-                      <Ionicons name="mic" size={22} color="#FFF" />
-                    </TouchableOpacity>
-                  )}
-                </View>
-              )}
+                <TouchableOpacity
+                  onPress={handleSend}
+                  disabled={sending || !inputText.trim()}
+                  style={[
+                    styles.sendButton,
+                    { backgroundColor: inputText.trim() ? '#87CEEB' : 'rgba(255, 255, 255, 0.1)' }
+                  ]}
+                >
+                  <Ionicons
+                    name="send"
+                    size={20}
+                    color={inputText.trim() ? '#000' : 'rgba(255, 255, 255, 0.3)'}
+                  />
+                </TouchableOpacity>
+              </View>
             </View>
           </>
         )}

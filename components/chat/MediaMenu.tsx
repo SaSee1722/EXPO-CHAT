@@ -15,7 +15,6 @@ export function MediaMenu({ visible, onClose, onSelect }: MediaMenuProps) {
         { id: 'image', label: 'Gallery', icon: 'images', color: '#87CEEB' }, // Sky Blue
         { id: 'camera', label: 'Camera', icon: 'camera', color: '#87CEEB' },
         { id: 'file', label: 'Document', icon: 'document', color: '#87CEEB' },
-        { id: 'audio', label: 'Audio', icon: 'musical-notes', color: '#87CEEB' },
     ];
 
     return (
