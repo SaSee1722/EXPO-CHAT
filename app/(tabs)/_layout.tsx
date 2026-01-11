@@ -5,6 +5,9 @@ import { useColorScheme, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TabBarLabel } from '@/components/TabBarLabel';
 
+import { BlurView } from 'expo-blur';
+import { StyleSheet } from 'react-native';
+
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -16,12 +19,24 @@ export default function TabLayout() {
         headerShown: false,
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textTertiary,
+        tabBarBackground: () => (
+          <BlurView
+            intensity={80}
+            tint="dark"
+            style={{
+              ...StyleSheet.absoluteFillObject,
+              borderRadius: 32,
+              overflow: 'hidden',
+              backgroundColor: 'rgba(10, 10, 10, 0.5)'
+            }}
+          />
+        ),
         tabBarStyle: {
           position: 'absolute',
           bottom: 24,
           left: 16,
           right: 16,
-          backgroundColor: 'rgba(12, 12, 12, 0.9)',
+          backgroundColor: 'transparent',
           borderTopWidth: 0,
           borderRadius: 32,
           height: 64,
@@ -31,7 +46,7 @@ export default function TabLayout() {
           ...Shadows.large,
           borderWidth: 1,
           borderColor: 'rgba(255,255,255,0.1)',
-          overflow: 'hidden',
+          elevation: 0, // Remove Android shadow to prevent double shadow artifacts
         },
         tabBarLabelStyle: {
           fontSize: 11,
