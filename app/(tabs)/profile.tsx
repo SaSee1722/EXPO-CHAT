@@ -236,7 +236,9 @@ export default function ProfileScreen() {
               ) : (
                 <>
                   <Text style={[styles.displayName, { color: getGenderColor(profile.gender) }]}>{profile.display_name}</Text>
-                  <Text style={styles.ageText}>{profile.age} years old • Refined Member</Text>
+                  <Text style={styles.ageText}>
+                    {profile.age} years old • {profile.gender ? profile.gender.charAt(0).toUpperCase() + profile.gender.slice(1) : 'Refined Member'}
+                  </Text>
                 </>
               )}
             </View>
