@@ -188,7 +188,7 @@ export function MessageBubble({ message, isOwn, onReaction, onReply, onReplyPres
           <Text style={styles.replySender}>
             {message.reply_to_message.sender_id === message.sender_id ? 'You' : 'Reply'}
           </Text>
-          <Text style={styles.replyText} numberOfLines={1}>
+          <Text style={[styles.replyText, { color: isOwn ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.6)' }]} numberOfLines={1}>
             {message.reply_to_message.type === 'image' ? '📷 Photo' :
               message.reply_to_message.type === 'audio' ? '🎵 Audio' :
                 message.reply_to_message.type === 'file' ? '📄 File' :
