@@ -138,6 +138,13 @@ android {
     androidResources {
         ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:!CVS:!thumbs.db:!picasa.ini:!*~'
     }
+    
+    // Optimize dex options to prevent OutOfMemoryError
+    dexOptions {
+        javaMaxHeapSize "4g"
+        preDexLibraries = true
+        maxProcessCount = 4
+    }
 }
 
 // Apply static values from `gradle.properties` to the `android.packagingOptions`
