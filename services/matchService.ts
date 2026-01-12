@@ -2,6 +2,7 @@ import { getSupabaseClient } from '@/template';
 import { notificationService } from './notificationService';
 import { Message } from '@/types';
 import { Platform } from 'react-native';
+import { storageService } from './storageService';
 
 const supabase = getSupabaseClient();
 
@@ -207,73 +208,23 @@ export const matchService = {
     return { data, error };
   },
 
-  async uploadChatMedia(matchId: string, uri: string, type: 'image' | 'audio' | 'video' | 'file') {
-    try {
-      console.log(`[MediaUpload] Starting upload for ${type}:`, uri.substring(0, 100));
+  async uploadVoiceMessage(matchId: string, uri: string) {
+    const timestamp = Date.now();
+    const fileName = `${matchId}/${timestamp}_voice.m4a`;
+    const contentType = 'audio/x-m4a';
 
-      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-      const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+    console.log(`[MatchService] 🎤 Uploading voice message: ${fileName}`);
 
-      if (!supabaseUrl || !supabaseAnonKey) throw new Error('Supabase configuration missing');
+    const { data, error } = await storageService.uploadFile(
+      'voice-messages',
+      uri,
+      fileName,
+      contentType
+    );
 
-      // 1. Determine file extension
-      let fileExtension = '';
-      let contentType = 'application/octet-stream';
-
-      if (type === 'image') {
-        fileExtension = uri.endsWith('.png') ? '.png' : '.jpg';
-        contentType = fileExtension === '.png' ? 'image/png' : 'image/jpeg';
-      } else if (type === 'audio') {
-        fileExtension = '.m4a';
-        contentType = 'audio/x-m4a';
-      } else if (type === 'video') {
-        fileExtension = '.mp4';
-        contentType = 'video/mp4';
-      }
-
-      // 2. Generate filename
-      const rawFileName = uri.split('/').pop()?.split('?')[0] || 'upload';
-      const sanitizedName = rawFileName.replace(/[^a-zA-Z0-9.]/g, '_');
-      const timestamp = Date.now();
-      const fileName = `${matchId}/${timestamp}_${sanitizedName}${fileExtension.startsWith('.') ? '' : fileExtension}`; // appending ext only if necessary, but sanitizedName might have it. Safest is explicit.
-      // Actually, safest is to trust the sanitized name unless we are forcing type.
-      // Let's use a simpler consistent naming:
-      const finalFileName = `${matchId}/${timestamp}_${type}${fileExtension}`;
-
-      console.log('[MediaUpload] Fetching blob from URI...');
-
-      // 3. Create Blob from URI (Efficient)
-      const response = await fetch(uri);
-      const blob = await response.blob();
-
-      console.log('[MediaUpload] Blob created. Size:', blob.size);
-
-      // 4. Upload to Supabase
-      console.log('[MediaUpload] Uploading to Supabase Storage as', finalFileName);
-
-      const { error: uploadError } = await supabase.storage
-        .from('chat-media')
-        .upload(finalFileName, blob, {
-          contentType,
-          upsert: true,
-          cacheControl: '3600'
-        });
-
-      if (uploadError) throw uploadError;
-
-      // 5. Get Public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('chat-media')
-        .getPublicUrl(finalFileName);
-
-      console.log('[MediaUpload] ✅ Success! Public URL:', publicUrl);
-      return { data: publicUrl, error: null };
-
-    } catch (error) {
-      console.error('[MediaUpload] ❌ Error:', error);
-      return { data: null, error: error instanceof Error ? error : new Error('Unknown upload error') };
-    }
+    return { data, error };
   },
+
 
   async markMessagesAsRead(matchId: string, userId: string) {
     const { error } = await supabase
