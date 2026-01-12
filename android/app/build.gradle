@@ -82,6 +82,25 @@ def enableMinifyInReleaseBuilds = (findProperty('android.enableMinifyInReleaseBu
 def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
 
 android {
+    // Hack to fix CMake error when codegen directories for autolinked libraries are missing
+    preBuild.doFirst {
+        def jniDir = file("$projectDir/build/generated/autolinking/src/main/jni")
+        if (jniDir.exists()) {
+            jniDir.eachFileMatch(~/.*\.cmake/) { cmakeFile ->
+                cmakeFile.eachLine { line ->
+                    def matcher = line =~ /add_subdirectory\("([^"]+)"\)/
+                    if (matcher.find()) {
+                        def subDir = file(matcher.group(1))
+                        if (!subDir.exists()) {
+                            println "Pre-build: Creating missing directory required by CMake: ${subDir}"
+                            subDir.mkdirs()
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     ndkVersion = rootProject.ext.ndkVersion
 
     buildToolsVersion rootProject.ext.buildToolsVersion

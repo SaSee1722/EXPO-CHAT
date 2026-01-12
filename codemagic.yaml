@@ -44,7 +44,7 @@ workflows:
         script: |
           corepack enable
           corepack prepare pnpm@10.25.0 --activate
-          pnpm install --no-frozen-lockfile
+          pnpm install --no-frozen-lockfile --shamefully-hoist
       - name: Create .env
         script: |
           echo "EXPO_PUBLIC_SUPABASE_URL=$EXPO_PUBLIC_SUPABASE_URL" > .env
@@ -54,6 +54,12 @@ workflows:
           cd android
           rm -rf app/build app/.cxx .gradle
           echo "✅ Cleaned build directories"
+      - name: Generate Codegen
+        script: |
+          cd android
+          chmod +x gradlew
+          ./gradlew generateCodegenArtifactsFromSchema --stacktrace
+          echo "✅ Codegen complete"
       - name: Build Android Release Split APKs
         script: |
           cd android
