@@ -8,6 +8,7 @@ import { FullScreenVideoViewer } from './FullScreenVideoViewer';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
 import { ActionSheetIOS, Platform } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { getSupabaseClient } from '@/template';
@@ -113,10 +114,6 @@ export function MessageBubble({ message, isOwn, onReaction, onReply, onReplyPres
 
   React.useEffect(() => {
     const checkFile = async () => {
-      if (isOwn) {
-        setIsDownloaded(true);
-        return;
-      }
       if (message.type === 'file' || message.type === 'video' || message.type === 'audio') {
         const fileName = message.metadata?.fileName || `${message.id}.${message.type === 'video' ? 'mp4' : 'bin'}`;
         const localUri = `${(FileSystem as any).cacheDirectory}${fileName}`;
@@ -125,7 +122,7 @@ export function MessageBubble({ message, isOwn, onReaction, onReply, onReplyPres
       }
     };
     checkFile();
-  }, [message.id, message.type, message.media_url, message.metadata?.fileName, isOwn]);
+  }, [message.id, message.type, message.media_url, message.metadata?.fileName]);
 
   const translateX = useSharedValue(0);
   const SWIPE_THRESHOLD = 50;
@@ -299,17 +296,19 @@ export function MessageBubble({ message, isOwn, onReaction, onReply, onReplyPres
                 source={{ uri: media_url ? (media_url.startsWith('http') ? encodeURI(media_url) : media_url) : undefined }}
                 style={[styles.mediaImage, type === 'sticker' && styles.stickerImage]}
                 contentFit="cover"
-                transition={200}
+                transition={400}
                 cachePolicy="memory-disk"
                 placeholder="rgba(255,255,255,0.05)"
                 priority="high"
                 onError={(e) => console.log('[ImageLoad] Error loading message image:', e.error, media_url)}
               />
               {message.metadata?.isUploading && (
-                <View style={styles.uploadOverlay}>
-                  <ActivityIndicator color="#FFF" size="large" />
+                <BlurView intensity={30} tint="dark" style={styles.uploadOverlay}>
+                  <View style={styles.loadingCircle}>
+                    <ActivityIndicator color="#FFF" size="small" />
+                  </View>
                   <Text style={styles.uploadText}>Sending...</Text>
-                </View>
+                </BlurView>
               )}
             </View>
             {renderCaption(content, metadata)}
@@ -431,7 +430,12 @@ export function MessageBubble({ message, isOwn, onReaction, onReply, onReplyPres
         videoUri={(() => {
           if (!message.media_url) return '';
           const fileName = message.metadata?.fileName || `${message.id}.mp4`;
-          return isDownloaded ? `${(FileSystem as any).cacheDirectory}${fileName}` : message.media_url;
+          const cacheUri = `${(FileSystem as any).cacheDirectory}${fileName}`;
+
+          // Use cache if it exists, otherwise use public URL with encoding for robustness
+          let finalUri = isDownloaded ? cacheUri : message.media_url;
+          if (finalUri.startsWith('http')) finalUri = encodeURI(finalUri);
+          return finalUri;
         })()}
         onClose={() => setIsVideoVisible(false)}
       />
@@ -610,5 +614,14 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginHorizontal: 4,
     marginBottom: 4,
+  },
+  loadingCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
   },
 });

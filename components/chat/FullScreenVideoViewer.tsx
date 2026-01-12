@@ -17,22 +17,20 @@ export function FullScreenVideoViewer({ visible, videoUri, onClose }: FullScreen
 
     const player = useVideoPlayer(videoUri, (player) => {
         player.loop = false;
+        player.muted = false; // Ensure audio is ON in full screen
         if (visible) {
             player.play();
         }
     });
 
-    const lastUrl = React.useRef(videoUri);
     React.useEffect(() => {
-        if (videoUri && videoUri !== lastUrl.current) {
+        if (videoUri) {
             player.replaceAsync(videoUri);
-            lastUrl.current = videoUri;
+            if (visible) player.play();
         }
 
         if (!visible) {
             player.pause();
-        } else if (videoUri) {
-            player.play();
         }
     }, [visible, videoUri, player]);
 

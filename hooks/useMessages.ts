@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { matchService } from '@/services/matchService';
 import { Message } from '@/types';
+import * as FileSystem from 'expo-file-system';
 
 export function useMessages(matchId: string | null, userId: string | null) {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -123,7 +124,7 @@ export function useMessages(matchId: string | null, userId: string | null) {
     return { data, error };
   };
 
-  const sendVoiceMessage = async (uri: string, duration: number) => {
+  const sendMediaMessage = async (uri: string, type: 'image' | 'video' | 'file' | 'audio', metadata?: any) => {
     if (!matchId || !userId) return { error: 'Missing matchId or userId' };
 
     const tempId = `temp-${Date.now()}`;
@@ -131,10 +132,10 @@ export function useMessages(matchId: string | null, userId: string | null) {
       id: tempId,
       match_id: matchId,
       sender_id: userId,
-      content: '',
-      type: 'audio',
-      media_url: uri,
-      metadata: { duration, isUploading: true },
+      content: metadata?.caption || '',
+      type,
+      media_url: uri, // Use local URI for immediate preview
+      metadata: { ...metadata, isUploading: true },
       status: 'sending',
       created_at: new Date().toISOString(),
     };
@@ -143,19 +144,33 @@ export function useMessages(matchId: string | null, userId: string | null) {
     setSending(true);
 
     try {
-      const { data: publicUrl, error: uploadError } = await matchService.uploadVoiceMessage(matchId, uri);
+      // 0. Pre-cache the file so MessageBubble can find it locally immediately
+      const timestamp = Date.now();
+      const extension = uri.split('.').pop() || (type === 'video' ? 'mp4' : type === 'audio' ? 'm4a' : 'jpg');
+      const cloudPath = `${matchId}/${timestamp}.${extension}`;
+      const cacheUri = `${(FileSystem as any).cacheDirectory}${cloudPath.replace(/\//g, '_')}`;
+
+      try {
+        await FileSystem.copyAsync({ from: uri, to: cacheUri });
+      } catch (e) {
+        console.warn('[useMessages] Cache copy failed:', e);
+      }
+
+      // 1. Upload the media
+      const { data: publicUrl, error: uploadError } = await matchService.uploadChatMedia(matchId, uri, type);
 
       if (uploadError || !publicUrl) {
         throw uploadError || new Error('Upload failed');
       }
 
+      // 3. Send the official message
       const { data: realMessage, error: sendError } = await matchService.sendMessage(
         matchId,
         userId,
-        '',
-        'audio',
+        metadata?.caption || '',
+        type,
         publicUrl,
-        { duration, isUploading: false }
+        { ...metadata, fileName: cloudPath.replace(/\//g, '_'), isUploading: false }
       );
 
       if (sendError || !realMessage) {
@@ -166,14 +181,12 @@ export function useMessages(matchId: string | null, userId: string | null) {
       setSending(false);
       return { data: realMessage };
     } catch (error: any) {
-      console.error('[useMessages] ❌ Voice message failed:', error);
+      console.error('[useMessages] ❌ Media message failed:', error);
       setMessages(prev => prev.filter(m => m.id !== tempId));
       setSending(false);
       return { error };
     }
   };
-
-
   const toggleReaction = async (messageId: string, emoji: string) => {
     if (!userId) return;
 
@@ -210,7 +223,6 @@ export function useMessages(matchId: string | null, userId: string | null) {
   const deleteMessageForEveryone = async (messageId: string) => {
     if (!userId) return { error: 'Not authenticated' };
     const { error } = await matchService.deleteMessageForEveryone(messageId, userId);
-    // Realtime will handle the update for everyone, but we update locally for speed
     if (!error) {
       setMessages(prev => prev.map(m => m.id === messageId ? {
         ...m,
@@ -232,8 +244,7 @@ export function useMessages(matchId: string | null, userId: string | null) {
     loading,
     sending,
     sendMessage,
-    sendVoiceMessage,
-    sendMediaMessage: sendVoiceMessage, // Alias for compatibility
+    sendMediaMessage,
     reload: loadMessages,
     toggleReaction,
     deleteMessage,

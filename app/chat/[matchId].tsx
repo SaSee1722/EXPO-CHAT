@@ -1,5 +1,20 @@
 import * as React from 'react';
-import { View, Text, StyleSheet, TextInput, FlatList, KeyboardAvoidingView, Platform, TouchableOpacity, Alert, Modal, Keyboard } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TextInput,
+  FlatList,
+  KeyboardAvoidingView,
+  Platform,
+  TouchableOpacity,
+  Alert,
+  Modal,
+  Keyboard,
+  Share,
+  Dimensions,
+  ActionSheetIOS
+} from 'react-native';
 import * as ExpoRouter from 'expo-router';
 import { useAuth, useAlert, getSupabaseClient } from '@/template';
 import { useMessages } from '@/hooks/useMessages';
@@ -14,10 +29,7 @@ import { TypingIndicator } from '@/components/chat/TypingIndicator';
 import { EmojiPicker } from '@/components/chat/EmojiPicker';
 import { VoiceRecorder } from '@/components/chat/VoiceRecorder';
 import WhatsAppVoiceNote from '@/components/chat/WhatsAppVoiceNote';
-
-
 import * as ImagePicker from 'expo-image-picker';
-import * as DocumentPicker from 'expo-document-picker';
 
 import { webrtcService } from '@/services/webrtcService';
 import { useNotifications } from '@/context/NotificationContext';
@@ -27,6 +39,7 @@ import { PinSetupModal } from '@/components/chat/PinSetupModal';
 import { LockedChatScreen } from '@/components/chat/LockedChatScreen';
 import { FullScreenVideoViewer } from '@/components/chat/FullScreenVideoViewer';
 import { Colors, Typography, Shadows, Spacing, BorderRadius, getGenderColor } from '@/constants/theme';
+import { AttachmentPicker } from '@/components/chat/AttachmentPicker';
 
 
 export default function ChatScreen() {
@@ -57,6 +70,7 @@ export default function ChatScreen() {
   const [callOtherProfile, setCallOtherProfile] = React.useState<Profile | null>(null);
   const [isCallIncoming, setIsCallIncoming] = React.useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = React.useState(false);
+  const [showAttachmentPicker, setShowAttachmentPicker] = React.useState(false);
   const [isRecording, setIsRecording] = React.useState(false);
   const inputRef = React.useRef<TextInput>(null);
   const typingChannelRef = React.useRef<any>(null);
@@ -409,7 +423,7 @@ export default function ChatScreen() {
       setIsRecording(false);
       // Duration from WhatsAppVoiceNote is in milliseconds, convert to seconds
       const durationInSeconds = Math.floor(duration / 1000);
-      const result = await sendMediaMessage(uri, durationInSeconds);
+      const result = await sendMediaMessage(uri, 'audio', { duration: durationInSeconds });
 
       if (result?.error) {
         console.error('[ChatScreen] ❌ Voice message upload failed:', result.error);
@@ -641,10 +655,10 @@ export default function ChatScreen() {
                 ) : (
                   <>
                     <TouchableOpacity
-                      onPress={() => setShowEmojiPicker(!showEmojiPicker)}
-                      style={styles.emojiButton}
+                      onPress={() => setShowAttachmentPicker(true)}
+                      style={styles.mediaButton}
                     >
-                      <Ionicons name="happy-outline" size={24} color="#87CEEB" />
+                      <Ionicons name="attach" size={26} color="#87CEEB" />
                     </TouchableOpacity>
 
                     <TextInput
@@ -658,6 +672,13 @@ export default function ChatScreen() {
                       multiline
                       maxLength={500}
                     />
+
+                    <TouchableOpacity
+                      onPress={() => setShowEmojiPicker(!showEmojiPicker)}
+                      style={styles.emojiButton}
+                    >
+                      <Ionicons name="happy-outline" size={24} color="#87CEEB" />
+                    </TouchableOpacity>
 
                     {inputText.trim() ? (
                       <TouchableOpacity
@@ -688,6 +709,14 @@ export default function ChatScreen() {
                 height={300}
               />
             )}
+
+            <AttachmentPicker
+              isVisible={showAttachmentPicker}
+              onClose={() => setShowAttachmentPicker(false)}
+              onSelectMedia={async (uri, type, metadata) => {
+                await sendMediaMessage(uri, type, metadata);
+              }}
+            />
           </>
         )}
 

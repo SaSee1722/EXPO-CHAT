@@ -172,6 +172,29 @@ export const matchService = {
     return { data, error };
   },
 
+  async uploadChatMedia(matchId: string, uri: string, type: 'image' | 'video' | 'file' | 'audio') {
+    const timestamp = Date.now();
+    const extension = uri.split('.').pop() || (type === 'video' ? 'mp4' : type === 'audio' ? 'm4a' : 'jpg');
+    const fileName = `${matchId}/${timestamp}.${extension}`;
+
+    // Determine content type
+    let contentType = 'application/octet-stream';
+    if (type === 'image') contentType = 'image/jpeg';
+    else if (type === 'video') contentType = 'video/mp4';
+    else if (type === 'audio') contentType = 'audio/m4a';
+
+    console.log(`[MatchService] 📤 Uploading ${type}: ${fileName}`);
+
+    const { data, error } = await storageService.uploadFile(
+      'chat-media',
+      uri,
+      fileName,
+      contentType
+    );
+
+    return { data, error };
+  },
+
   async uploadVoiceMessage(matchId: string, uri: string) {
     const timestamp = Date.now();
     const fileName = `${matchId}/${timestamp}_voice.m4a`;
