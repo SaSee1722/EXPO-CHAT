@@ -57,18 +57,34 @@ serve(async (req) => {
 
     const senderName = senderProfile?.display_name || 'Gossip User'
 
-    // 3. Construct Notification Payload
-    let title = senderName;
-    let body = record.content || '';
+    // 3. Get Receiver's Total Unread Count across ALL their matches
+    const { data: matches } = await supabase
+        .from('matches')
+        .select('id')
+        .or(`user1_id.eq.${receiverId},user2_id.eq.${receiverId}`);
+
+    const matchIds = matches?.map(m => m.id) || [];
+
+    const { count: unreadCount } = await supabase
+        .from('messages')
+        .select('*', { count: 'exact', head: true })
+        .in('match_id', matchIds)
+        .neq('sender_id', receiverId)
+        .neq('status', 'read');
+
+    const totalUnread = (unreadCount || 0) + 1;
+
+    const senderPhoto = senderProfile?.photos?.[0] || null;
+
+    // 4. Construct Notification Payload
+    const title = senderName;
+    let body = '1 new message';
 
     if (isCall) {
-        title = `📞 ${senderName}`;
         body = record.call_type === 'video' ? 'Incoming Video Call...' : 'Incoming Voice Call...';
     } else {
-        body = record.type === 'image' ? '📷 Photo' :
-            record.type === 'audio' ? '🎵 Audio Message' :
-                record.type === 'video' ? '🎥 Video' :
-                    record.content;
+        // WhatsApp style privacy: "3 new messages"
+        body = totalUnread > 1 ? `${totalUnread} new messages` : '1 new message';
     }
 
     const payload = {
@@ -76,20 +92,22 @@ serve(async (req) => {
         sound: 'default',
         title: title,
         body: body,
-        priority: isCall ? 'high' : 'normal',
+        priority: 'high',
         channelId: isCall ? 'calls' : 'default',
+        badge: totalUnread,
         data: {
             matchId: matchId,
             senderId: senderId,
             senderName: senderName,
+            senderAvatar: senderPhoto,
             type: isCall ? 'call' : 'message',
             callId: isCall ? record.id : null,
             callType: isCall ? record.call_type : null
         },
-        badge: 1,
+        mutableContent: true,
     }
 
-    // 4. Send to Expo Push Service
+    // 5. Send to Expo Push Service
     const res = await fetch('https://exp.host/--/api/v2/push/send', {
         method: 'POST',
         headers: {
@@ -101,17 +119,6 @@ serve(async (req) => {
     })
 
     const responseData = await res.json();
-
-    // 5. If it's a message and notification was accepted, mark as 'delivered' in DB
-    // Note: Expo returns 200 even if some tokens fail, but 'data' array contains status.
-    // We'll optimistically mark as delivered if the fetch succeeded and it's a message.
-    if (!isCall && res.ok) {
-        await supabase
-            .from('messages')
-            .update({ status: 'delivered' })
-            .eq('id', record.id)
-            .eq('status', 'sent'); // Only move from sent -> delivered
-    }
 
     return new Response(
         JSON.stringify(responseData),

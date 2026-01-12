@@ -169,42 +169,6 @@ export const matchService = {
       .select()
       .single();
 
-    if (!error && data) {
-      // Optimistically send push notification (don't await strictly to block UI, but good to handle)
-      (async () => {
-        try {
-          // 1. Find who is the receiver
-          const { data: match } = await supabase.from('matches').select('user1_id, user2_id').eq('id', match_id).single();
-          if (!match) return;
-
-          const receiverId = match.user1_id === sender_id ? match.user2_id : match.user1_id;
-
-          // 2. Get receiver's push token and Sender's name
-          const { data: receiverProfile } = await supabase.from('profiles').select('push_token').eq('id', receiverId).single();
-          const { data: senderProfile } = await supabase.from('profiles').select('display_name').eq('id', sender_id).single();
-
-          if (receiverProfile?.push_token) {
-            const title = senderProfile?.display_name || 'New Message';
-            const body = type === 'image' ? '📷 Photo' :
-              type === 'audio' ? '🎵 Audio' :
-                type === 'video' ? '🎥 Video' :
-                  type === 'file' ? '📄 File' :
-                    content;
-
-            await notificationService.sendPushNotification(
-              receiverProfile.push_token,
-              title,
-              body,
-              { matchId: match_id }, // Payload for navigation
-              'message'
-            );
-          }
-        } catch (e) {
-          console.error('Failed to send push notification:', e);
-        }
-      })();
-    }
-
     return { data, error };
   },
 
@@ -242,6 +206,28 @@ export const matchService = {
       .from('messages')
       .update({ status: 'delivered' })
       .eq('match_id', matchId)
+      .neq('sender_id', userId)
+      .eq('status', 'sent');
+
+    return { error };
+  },
+
+  async markAllMessagesAsDelivered(userId: string) {
+    // 1. Get all matches for this user
+    const { data: matches } = await supabase
+      .from('matches')
+      .select('id')
+      .or(`user1_id.eq.${userId},user2_id.eq.${userId}`);
+
+    if (!matches || matches.length === 0) return { error: null };
+
+    const matchIds = matches.map(m => m.id);
+
+    // 2. Mark all messages in those matches as delivered if they are 'sent' and NOT from this user
+    const { error } = await supabase
+      .from('messages')
+      .update({ status: 'delivered' })
+      .in('match_id', matchIds)
       .neq('sender_id', userId)
       .eq('status', 'sent');
 

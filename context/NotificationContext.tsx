@@ -236,6 +236,9 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     useEffect(() => {
         if (!user) return;
 
+        // Mark all existing messages as delivered when the app comes online/starts
+        matchService.markAllMessagesAsDelivered(user.id);
+
         notificationService.registerForPushNotificationsAsync(user.id);
 
         // Wire up WebRTC broadcast handlers

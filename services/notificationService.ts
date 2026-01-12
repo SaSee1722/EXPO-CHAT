@@ -133,7 +133,7 @@ export const notificationService = {
             body: body,
             data: { ...data, type }, // Ensure type is in data for handling
             channelId: type === 'call' ? 'calls' : 'default',
-            priority: type === 'call' ? 'high' : 'normal',
+            priority: 'high', // Use high priority for all to ensure reliability
             ttl: type === 'call' ? 60 : 2419200, // Calls expire quickly (60s), messages last 4 weeks
         };
 
