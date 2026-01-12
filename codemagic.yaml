@@ -49,6 +49,11 @@ workflows:
         script: |
           echo "EXPO_PUBLIC_SUPABASE_URL=$EXPO_PUBLIC_SUPABASE_URL" > .env
           echo "EXPO_PUBLIC_SUPABASE_ANON_KEY=$EXPO_PUBLIC_SUPABASE_ANON_KEY" >> .env
+      - name: Clean build directories
+        script: |
+          cd android
+          rm -rf app/build app/.cxx .gradle
+          echo "✅ Cleaned build directories"
       - name: Build Android Release Split APKs
         script: |
           cd android
