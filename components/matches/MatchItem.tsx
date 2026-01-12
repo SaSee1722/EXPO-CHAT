@@ -166,7 +166,6 @@ const styles = StyleSheet.create({
   name: {
     ...Typography.body,
     fontWeight: '700',
-    color: '#FFFFFF',
     flex: 1,
   },
   time: {

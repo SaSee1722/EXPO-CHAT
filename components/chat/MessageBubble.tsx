@@ -7,7 +7,10 @@ import { FullScreenImageViewer } from './FullScreenImageViewer';
 import { FullScreenVideoViewer } from './FullScreenVideoViewer';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
-import React, { useState } from 'react';
+import { ActionSheetIOS, Platform } from 'react-native';
+import { useVideoPlayer, VideoView } from 'expo-video';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { getSupabaseClient } from '@/template';
 import { ReactionPicker } from './ReactionPicker';
 import { MessageActionsMenu } from './MessageActionsMenu';
 import Animated, {
@@ -31,6 +34,71 @@ interface MessageBubbleProps {
   onSelect?: () => void;
 }
 
+const VideoMessage = ({
+  message, isOwn, selectionMode, onSelect, isDownloaded,
+  setIsVideoVisible, handleFilePress, handleLongPress,
+  isDownloading, downloadProgress
+}: any) => {
+  const { media_url, metadata } = message;
+  const colorScheme = useColorScheme();
+  const themeColors = Colors[colorScheme ?? 'light'];
+
+  // Public bucket: Simplified URL results in better iOS streaming compatibility
+  const player = useVideoPlayer(media_url || '', (p) => {
+    p.muted = true;
+    p.pause();
+  });
+
+  const lastUrl = useRef(media_url);
+  useEffect(() => {
+    if (media_url && media_url !== lastUrl.current) {
+      player.replaceAsync(media_url);
+      lastUrl.current = media_url;
+    }
+  }, [media_url, player]);
+
+  return (
+    <View>
+      <TouchableOpacity
+        onPress={async () => {
+          if (selectionMode) { onSelect?.(); return; }
+          if (isDownloaded) setIsVideoVisible(true);
+          else await handleFilePress(true);
+        }}
+        onLongPress={handleLongPress}
+        activeOpacity={0.7}
+        style={styles.videoContainer}
+      >
+        <View style={styles.imagePlaceholder}>
+          <VideoView
+            style={styles.mediaImage}
+            player={player}
+            contentFit="cover"
+            nativeControls={false}
+          />
+        </View>
+        <View style={styles.videoOverlay}>
+          {isDownloading ? (
+            <View style={styles.downloadCircle}>
+              <ActivityIndicator color="#FFF" size="small" />
+              <Text style={styles.progressText}>{Math.round(downloadProgress * 100)}%</Text>
+            </View>
+          ) : (
+            <View style={styles.playCircle}>
+              <Ionicons name={isDownloaded ? "play" : "cloud-download"} size={32} color="#FFF" style={isDownloaded ? { marginLeft: 4 } : {}} />
+            </View>
+          )}
+        </View>
+      </TouchableOpacity>
+      {metadata?.caption && (
+        <Text style={[styles.text, { color: isOwn ? '#FFF' : themeColors.text, marginTop: 8, paddingHorizontal: 12 }]}>
+          {metadata.caption}
+        </Text>
+      )}
+    </View>
+  );
+};
+
 export function MessageBubble({ message, isOwn, onReaction, onReply, onReplyPress, onDelete, isSelected, selectionMode, onSelect }: MessageBubbleProps) {
   const colorScheme = useColorScheme();
   const themeColors = Colors[colorScheme ?? 'light'];
@@ -53,7 +121,7 @@ export function MessageBubble({ message, isOwn, onReaction, onReply, onReplyPres
         const fileName = message.metadata?.fileName || `${message.id}.${message.type === 'video' ? 'mp4' : 'bin'}`;
         const localUri = `${(FileSystem as any).cacheDirectory}${fileName}`;
         const fileInfo = await FileSystem.getInfoAsync(localUri);
-        setIsDownloaded(fileInfo.exists);
+        setIsDownloaded(fileInfo.exists && (fileInfo.size || 0) > 0);
       }
     };
     checkFile();
@@ -251,37 +319,18 @@ export function MessageBubble({ message, isOwn, onReaction, onReply, onReplyPres
         return <AudioPlayer url={media_url!} isOwn={isOwn} duration={metadata?.duration} messageId={message.id} disabled={selectionMode} />;
       case 'video':
         return (
-          <View>
-            <TouchableOpacity
-              onPress={async () => {
-                if (selectionMode) { onSelect?.(); return; }
-                if (isDownloaded) setIsVideoVisible(true);
-                else await handleFilePress(true);
-              }}
-              onLongPress={handleLongPress}
-              activeOpacity={0.7}
-              style={styles.videoContainer}
-            >
-              <View style={styles.imagePlaceholder}>
-                <Ionicons name="videocam" size={40} color="rgba(255,255,255,0.2)" />
-              </View>
-              <Image source={{ uri: media_url }} style={[styles.mediaImage, { position: 'absolute' }]} contentFit="cover" />
-              <View style={styles.videoOverlay}>
-                {isDownloading ? (
-                  <View style={styles.downloadCircle}>
-                    <ActivityIndicator color="#FFF" size="small" />
-                    <Text style={styles.progressText}>{Math.round(downloadProgress * 100)}%</Text>
-                  </View>
-                ) : (
-                  <View style={[styles.playCircle]}>
-                    <Ionicons name={isDownloaded ? "play" : "cloud-download"} size={28} color="#FFF" />
-                  </View>
-                )}
-              </View>
-              {metadata?.duration && <Text style={styles.durationText}>{metadata.duration}</Text>}
-            </TouchableOpacity>
-            {renderCaption(content, metadata)}
-          </View>
+          <VideoMessage
+            message={message}
+            isOwn={isOwn}
+            selectionMode={selectionMode}
+            onSelect={onSelect}
+            isDownloaded={isDownloaded}
+            setIsVideoVisible={setIsVideoVisible}
+            handleFilePress={handleFilePress}
+            handleLongPress={handleLongPress}
+            isDownloading={isDownloading}
+            downloadProgress={downloadProgress}
+          />
         );
       case 'file':
         return (
@@ -377,7 +426,15 @@ export function MessageBubble({ message, isOwn, onReaction, onReply, onReplyPres
         {getStatusIcon()}
       </View>
       <FullScreenImageViewer visible={isViewerVisible} imageUri={message.media_url || ''} onClose={() => setIsViewerVisible(false)} />
-      <FullScreenVideoViewer visible={isVideoVisible} videoUri={message.media_url ? `${(FileSystem as any).cacheDirectory}${message.metadata?.fileName || `${message.id}.mp4`}` : ''} onClose={() => setIsVideoVisible(false)} />
+      <FullScreenVideoViewer
+        visible={isVideoVisible}
+        videoUri={(() => {
+          if (!message.media_url) return '';
+          const fileName = message.metadata?.fileName || `${message.id}.mp4`;
+          return isDownloaded ? `${(FileSystem as any).cacheDirectory}${fileName}` : message.media_url;
+        })()}
+        onClose={() => setIsVideoVisible(false)}
+      />
       <ReactionPicker
         visible={isReactionVisible}
         onClose={() => setIsReactionVisible(false)}

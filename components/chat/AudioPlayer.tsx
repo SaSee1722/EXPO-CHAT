@@ -20,6 +20,16 @@ export function AudioPlayer({ url, isOwn, duration, messageId, disabled }: Audio
     const [isPlaying, setIsPlaying] = useState(false);
     const [hasEnded, setHasEnded] = useState(false);
 
+    const lastUrl = useRef(url);
+
+    // Ensure player source is updated if URL changes (e.g., from local optimistic to remote)
+    useEffect(() => {
+        if (url && url !== lastUrl.current) {
+            player.replace(url);
+            lastUrl.current = url;
+        }
+    }, [url, player]);
+
     // Calculate total waveform width for precise clipping
     const totalWaveformWidth = (30 * 2.2) + (29 * 2.2);
 

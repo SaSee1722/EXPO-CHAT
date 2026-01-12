@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { View, Text, Modal, StyleSheet, Image, TouchableOpacity, useColorScheme } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Colors, Spacing, BorderRadius, Typography } from '@/constants/theme';
+import { Colors, Spacing, BorderRadius, Typography, getGenderColor } from '@/constants/theme';
 import { Profile } from '@/types';
 import { Button } from '@/components/ui/Button';
 import Animated, {
@@ -67,13 +67,13 @@ export function MatchModal({ visible, profile, onSendMessage, onKeepSwiping }: M
 
         <View style={styles.content}>
           <Animated.View style={animatedStyle}>
-            <Text style={[styles.title, { color: colors.background }]}>
+            <Text style={styles.title}>
               It&apos;s a Match! 💕
             </Text>
           </Animated.View>
 
-          <Text style={[styles.subtitle, { color: colors.background }]}>
-            You and {profile.display_name} liked each other
+          <Text style={styles.subtitle}>
+            You and <Text style={{ fontWeight: 'bold' }}>{profile.display_name}</Text> liked each other
           </Text>
 
           <View style={styles.photoContainer}>
@@ -91,7 +91,7 @@ export function MatchModal({ visible, profile, onSendMessage, onKeepSwiping }: M
               style={[styles.button, { backgroundColor: colors.background }]}
             />
             <TouchableOpacity onPress={onKeepSwiping}>
-              <Text style={[styles.keepSwiping, { color: colors.background }]}>
+              <Text style={styles.keepSwiping}>
                 Keep Swiping
               </Text>
             </TouchableOpacity>
@@ -117,12 +117,15 @@ const styles = StyleSheet.create({
     fontSize: 48,
     marginBottom: Spacing.md,
     textAlign: 'center',
+    color: '#FFFFFF',
+    fontWeight: 'bold',
   },
   subtitle: {
     ...Typography.h3,
     marginBottom: Spacing.xl,
     textAlign: 'center',
-    opacity: 0.9,
+    color: '#FFFFFF',
+    opacity: 0.95,
   },
   photoContainer: {
     width: 200,
@@ -148,5 +151,7 @@ const styles = StyleSheet.create({
   keepSwiping: {
     ...Typography.button,
     paddingVertical: Spacing.md,
+    color: '#FFFFFF',
+    fontWeight: '600',
   },
 });

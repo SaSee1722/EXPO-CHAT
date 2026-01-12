@@ -181,5 +181,6 @@ export const getGenderColor = (gender?: string) => {
 
   if (lowerGender === 'male') return '#87CEEB'; // Sky Blue
   if (lowerGender === 'female') return '#FFB6C1'; // Baby Pink
+  // Support both 'other' and 'others' for robust coloring
   return '#BF5AF2'; // Others (Mix/Purple) as visual mix
 };

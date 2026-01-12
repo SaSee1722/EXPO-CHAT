@@ -7,7 +7,7 @@ import { Typography, Colors, Shadows, Spacing, BorderRadius } from '@/constants/
 interface MediaMenuProps {
     visible: boolean;
     onClose: () => void;
-    onSelect: (type: 'image' | 'file' | 'audio' | 'camera') => void;
+    onSelect: (type: 'image' | 'file' | 'camera') => void;
 }
 
 export function MediaMenu({ visible, onClose, onSelect }: MediaMenuProps) {

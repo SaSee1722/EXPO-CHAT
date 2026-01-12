@@ -48,6 +48,17 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     useEffect(() => {
         segmentsRef.current = segments;
         paramsRef.current = params;
+
+        // --- Silence active chat notifications ---
+        const currentSegments = segments as string[];
+        const currentParams = params as any;
+        const isInChat = currentSegments.includes('chat') && !!currentParams.matchId;
+
+        if (isInChat) {
+            notificationService.setActiveChatId(currentParams.matchId as string);
+        } else {
+            notificationService.setActiveChatId(null);
+        }
     }, [segments, params]);
 
     // --- Message Logic ---
@@ -69,7 +80,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
         const { data: senderProfile } = await supabase
             .from('profiles')
-            .select('display_name, photos')
+            .select('display_name, photos, gender')
             .eq('id', newMessage.sender_id)
             .single();
 
@@ -78,6 +89,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
             chatId: newMessage.match_id,
             senderId: newMessage.sender_id,
             senderName: senderProfile?.display_name || 'Gossip User',
+            gender: senderProfile?.gender,
             senderAvatar: senderProfile?.photos?.[0] || null,
             content: newMessage.type === 'image' ? '📷 Photo' :
                 newMessage.type === 'audio' ? '🎵 Audio' :
@@ -128,7 +140,8 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
             content: fullCall.call_type === 'video' ? '📹 Incoming Video Call...' : '📞 Incoming Voice Call...',
             type: 'call',
             callId: fullCall.id,
-            callType: fullCall.call_type
+            callType: fullCall.call_type,
+            gender: callerProfile?.gender
         });
     }, [user]);
 

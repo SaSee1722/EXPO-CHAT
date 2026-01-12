@@ -100,8 +100,21 @@ serve(async (req) => {
         body: JSON.stringify(payload),
     })
 
+    const responseData = await res.json();
+
+    // 5. If it's a message and notification was accepted, mark as 'delivered' in DB
+    // Note: Expo returns 200 even if some tokens fail, but 'data' array contains status.
+    // We'll optimistically mark as delivered if the fetch succeeded and it's a message.
+    if (!isCall && res.ok) {
+        await supabase
+            .from('messages')
+            .update({ status: 'delivered' })
+            .eq('id', record.id)
+            .eq('status', 'sent'); // Only move from sent -> delivered
+    }
+
     return new Response(
-        JSON.stringify(await res.json()),
+        JSON.stringify(responseData),
         { headers: { "Content-Type": "application/json" } },
     )
 })

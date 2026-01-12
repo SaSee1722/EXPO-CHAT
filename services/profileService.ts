@@ -1,6 +1,7 @@
 import { getSupabaseClient } from '@/template';
 import { Profile } from '@/types';
 import { Platform } from 'react-native';
+import { storageService } from './storageService';
 
 const supabase = getSupabaseClient();
 
@@ -138,75 +139,16 @@ export const profileService = {
 
   // UNIVERSAL UPLOAD: Works on both Web and Mobile
   async uploadPhoto(userId: string, uri: string) {
-    try {
-      console.log(`[PhotoUpload] Starting upload:`, uri.substring(0, 100));
+    // Generate filename
+    const fileName = `${userId}/${Date.now()}.jpg`;
 
-      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-      const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+    const { data, error } = await storageService.uploadFile(
+      'profile-photos',
+      uri,
+      fileName,
+      'image/jpeg'
+    );
 
-      if (!supabaseUrl || !supabaseAnonKey) throw new Error('Supabase configuration missing');
-
-      // Import FileSystem dynamically
-      const FileSystem = require('expo-file-system/legacy');
-
-      // 1. Read file as base64 (works reliably on iOS)
-      console.log('[PhotoUpload] Reading file as base64...');
-      const base64 = await FileSystem.readAsStringAsync(uri, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
-
-      console.log('[PhotoUpload] Base64 length:', base64.length);
-
-      if (!base64 || base64.length === 0) {
-        throw new Error('Failed to read file data');
-      }
-
-      // 2. Convert base64 to Uint8Array
-      const binaryString = atob(base64);
-      const bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
-
-      console.log('[PhotoUpload] Binary data size:', bytes.length, 'bytes');
-
-      if (bytes.length === 0) {
-        throw new Error('Binary data is empty after conversion');
-      }
-
-      // Check file size (max 200KB for profile photos to avoid timeout)
-      const maxSize = 200 * 1024; // 200KB
-      if (bytes.length > maxSize) {
-        throw new Error(`Image too large: ${(bytes.length / 1024).toFixed(0)}KB. Please use a smaller image (max 200KB).`);
-      }
-
-      // 3. Generate filename
-      const fileName = `${userId}/${Date.now()}.jpg`;
-
-      console.log('[PhotoUpload] Uploading to Supabase Storage...');
-      console.log('[PhotoUpload] FileName:', fileName);
-
-      const { error: uploadError } = await supabase.storage
-        .from('profile-photos')
-        .upload(fileName, bytes.buffer, {
-          contentType: 'image/jpeg',
-          upsert: true,
-          cacheControl: '3600'
-        });
-
-      if (uploadError) throw uploadError;
-
-      // 4. Get and return Public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('profile-photos')
-        .getPublicUrl(fileName);
-
-      console.log('[PhotoUpload] ✅ Success! Public URL:', publicUrl);
-      return { data: publicUrl, error: null };
-
-    } catch (error) {
-      console.error('[PhotoUpload] ❌ Error:', error);
-      return { data: null, error: error instanceof Error ? error : new Error('Unknown upload error') };
-    }
+    return { data, error };
   },
 };

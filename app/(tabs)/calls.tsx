@@ -8,7 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GradientText } from '@/components/GradientText';
-import { Spacing, Colors, Typography } from '@/constants/theme';
+import { Spacing, Colors, Typography, getGenderColor } from '@/constants/theme';
 import { Image } from 'expo-image';
 import { useNotifications } from '@/context/NotificationContext';
 import { webrtcService } from '@/services/webrtcService';
@@ -100,7 +100,7 @@ export default function CallsScreen() {
                 </View>
 
                 <View style={styles.callInfo}>
-                    <Text style={styles.name} numberOfLines={1}>
+                    <Text style={[styles.name, { color: getGenderColor(otherProfile?.gender) }]} numberOfLines={1}>
                         {otherProfile?.display_name || 'Gossip Member'}
                     </Text>
                     <View style={styles.detailsRow}>
@@ -222,7 +222,6 @@ const styles = StyleSheet.create({
     name: {
         fontSize: 17,
         fontWeight: '700',
-        color: '#FFF',
         marginBottom: 4,
     },
     detailsRow: {

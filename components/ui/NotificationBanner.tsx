@@ -4,6 +4,7 @@ import { Image } from 'expo-image';
 import Animated, { FadeInUp, FadeOutUp } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getGenderColor } from '@/constants/theme';
 
 export interface NotificationPayload {
     id: string;
@@ -15,6 +16,7 @@ export interface NotificationPayload {
     type?: 'message' | 'call';
     callId?: string;
     callType?: 'voice' | 'video';
+    gender?: string;
 }
 
 interface NotificationBannerProps {
@@ -55,7 +57,7 @@ export function NotificationBanner({ notification, onPress, onDismiss, onAction,
                 {/* Content Section */}
                 <View style={styles.content}>
                     <View style={styles.header}>
-                        <Text style={styles.name} numberOfLines={1}>{notification.senderName}</Text>
+                        <Text style={[styles.name, { color: getGenderColor(notification.gender) }]} numberOfLines={1}>{notification.senderName}</Text>
                         <Text style={styles.time}>Just now</Text>
                     </View>
                     <Text style={styles.message} numberOfLines={2}>
@@ -134,7 +136,6 @@ const styles = StyleSheet.create({
         marginBottom: 4,
     },
     name: {
-        color: '#FFFFFF',
         fontWeight: '700',
         fontSize: 16,
         letterSpacing: 0.5,

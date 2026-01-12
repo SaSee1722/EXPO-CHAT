@@ -6,16 +6,37 @@ import { getSupabaseClient } from '@/template';
 
 const supabase = getSupabaseClient();
 
+// Global variable to track the chat the user is currently looking at
+// This allows us to silence system notifications for THAT specific chat in the foreground
+let activeMatchId: string | null = null;
+
 // 1. Configure Global Handler
 Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-        shouldShowAlert: true, // Enable system notification in foreground
-        shouldPlaySound: true,
-        shouldSetBadge: true,
-    } as any),
+    handleNotification: async (notification) => {
+        // Get the matchId from the notification data
+        const data = notification.request.content.data as any;
+        const incomingMatchId = data?.matchId;
+
+        // Determine if we should show the alert
+        // If the user is already in this chat (activeMatchId matches), we SILENCE the system notification
+        const isCurrentlyViewingThisChat = activeMatchId && incomingMatchId &&
+            (activeMatchId.toLowerCase() === incomingMatchId.toLowerCase());
+
+        return {
+            shouldShowAlert: !isCurrentlyViewingThisChat,
+            shouldPlaySound: !isCurrentlyViewingThisChat,
+            shouldSetBadge: true,
+            // Modern Expo/OS properties
+            shouldShowBanner: !isCurrentlyViewingThisChat,
+            shouldShowList: true,
+        };
+    },
 });
 
 export const notificationService = {
+    setActiveChatId(id: string | null) {
+        activeMatchId = id;
+    },
     async registerForPushNotificationsAsync(userId: string) {
         if (Platform.OS === 'android') {
             // Default channel for messages

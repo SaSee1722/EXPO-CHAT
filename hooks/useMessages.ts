@@ -51,7 +51,11 @@ export function useMessages(matchId: string | null, userId: string | null) {
             });
 
             if (userId && newMessage.sender_id !== userId) {
-              matchService.markMessagesAsDelivered(matchId, userId);
+              // Mark as read immediately when user is in this chat (hooks into real-time)
+              // Deliver is handled by server, but we can call it here as a safety fallback if status is still 'sent'
+              if (newMessage.status === 'sent') {
+                matchService.markMessagesAsDelivered(matchId, userId);
+              }
               matchService.markMessagesAsRead(matchId, userId);
             }
           } else if (payload.eventType === 'UPDATE') {
@@ -119,71 +123,56 @@ export function useMessages(matchId: string | null, userId: string | null) {
     return { data, error };
   };
 
-  const sendMediaMessage = async (uri: string, type: 'image' | 'audio' | 'video' | 'file', metadata?: any) => {
-    if (!matchId || !userId) {
-      console.error('[useMessages] ❌ Cannot send media - missing matchId or userId');
-      return { error: 'Missing matchId or userId' };
-    }
+  const sendVoiceMessage = async (uri: string, duration: number) => {
+    if (!matchId || !userId) return { error: 'Missing matchId or userId' };
 
     const tempId = `temp-${Date.now()}`;
     const optimisticMessage: any = {
       id: tempId,
       match_id: matchId,
       sender_id: userId,
-      content: metadata?.caption || '',
-      type,
-      media_url: uri, // Use local URI for immediate preview
-      metadata: { ...(typeof metadata === 'object' ? metadata : {}), isUploading: true },
+      content: '',
+      type: 'audio',
+      media_url: uri,
+      metadata: { duration, isUploading: true },
       status: 'sending',
       created_at: new Date().toISOString(),
     };
 
-    // 1. Show message immediately in the list
     setMessages(prev => [optimisticMessage, ...prev]);
     setSending(true);
 
-    console.log('[useMessages] 📤 Starting media upload for:', tempId);
+    try {
+      const { data: publicUrl, error: uploadError } = await matchService.uploadVoiceMessage(matchId, uri);
 
-    // 2. Perform the upload
-    const { data: publicUrl, error: uploadError } = await matchService.uploadChatMedia(matchId, uri, type);
+      if (uploadError || !publicUrl) {
+        throw uploadError || new Error('Upload failed');
+      }
 
-    if (uploadError || !publicUrl) {
-      console.error('[useMessages] ❌ Upload failed:', uploadError);
+      const { data: realMessage, error: sendError } = await matchService.sendMessage(
+        matchId,
+        userId,
+        '',
+        'audio',
+        publicUrl,
+        { duration, isUploading: false }
+      );
+
+      if (sendError || !realMessage) {
+        throw sendError || new Error('Send failed');
+      }
+
+      setMessages(prev => prev.map(m => m.id === tempId ? realMessage : m));
+      setSending(false);
+      return { data: realMessage };
+    } catch (error: any) {
+      console.error('[useMessages] ❌ Voice message failed:', error);
       setMessages(prev => prev.filter(m => m.id !== tempId));
       setSending(false);
-      return { error: uploadError };
+      return { error };
     }
-
-    // 3. Create the real message in DB
-    const safeMetadata = typeof metadata === 'object' ? metadata : {};
-    const { data: realMessage, error: sendError } = await matchService.sendMessage(
-      matchId,
-      userId,
-      safeMetadata.caption || '',
-      type,
-      publicUrl,
-      { ...safeMetadata, isUploading: false }
-    );
-
-    if (sendError || !realMessage) {
-      console.error('[useMessages] ❌ Database entry failed:', sendError);
-      setMessages(prev => prev.filter(m => m.id !== tempId));
-    } else {
-      // 4. Swap temp message with official one - DEDUPLICATING AGAINST REALTIME
-      setMessages(prev => {
-        // If the real-time listener already added the message while we were uploading, just remove the temp one
-        if (prev.some(m => m.id === realMessage.id)) {
-          return prev.filter(m => m.id !== tempId);
-        }
-        // Otherwise, perform the official swap
-        return prev.map(m => m.id === tempId ? realMessage : m);
-      });
-      console.log('[useMessages] ✅ Media message complete');
-    }
-
-    setSending(false);
-    return { data: realMessage, error: sendError };
   };
+
 
   const toggleReaction = async (messageId: string, emoji: string) => {
     if (!userId) return;
@@ -195,7 +184,7 @@ export function useMessages(matchId: string | null, userId: string | null) {
 
       Object.keys(reactions).forEach(key => {
         reactions[key] = (reactions[key] || []).filter((id: string) => id !== userId);
-        if (reactions[key].length === 0) delete reactions[key];
+        if (reactions[key] && reactions[key].length === 0) delete reactions[key];
       });
 
       if (!hadEmoji) {
@@ -243,7 +232,8 @@ export function useMessages(matchId: string | null, userId: string | null) {
     loading,
     sending,
     sendMessage,
-    sendMediaMessage,
+    sendVoiceMessage,
+    sendMediaMessage: sendVoiceMessage, // Alias for compatibility
     reload: loadMessages,
     toggleReaction,
     deleteMessage,

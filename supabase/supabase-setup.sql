@@ -30,6 +30,9 @@ CREATE TABLE IF NOT EXISTS profiles (
 -- Enable Row Level Security
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 -- Policies for profiles
+DROP POLICY IF EXISTS "Public profiles are viewable by everyone" ON profiles;
+DROP POLICY IF EXISTS "Users can insert their own profile" ON profiles;
+DROP POLICY IF EXISTS "Users can update their own profile" ON profiles;
 CREATE POLICY "Public profiles are viewable by everyone" ON profiles FOR
 SELECT USING (true);
 CREATE POLICY "Users can insert their own profile" ON profiles FOR
@@ -51,6 +54,8 @@ CREATE TABLE IF NOT EXISTS swipes (
 -- Enable Row Level Security
 ALTER TABLE swipes ENABLE ROW LEVEL SECURITY;
 -- Policies for swipes
+DROP POLICY IF EXISTS "Users can view their own swipes" ON swipes;
+DROP POLICY IF EXISTS "Users can insert their own swipes" ON swipes;
 CREATE POLICY "Users can view their own swipes" ON swipes FOR
 SELECT USING (
         auth.uid() = swiper_id
@@ -73,6 +78,7 @@ CREATE TABLE IF NOT EXISTS matches (
 -- Enable Row Level Security
 ALTER TABLE matches ENABLE ROW LEVEL SECURITY;
 -- Policies for matches
+DROP POLICY IF EXISTS "Users can view their own matches" ON matches;
 CREATE POLICY "Users can view their own matches" ON matches FOR
 SELECT USING (
         auth.uid() = user1_id
@@ -101,11 +107,13 @@ CREATE TABLE IF NOT EXISTS messages (
     metadata JSONB DEFAULT '{}'::JSONB,
     status TEXT DEFAULT 'sent' CHECK (status IN ('sent', 'delivered', 'read')),
     reactions JSONB DEFAULT '{}'::JSONB,
-    reply_to UUID REFERENCES messages(id) ON DELETE reply_to_message JSONB,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    -- Antigravity Deletion Flags
-    deleted_for_everyone BOOLEAN DEFAULT FALSE,
-    deleted_by UUID [] DEFAULT '{}'
+    reply_to UUID REFERENCES messages(id) ON DELETE
+    SET NULL,
+        reply_to_message JSONB DEFAULT '{}'::JSONB,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        -- Antigravity Deletion Flags
+        deleted_for_everyone BOOLEAN DEFAULT FALSE,
+        deleted_by UUID [] DEFAULT '{}'
 );
 -- Enable Realtime for deletions and reactions
 ALTER TABLE messages REPLICA IDENTITY FULL;
@@ -121,6 +129,9 @@ END $$;
 -- Enable Row Level Security
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
 -- Policies for messages
+DROP POLICY IF EXISTS "Users can view messages in their matches" ON messages;
+DROP POLICY IF EXISTS "Users can insert messages in their matches" ON messages;
+DROP POLICY IF EXISTS "Users can update their own messages" ON messages;
 CREATE POLICY "Users can view messages in their matches" ON messages FOR
 SELECT USING (
         EXISTS (
@@ -224,6 +235,9 @@ CREATE TABLE IF NOT EXISTS blocks (
     UNIQUE(blocker_id, blocked_id)
 );
 ALTER TABLE blocks ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can view their own blocks" ON blocks;
+DROP POLICY IF EXISTS "Users can block others" ON blocks;
+DROP POLICY IF EXISTS "Users can unblock others" ON blocks;
 CREATE POLICY "Users can view their own blocks" ON blocks FOR
 SELECT USING (auth.uid() = blocker_id);
 CREATE POLICY "Users can block others" ON blocks FOR
@@ -312,31 +326,41 @@ DROP TRIGGER IF EXISTS update_profiles_updated_at ON profiles;
 CREATE TRIGGER update_profiles_updated_at BEFORE
 UPDATE ON profiles FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 -- ============================================
--- 8. STORAGE BUCKETS (Run these in Supabase Dashboard)
+-- 8. STORAGE BUCKETS
 -- ============================================
--- You need to create these buckets in the Supabase Dashboard:
--- 1. Bucket name: "profile-photos" (public)
--- 2. Bucket name: "chat-media" (private)
--- Storage policies for profile-photos bucket
--- CREATE POLICY "Public Access"
---   ON storage.objects FOR SELECT
---   USING (bucket_id = 'profile-photos');
--- CREATE POLICY "Authenticated users can upload"
---   ON storage.objects FOR INSERT
---   WITH CHECK (bucket_id = 'profile-photos' AND auth.role() = 'authenticated');
--- CREATE POLICY "Users can update their own photos"
---   ON storage.objects FOR UPDATE
---   USING (bucket_id = 'profile-photos' AND auth.uid()::text = (storage.foldername(name))[1]);
--- CREATE POLICY "Users can delete their own photos"
---   ON storage.objects FOR DELETE
---   USING (bucket_id = 'profile-photos' AND auth.uid()::text = (storage.foldername(name))[1]);
+-- 1. Create buckets if they don't exist
+-- Profile Photos (Public)
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('profile-photos', 'profile-photos', true) ON CONFLICT (id) DO
+UPDATE
+SET public = true;
+-- 2. Enable Storage Policies
+-- Profile Photos Policies (Bucket-specific names to avoid conflicts)
+DROP POLICY IF EXISTS "Profile Photos Public Access" ON storage.objects;
+DROP POLICY IF EXISTS "Profile Photos Authenticated Upload" ON storage.objects;
+DROP POLICY IF EXISTS "Profile Photos Owner Edit" ON storage.objects;
+DROP POLICY IF EXISTS "Profile Photos Owner Delete" ON storage.objects;
+-- Also drop old generic policy names if they exist
+DROP POLICY IF EXISTS "Public Access" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated Upload" ON storage.objects;
+DROP POLICY IF EXISTS "Owner Edit" ON storage.objects;
+DROP POLICY IF EXISTS "Owner Delete" ON storage.objects;
+CREATE POLICY "Profile Photos Public Access" ON storage.objects FOR
+SELECT USING (bucket_id = 'profile-photos');
+CREATE POLICY "Profile Photos Authenticated Upload" ON storage.objects FOR
+INSERT WITH CHECK (
+        bucket_id = 'profile-photos'
+        AND auth.role() = 'authenticated'
+    );
+CREATE POLICY "Profile Photos Owner Edit" ON storage.objects FOR
+UPDATE USING (
+        bucket_id = 'profile-photos'
+        AND auth.uid()::text = (storage.foldername(name)) [1]
+    );
+CREATE POLICY "Profile Photos Owner Delete" ON storage.objects FOR DELETE USING (
+    bucket_id = 'profile-photos'
+    AND auth.uid()::text = (storage.foldername(name)) [1]
+);
 -- ============================================
 -- SETUP COMPLETE!
--- ============================================
--- Next steps:
--- 1. Run this SQL in your Supabase SQL Editor
--- 2. Create storage buckets in Supabase Dashboard:
---    - profile-photos (public)
---    - chat-media (private)
--- 3. Restart your app to use the new database
 -- ============================================

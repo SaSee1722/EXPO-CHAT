@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { View, Text, StyleSheet, TextInput, FlatList, KeyboardAvoidingView, Platform, TouchableOpacity, Alert, Modal, Keyboard } from 'react-native';
 import * as ExpoRouter from 'expo-router';
-import { useAuth, useAlert } from '@/template';
+import { useAuth, useAlert, getSupabaseClient } from '@/template';
 import { useMessages } from '@/hooks/useMessages';
 import { matchService } from '@/services/matchService';
 import { callService } from '@/services/callService';
@@ -12,24 +12,28 @@ import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TypingIndicator } from '@/components/chat/TypingIndicator';
 import { EmojiPicker } from '@/components/chat/EmojiPicker';
-import { MediaMenu } from '@/components/chat/MediaMenu';
 import { VoiceRecorder } from '@/components/chat/VoiceRecorder';
 import WhatsAppVoiceNote from '@/components/chat/WhatsAppVoiceNote';
+
+
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
+
 import { webrtcService } from '@/services/webrtcService';
 import { useNotifications } from '@/context/NotificationContext';
 import { useProfileContext } from '@/context/ProfileContext';
 import { chatLockService } from '@/services/chatLockService';
 import { PinSetupModal } from '@/components/chat/PinSetupModal';
 import { LockedChatScreen } from '@/components/chat/LockedChatScreen';
+import { FullScreenVideoViewer } from '@/components/chat/FullScreenVideoViewer';
 import { Colors, Typography, Shadows, Spacing, BorderRadius, getGenderColor } from '@/constants/theme';
+
 
 export default function ChatScreen() {
   const { matchId } = ExpoRouter.useLocalSearchParams<{ matchId: string }>();
   const { user } = useAuth();
   const { showAlert } = useAlert();
-  const { isUserOnline, getPresenceText, typingMap, setPresence, setTypingStatus: setGlobalTypingStatus } = useProfileContext();
+  const { profile: currentUserProfile, isUserOnline, getPresenceText, typingMap, setPresence, setTypingStatus: setGlobalTypingStatus } = useProfileContext();
   const { messages, sending, sendMessage, sendMediaMessage, toggleReaction, deleteMessage: baseDeleteMessage } = useMessages(matchId, user?.id || null);
 
   const deleteMessage = async (id: string) => {
@@ -44,33 +48,27 @@ export default function ChatScreen() {
 
   const [inputText, setInputText] = React.useState('');
   const [otherProfile, setOtherProfile] = React.useState<Profile | null>(null);
-  const [showMediaMenu, setShowMediaMenu] = React.useState(false);
-  const [isRecording, setIsRecording] = React.useState(false);
-  const useWhatsAppStyle = true; // Always use WhatsApp style for voice notes
   const [replyingTo, setReplyingTo] = React.useState<Message | null>(null);
-
-  // Chat Lock State
+  const [isPinSetupVisible, setIsPinSetupVisible] = React.useState(false);
   const [isLocked, setIsLocked] = React.useState(false);
-  const [showPinSetup, setShowPinSetup] = React.useState(false);
   const [isUnlocked, setIsUnlocked] = React.useState(false);
-
-  // Use global call state from NotificationContext
-  const { setActiveCall, setCallOtherProfile, setIsCallIncoming } = useNotifications();
-
-  const [selectedMedia, setSelectedMedia] = React.useState<{ uri: string, type: 'image' | 'video' | 'file', metadata?: any } | null>(null);
-  const [caption, setCaption] = React.useState('');
-  const typingChannelRef = React.useRef<any>(null);
-
+  const [showPinSetup, setShowPinSetup] = React.useState(false);
+  const [activeCall, setActiveCall] = React.useState<any>(null);
+  const [callOtherProfile, setCallOtherProfile] = React.useState<Profile | null>(null);
+  const [isCallIncoming, setIsCallIncoming] = React.useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = React.useState(false);
+  const [isRecording, setIsRecording] = React.useState(false);
   const inputRef = React.useRef<TextInput>(null);
+  const typingChannelRef = React.useRef<any>(null);
+  const personalTypingChannelRef = React.useRef<any>(null);
 
   const handleEmojiSelect = (emojiObj: { emoji: string }) => {
     setInputText((prev) => prev + emojiObj.emoji);
   };
 
   const handleStickerSelect = async (sticker: any) => {
-    // Send sticker as image for now
-    await sendMediaMessage(sticker.url, 'image', { caption: 'Sticker' });
+    // Send sticker using the general sendMessage with 'image' type since it's a URL
+    await sendMessage('Sticker', 'image', sticker.url, { caption: 'Sticker' });
   };
 
   const handleCreateSticker = async () => {
@@ -87,9 +85,10 @@ export default function ChatScreen() {
       });
 
       if (!result.canceled) {
-        const asset = result.assets[0];
-        // Send as sticker
-        await sendMediaMessage(asset.uri, 'image', { caption: 'Custom Sticker', isSticker: true });
+        // Stickers from local files can't be sent easily now as we removed the bucket, 
+        // but for now we'll leave it as a placeholder or remove it.
+        // Given the request is to remove media sharing, let's remove sticker creation from gallery too.
+        showAlert('Sticker creation is currently disabled.');
       }
     } catch (error) {
       console.error('Error creating sticker:', error);
@@ -118,7 +117,7 @@ export default function ChatScreen() {
   const lockedChatRef = React.useRef<any>(null);
   const isRemovingLock = React.useRef(false);
 
-  const personalTypingChannelRef = React.useRef<any>(null);
+
 
   // Handle Typing Status & Read Receipts on Focus
   React.useEffect(() => {
@@ -401,6 +400,30 @@ export default function ChatScreen() {
     await sendMessage(textToSend, 'text', undefined, undefined, replyInfo?.reply_to, replyInfo?.reply_to_message);
   };
 
+  const handleVoiceRecordingComplete = async (uri: string, duration: number) => {
+    console.log('[ChatScreen] 🎤 Voice recording complete');
+    console.log('[ChatScreen] URI:', uri);
+    console.log('[ChatScreen] Duration (ms):', duration);
+
+    try {
+      setIsRecording(false);
+      // Duration from WhatsAppVoiceNote is in milliseconds, convert to seconds
+      const durationInSeconds = Math.floor(duration / 1000);
+      const result = await sendMediaMessage(uri, durationInSeconds);
+
+      if (result?.error) {
+        console.error('[ChatScreen] ❌ Voice message upload failed:', result.error);
+        showAlert('Failed to send voice message. Please try again.');
+      } else {
+        console.log('[ChatScreen] ✅ Voice message sent successfully');
+      }
+    } catch (error) {
+      console.error('[ChatScreen] ❌ Voice message error:', error);
+      showAlert('Failed to send voice message. Please try again.');
+      setIsRecording(false);
+    }
+  };
+
   const initiateCall = async (type: 'voice' | 'video') => {
     if (!matchId || !user || !otherProfile) return;
 
@@ -423,88 +446,8 @@ export default function ChatScreen() {
     }
   };
 
-  const handleMediaSelect = async (type: 'image' | 'file' | 'audio' | 'camera') => {
-    try {
-      switch (type) {
-        case 'image': {
-          const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-          if (status !== 'granted') {
-            showAlert('Permission to access photos is required');
-            return;
-          }
-          const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.All,
-            quality: 0.8,
-            videoMaxDuration: 60,
-          });
-          if (!result.canceled) {
-            const asset = result.assets[0];
-            const isVideo = asset.type === 'video' || asset.uri.endsWith('.mp4') || asset.uri.endsWith('.mov');
-            setSelectedMedia({ uri: asset.uri, type: isVideo ? 'video' : 'image' });
-          }
-          break;
-        }
-        case 'camera': {
-          const { status } = await ImagePicker.requestCameraPermissionsAsync();
-          if (status !== 'granted') {
-            showAlert('Permission to use camera is required');
-            return;
-          }
-          const result = await ImagePicker.launchCameraAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.All,
-            quality: 0.8,
-            videoMaxDuration: 60,
-          });
-          if (!result.canceled) {
-            const asset = result.assets[0];
-            const isVideo = asset.type === 'video' || asset.uri.endsWith('.mp4') || asset.uri.endsWith('.mov');
-            setSelectedMedia({ uri: asset.uri, type: isVideo ? 'video' : 'image' });
-          }
-          break;
-        }
-        case 'file': {
-          const result = await DocumentPicker.getDocumentAsync({
-            type: '*/*',
-            copyToCacheDirectory: true,
-          });
-          if (!result.canceled) {
-            const asset = result.assets[0];
-            await sendMediaMessage(asset.uri, 'file', {
-              fileName: asset.name || 'document',
-              fileSize: asset.size || 0,
-              mimeType: asset.mimeType || 'application/octet-stream',
-            });
-          }
-          break;
-        }
-      }
-    } catch (error) {
-      console.error('Error selecting media:', error);
-      showAlert('Failed to select media. Please try again.');
-    }
-  };
 
-  const handleVoiceRecordingComplete = async (uri: string, duration: number) => {
-    console.log('[ChatScreen] 🎤 Voice recording complete');
-    console.log('[ChatScreen] URI:', uri);
-    console.log('[ChatScreen] Duration (ms):', duration);
 
-    try {
-      setIsRecording(false);
-      const result = await sendMediaMessage(uri, 'audio', { duration });
-
-      if (result?.error) {
-        console.error('[ChatScreen] ❌ Voice message upload failed:', result.error);
-        showAlert('Failed to send voice message. Please try again.');
-      } else {
-        console.log('[ChatScreen] ✅ Voice message sent successfully');
-      }
-    } catch (error) {
-      console.error('[ChatScreen] ❌ Voice message error:', error);
-      showAlert('Failed to send voice message. Please try again.');
-      setIsRecording(false);
-    }
-  };
 
   return (
     <>
@@ -554,7 +497,7 @@ export default function ChatScreen() {
             </Text>
             <View style={styles.onlineIndicator}>
               {typingMap[matchId] ? (
-                <Text style={styles.typingText}>
+                <Text style={[styles.typingText, { color: getGenderColor(otherProfile?.gender) }]}>
                   typing...
                 </Text>
               ) : (
@@ -672,9 +615,9 @@ export default function ChatScreen() {
             <View style={[styles.inputContainer, { paddingBottom: showEmojiPicker ? 0 : Math.max(insets.bottom, 16) }]}>
               {replyingTo && (
                 <View style={styles.replyBarContainer}>
-                  <View style={styles.replyBarHighlight} />
+                  <View style={[styles.replyBarHighlight, { backgroundColor: getGenderColor(replyingTo.sender_id === user?.id ? currentUserProfile?.gender : otherProfile?.gender) }]} />
                   <View style={styles.replyBarContent}>
-                    <Text style={styles.replyBarSender}>
+                    <Text style={[styles.replyBarSender, { color: getGenderColor(replyingTo.sender_id === user?.id ? currentUserProfile?.gender : otherProfile?.gender) }]}>
                       {replyingTo.sender_id === user?.id ? 'Replying to yourself' : 'Replying to message'}
                     </Text>
                     <Text style={styles.replyBarText} numberOfLines={1}>
@@ -691,35 +634,17 @@ export default function ChatScreen() {
               )}
               <View style={styles.inputWrapper}>
                 {isRecording ? (
-                  useWhatsAppStyle ? (
-                    <WhatsAppVoiceNote
-                      onRecordingComplete={handleVoiceRecordingComplete}
-                      onCancel={() => setIsRecording(false)}
-                    />
-                  ) : (
-                    <VoiceRecorder
-                      onRecordingComplete={handleVoiceRecordingComplete}
-                      onCancel={() => setIsRecording(false)}
-                    />
-                  )
+                  <WhatsAppVoiceNote
+                    onRecordingComplete={handleVoiceRecordingComplete}
+                    onCancel={() => setIsRecording(false)}
+                  />
                 ) : (
                   <>
                     <TouchableOpacity
-                      onPress={toggleEmojiPicker}
-                      style={styles.mediaButton}
+                      onPress={() => setShowEmojiPicker(!showEmojiPicker)}
+                      style={styles.emojiButton}
                     >
-                      <Ionicons
-                        name={showEmojiPicker ? "keypad" : "happy-outline"}
-                        size={24}
-                        color="#87CEEB"
-                      />
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      onPress={() => setShowMediaMenu(true)}
-                      style={styles.mediaButton}
-                    >
-                      <Ionicons name="add" size={24} color="#87CEEB" />
+                      <Ionicons name="happy-outline" size={24} color="#87CEEB" />
                     </TouchableOpacity>
 
                     <TextInput
@@ -745,10 +670,9 @@ export default function ChatScreen() {
                     ) : (
                       <TouchableOpacity
                         onPress={() => setIsRecording(true)}
-                        disabled={sending}
-                        style={[styles.sendButton, { backgroundColor: 'rgba(255, 255, 255, 0.1)' }]}
+                        style={styles.micButton}
                       >
-                        <Ionicons name="mic" size={22} color="#FFF" />
+                        <Ionicons name="mic" size={24} color="#87CEEB" />
                       </TouchableOpacity>
                     )}
                   </>
@@ -767,12 +691,6 @@ export default function ChatScreen() {
           </>
         )}
 
-        <MediaMenu
-          visible={showMediaMenu}
-          onClose={() => setShowMediaMenu(false)}
-          onSelect={handleMediaSelect}
-        />
-
         <PinSetupModal
           visible={showPinSetup}
           onComplete={async (pin) => {
@@ -785,61 +703,6 @@ export default function ChatScreen() {
           onCancel={() => setShowPinSetup(false)}
         />
       </KeyboardAvoidingView>
-
-      {/* Media Preview Modal */}
-      <Modal visible={!!selectedMedia} transparent animationType="slide">
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.previewOverlay}>
-          <View style={styles.previewHeader}>
-            <TouchableOpacity onPress={() => { setSelectedMedia(null); setCaption(''); }} style={styles.previewClose}>
-              <Ionicons name="close" size={28} color="#FFF" />
-            </TouchableOpacity>
-            <Text style={styles.previewTitle}>Preview</Text>
-            <View style={{ width: 40 }} />
-          </View>
-
-          <View style={styles.previewContent}>
-            {selectedMedia?.type === 'image' ? (
-              <Image
-                source={{ uri: selectedMedia.uri }}
-                style={styles.previewImage}
-                contentFit="contain"
-                priority="high"
-              />
-            ) : (
-              <View style={styles.videoPreviewPlaceholder}>
-                <Ionicons name="videocam" size={80} color="rgba(255,255,255,0.2)" />
-                <Text style={styles.videoPreviewText}>Video Selected</Text>
-              </View>
-            )}
-          </View>
-
-          <View style={[styles.previewFooter, { paddingBottom: Math.max(insets.bottom, 20) }]}>
-            <View style={styles.previewInputContainer}>
-              <TextInput
-                style={styles.previewInput}
-                placeholder="Add a caption..."
-                placeholderTextColor="rgba(255,255,255,0.5)"
-                value={caption}
-                onChangeText={setCaption}
-                multiline
-              />
-              <TouchableOpacity
-                style={styles.previewSendBtn}
-                onPress={async () => {
-                  if (!selectedMedia) return;
-                  const media = selectedMedia;
-                  const text = caption;
-                  setSelectedMedia(null);
-                  setCaption('');
-                  await sendMediaMessage(media.uri, media.type, { ...media.metadata, caption: text });
-                }}
-              >
-                <Ionicons name="send" size={24} color="#FFF" />
-              </TouchableOpacity>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
     </>
   );
 }
@@ -867,7 +730,6 @@ const styles = StyleSheet.create({
   },
   headerName: {
     ...Typography.h3,
-    color: '#FFF',
   },
   onlineIndicator: {
     flexDirection: 'row',
@@ -880,7 +742,6 @@ const styles = StyleSheet.create({
   },
   typingText: {
     ...Typography.caption,
-    color: '#87CEEB',
     fontStyle: 'italic',
   },
   headerActions: {
@@ -930,7 +791,6 @@ const styles = StyleSheet.create({
   replyBarHighlight: {
     width: 4,
     height: '100%',
-    backgroundColor: '#87CEEB',
     borderRadius: 2,
   },
   replyBarContent: {
@@ -938,7 +798,6 @@ const styles = StyleSheet.create({
   },
   replyBarSender: {
     ...Typography.caption,
-    color: '#87CEEB',
     fontWeight: 'bold',
     marginBottom: 2,
   },
@@ -965,6 +824,13 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  emojiButton: {
+    padding: 8,
+    marginRight: 4,
+  },
+  micButton: {
+    padding: 8,
   },
   mediaButton: {
     padding: 8,

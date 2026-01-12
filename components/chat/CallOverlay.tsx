@@ -11,10 +11,11 @@ import Animated, {
     interpolate,
     Extrapolate
 } from 'react-native-reanimated';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { PanGestureHandler } from 'react-native-gesture-handler';
 import { RTCView, MediaStream } from 'react-native-webrtc';
 import { useAuth } from '@/template';
 import { LinearGradient } from 'expo-linear-gradient';
+import { getGenderColor } from '@/constants/theme';
 
 import { Profile, Call } from '@/types';
 import { webrtcService } from '@/services/webrtcService';
@@ -209,16 +210,27 @@ export function CallOverlay({
         opacity: controlsOpacity.value,
     }));
 
-    // Pan gesture for draggable video preview
-    const panGesture = Gesture.Pan()
-        .onUpdate((event) => {
-            translateX.value = offsetX.value + event.translationX;
-            translateY.value = offsetY.value + event.translationY;
-        })
-        .onEnd(() => {
+    // Pan gesture handler for draggable video preview (Android compatible)
+    const gestureHandler = useAnimatedStyle(() => ({
+        transform: [
+            { translateX: translateX.value },
+            { translateY: translateY.value }
+        ],
+    }));
+
+    const onPanGestureEvent = (event: any) => {
+        'worklet';
+        translateX.value = offsetX.value + event.nativeEvent.translationX;
+        translateY.value = offsetY.value + event.nativeEvent.translationY;
+    };
+
+    const onPanHandlerStateChange = (event: any) => {
+        'worklet';
+        if (event.nativeEvent.state === 5) { // END state
             offsetX.value = translateX.value;
             offsetY.value = translateY.value;
-        });
+        }
+    };
 
     const previewAnimatedStyle = useAnimatedStyle(() => ({
         transform: [
@@ -298,7 +310,10 @@ export function CallOverlay({
                     )}
 
                     {showVideo && localStream && !isCameraOff && (
-                        <GestureDetector gesture={panGesture}>
+                        <PanGestureHandler
+                            onGestureEvent={onPanGestureEvent}
+                            onHandlerStateChange={onPanHandlerStateChange}
+                        >
                             <Animated.View style={[styles.localVideoWrapper, previewAnimatedStyle]}>
                                 <RTCView
                                     streamURL={localStream.toURL()}
@@ -307,7 +322,7 @@ export function CallOverlay({
                                     zOrder={1}
                                 />
                             </Animated.View>
-                        </GestureDetector>
+                        </PanGestureHandler>
                     )}
 
                     <View style={[styles.content, showVideo && styles.contentVideoMode]}>
@@ -325,26 +340,28 @@ export function CallOverlay({
                                     </View>
                                 </View>
                             )}
-                            <Text style={styles.name}>{otherProfile?.display_name || 'Gossip User'}</Text>
-                            <View style={styles.statusContainer}>
-                                <Text style={styles.status}>
-                                    {call.status === 'active' ? formatTime(timer) :
-                                        call.status === 'calling' ? (isIncoming ? `INCOMING ${call.call_type?.toUpperCase()}` : 'CALLING...') :
-                                            call.status?.toUpperCase()}
-                                </Text>
-                                {call.status === 'active' && (
-                                    <View style={styles.secureBadge}>
-                                        <Ionicons name="shield-checkmark" size={12} color="#87CEEB" />
-                                        <Text style={styles.secureText}>SECURE</Text>
-                                    </View>
-                                )}
-                            </View>
+                            <Animated.View style={[call.status === 'active' && showVideo ? controlsAnimatedStyle : { opacity: 1 }]}>
+                                <Text style={[styles.name, { color: getGenderColor(otherProfile?.gender) }]}>{otherProfile?.display_name || 'Gossip User'}</Text>
+                                <View style={styles.statusContainer}>
+                                    <Text style={styles.status}>
+                                        {call.status === 'active' ? formatTime(timer) :
+                                            call.status === 'calling' ? (isIncoming ? `INCOMING ${call.call_type?.toUpperCase()}` : 'CALLING...') :
+                                                call.status?.toUpperCase()}
+                                    </Text>
+                                    {call.status === 'active' && (
+                                        <View style={styles.secureBadge}>
+                                            <Ionicons name="shield-checkmark" size={12} color="#87CEEB" />
+                                            <Text style={styles.secureText}>SECURE</Text>
+                                        </View>
+                                    )}
+                                </View>
 
-                            <Text style={styles.connectionStatus}>
-                                {webrtcService.peerConnection?.connectionState === 'connected' ? '• Signal Optimized' :
-                                    webrtcService.peerConnection?.connectionState === 'connecting' ? 'Establishing Line...' :
-                                        webrtcService.peerConnection?.connectionState === 'failed' ? 'Retrying Connection...' : ''}
-                            </Text>
+                                <Text style={styles.connectionStatus}>
+                                    {webrtcService.peerConnection?.connectionState === 'connected' ? '• Signal Optimized' :
+                                        webrtcService.peerConnection?.connectionState === 'connecting' ? 'Establishing Line...' :
+                                            webrtcService.peerConnection?.connectionState === 'failed' ? 'Retrying Connection...' : ''}
+                                </Text>
+                            </Animated.View>
 
                             {permissionError && (
                                 <TouchableOpacity
@@ -465,9 +482,9 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.5,
         shadowRadius: 20,
     },
-    avatar: { width: 140, height: 140, borderRadius: 70, borderWidth: 3, borderColor: '#FFF' },
+    avatar: { width: 140, height: 140, borderRadius: 70, borderWidth: 3, borderColor: 'rgba(255,255,255,0.8)' },
     pulseCircle: { position: 'absolute', width: 170, height: 170, borderRadius: 85, backgroundColor: '#87CEEB' },
-    name: { fontSize: 36, fontWeight: '900', color: '#FFF', marginBottom: 8, letterSpacing: -0.5 },
+    name: { fontSize: 36, fontWeight: '900', marginBottom: 8, letterSpacing: -0.5 },
     statusContainer: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4 },
     status: { fontSize: 16, color: '#87CEEB', fontWeight: '800', letterSpacing: 2 },
     secureBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(135, 206, 235, 0.1)', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 },

@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GradientText } from '@/components/GradientText';
-import { Colors, Typography, Shadows, Spacing, BorderRadius } from '@/constants/theme';
+import { Colors, Typography, Shadows, Spacing, BorderRadius, getGenderColor } from '@/constants/theme';
 
 interface BlockedUser {
     id: string;
@@ -17,6 +17,7 @@ interface BlockedUser {
         id: string;
         display_name: string;
         photos: string[];
+        gender?: string;
     };
 }
 
@@ -48,7 +49,7 @@ export default function BlockedUsersScreen() {
                 const blockedIds = blocks.map(b => b.blocked_id);
                 const { data: profiles } = await supabase
                     .from('profiles')
-                    .select('id, display_name, photos')
+                    .select('id, display_name, photos, gender')
                     .in('id', blockedIds);
 
                 const enrichedBlocks = blocks.map(block => ({
@@ -110,7 +111,7 @@ export default function BlockedUsersScreen() {
             <View style={styles.userCard}>
                 <Image source={{ uri: photoUrl }} style={styles.avatar} contentFit="cover" />
                 <View style={styles.userInfo}>
-                    <Text style={styles.userName}>{displayName}</Text>
+                    <Text style={[styles.userName, { color: getGenderColor(item.profile?.gender) }]}>{displayName}</Text>
                     <Text style={styles.blockedDate}>
                         Blocked {new Date(item.created_at).toLocaleDateString()}
                     </Text>
@@ -223,7 +224,6 @@ const styles = StyleSheet.create({
     userName: {
         ...Typography.body,
         fontWeight: '700',
-        color: '#FFF',
         marginBottom: 2,
     },
     blockedDate: {

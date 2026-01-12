@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, Dimensions, ScrollView, TouchableOpacity, useColorScheme, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Spacing, BorderRadius, Typography, Shadows } from '@/constants/theme';
+import { Colors, Spacing, BorderRadius, Typography, Shadows, getGenderColor } from '@/constants/theme';
 import { Profile } from '@/types';
 import { Image } from 'expo-image';
 
@@ -67,11 +67,11 @@ export function SwipeCard({ profile }: SwipeCardProps) {
       >
         <View style={styles.info}>
           <View style={styles.nameRow}>
-            <Text style={styles.name}>
+            <Text style={[styles.name, { color: getGenderColor(profile.gender) }]}>
               {profile.display_name}, {profile.age}
             </Text>
             <View style={styles.verifiedBadge}>
-              <Ionicons name="checkmark-seal" size={20} color="#87CEEB" />
+              <Ionicons name="checkmark-circle" size={20} color="#87CEEB" />
             </View>
           </View>
 

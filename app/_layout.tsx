@@ -48,7 +48,7 @@ export default function RootLayout() {
         const { status: notifStatus } = await import('expo-notifications').then(n => n.requestPermissionsAsync());
         console.log('[RootLayout] Notification permission:', notifStatus);
 
-        // 2. Microphone (Required for Voice Messages & Calls)
+        // 2. Microphone (Required for Calls)
         const { status: audioStatus } = await Audio.requestPermissionsAsync();
         console.log('[RootLayout] Microphone permission:', audioStatus);
 

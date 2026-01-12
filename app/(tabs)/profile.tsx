@@ -202,7 +202,7 @@ export default function ProfileScreen() {
 
                   {/* Gender Selector */}
                   <View style={styles.genderSelectContainer}>
-                    {['male', 'female', 'others'].map((g) => (
+                    {['male', 'female', 'other'].map((g) => (
                       <TouchableOpacity
                         key={g}
                         style={[
@@ -479,7 +479,7 @@ const styles = StyleSheet.create({
   placeholderContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   uploadingOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
   editBadge: { position: 'absolute', bottom: 4, right: 4, backgroundColor: '#87CEEB', width: 34, height: 34, borderRadius: 17, justifyContent: 'center', alignItems: 'center', borderWidth: 3, borderColor: '#000' },
-  displayName: { fontSize: 28, fontWeight: '800', color: '#FFF', marginTop: 20, letterSpacing: 0.5 },
+  displayName: { fontSize: 28, fontWeight: '800', marginTop: 20, letterSpacing: 0.5 },
   ageText: { fontSize: 13, color: 'rgba(255,255,255,0.4)', marginTop: 6, fontWeight: '600', letterSpacing: 1 },
   infoCard: { borderRadius: 32, padding: 20, borderWidth: 2, borderColor: 'rgba(255,255,255,0.15)', overflow: 'hidden', marginBottom: 24 },
   androidCard: { backgroundColor: 'rgba(255,255,255,0.04)' },
