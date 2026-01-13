@@ -66,9 +66,7 @@ export default function ChatScreen() {
   const [isLocked, setIsLocked] = React.useState(false);
   const [isUnlocked, setIsUnlocked] = React.useState(false);
   const [showPinSetup, setShowPinSetup] = React.useState(false);
-  const [activeCall, setActiveCall] = React.useState<any>(null);
-  const [callOtherProfile, setCallOtherProfile] = React.useState<Profile | null>(null);
-  const [isCallIncoming, setIsCallIncoming] = React.useState(false);
+  const { setActiveCall, setCallOtherProfile, setIsCallIncoming } = useNotifications();
   const [showEmojiPicker, setShowEmojiPicker] = React.useState(false);
   const [showAttachmentPicker, setShowAttachmentPicker] = React.useState(false);
   const [isRecording, setIsRecording] = React.useState(false);

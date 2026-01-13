@@ -10,10 +10,17 @@ import { NotificationBanner, NotificationPayload } from '@/components/ui/Notific
 import { CallOverlay } from '@/components/chat/CallOverlay';
 import { useAuth, getSupabaseClient } from '@/template';
 import { Call, Profile } from '@/types';
+import { Audio } from 'expo-av';
+
+const RINGTONE_URL = 'https://assets.mixkit.co/active_storage/sfx/1359/1359-preview.mp3'; // Digital Phone Ring (The "Good" one)
+const RINGBACK_URL = 'https://cdn.pixabay.com/download/audio/2025/07/30/audio_a4cedca394.mp3?filename=phone-ringing-382734.mp3'; // Professional Ringing Tone from Pixabay
 
 type NotificationContextType = {
+    activeCall: Call | null;
     setActiveCall: (call: Call | null) => void;
+    callOtherProfile: Profile | null;
     setCallOtherProfile: (profile: Profile | null) => void;
+    isCallIncoming: boolean;
     setIsCallIncoming: (isIncoming: boolean) => void;
 };
 
@@ -30,8 +37,11 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     const [activeCall, setActiveCall] = useState<Call | null>(null);
     const [callOtherProfile, setCallOtherProfile] = useState<Profile | null>(null);
     const [isCallIncoming, setIsCallIncoming] = useState(false);
-
     const activeCallRef = useRef<Call | null>(null);
+    const [pendingCall, setPendingCall] = useState<{ call: Call, profile: Profile | null } | null>(null);
+    const ringtoneSoundRef = useRef<Audio.Sound | null>(null);
+    const ringbackSoundRef = useRef<Audio.Sound | null>(null);
+
     useEffect(() => {
         activeCallRef.current = activeCall;
     }, [activeCall]);
@@ -121,58 +131,94 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
             .single();
 
         const fullCall = { ...newCall, call_type: newCall.call_type || 'voice' };
-        setActiveCall(fullCall);
-        setCallOtherProfile(callerProfile);
-        setIsCallIncoming(true);
 
-        // Start vibration pattern (wait 0ms, vibrate 500ms, wait 1000ms, repeat)
-        Vibration.vibrate([0, 500, 1000], true);
+        const currentSegments = segmentsRef.current as string[];
+        const currentParams = paramsRef.current as any;
+        const isInAnyChat = currentSegments.includes('chat');
+        const isThisSpecificChat = isInAnyChat &&
+            (currentParams.matchId?.toLowerCase() === newCall.match_id.toLowerCase());
 
-        // Signaling initialized above already
+        // Should we show the full screen overlay immediately?
+        // Yes, if: Not in any chat OR is already in this specific chat
+        const shouldShowOverlayImmediately = !isInAnyChat || isThisSpecificChat;
 
-        // Also show a banner for redundancy/visibility
-        setActiveNotification({
-            id: fullCall.id,
-            chatId: fullCall.match_id,
-            senderId: fullCall.caller_id,
-            senderName: callerProfile?.display_name || 'Caller',
-            senderAvatar: callerProfile?.photos?.[0] || null,
-            content: fullCall.call_type === 'video' ? '📹 Incoming Video Call...' : '📞 Incoming Voice Call...',
-            type: 'call',
-            callId: fullCall.id,
-            callType: fullCall.call_type,
-            gender: callerProfile?.gender
-        });
+        if (shouldShowOverlayImmediately) {
+            setActiveCall(fullCall);
+            setCallOtherProfile(callerProfile);
+            setIsCallIncoming(true);
+        } else {
+            // Store it as pending so the banner can "promote" it to activeCall if accepted
+            setPendingCall({ call: fullCall, profile: callerProfile });
+
+            // Show the banner instead
+            setActiveNotification({
+                id: fullCall.id,
+                chatId: fullCall.match_id,
+                senderId: fullCall.caller_id,
+                senderName: callerProfile?.display_name || 'Caller',
+                senderAvatar: callerProfile?.photos?.[0] || null,
+                content: fullCall.call_type === 'video' ? '📹 Incoming Video Call...' : '📞 Incoming Voice Call...',
+                type: 'call',
+                callId: fullCall.id,
+                callType: fullCall.call_type,
+                gender: callerProfile?.gender
+            });
+        }
     }, [user]);
 
     // --- Call Actions ---
     const handleAcceptCall = async () => {
         Vibration.cancel();
-        if (!activeCall) return;
+
+        let callToAccept = activeCall;
+        let profileToUse = callOtherProfile;
+
+        // If it was a banner call that hasn't been "activated" yet
+        if (!callToAccept && pendingCall) {
+            callToAccept = pendingCall.call;
+            profileToUse = pendingCall.profile;
+
+            // Activate it now so the overlay shows up
+            setActiveCall(callToAccept);
+            setCallOtherProfile(profileToUse);
+            setIsCallIncoming(true);
+        }
+
+        if (!callToAccept) return;
 
         // 1. Broadcast acceptance
         webrtcService.notifyCallAccepted();
 
-        // 2. Clear banner
+        // 2. Clear banner and pending
         setActiveNotification(null);
+        setPendingCall(null);
 
         // 3. Update status locally
-        const updatedCall = { ...activeCall, status: 'active' as const };
+        const updatedCall = { ...callToAccept, status: 'active' as const };
         setActiveCall(updatedCall);
         setIsCallIncoming(false);
 
         // 4. Update DB
-        await callService.updateCallStatus(activeCall.id, 'active');
+        await callService.updateCallStatus(callToAccept.id, 'active');
     };
 
     const handleRejectCall = async () => {
         Vibration.cancel();
-        if (!activeCall || !user) return;
-        await callService.updateCallStatus(activeCall.id, 'rejected');
+
+        let callToReject = activeCall || pendingCall?.call;
+        if (!callToReject || !user) {
+            // Just clear any pending if something went wrong
+            setActiveNotification(null);
+            setPendingCall(null);
+            return;
+        }
+
+        await callService.updateCallStatus(callToReject.id, 'rejected');
 
         setActiveCall(null);
         setCallOtherProfile(null);
         setActiveNotification(null);
+        setPendingCall(null);
         webrtcService.cleanup('manual_reject');
     };
 
@@ -206,13 +252,102 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
     const handlePressBanner = () => {
         if (activeNotification?.type === 'call') {
-            // Already showing overlay, just clear banner
+            // Promote pending call to active so overlay shows
+            if (pendingCall) {
+                setActiveCall(pendingCall.call);
+                setCallOtherProfile(pendingCall.profile);
+                setIsCallIncoming(true);
+            }
             setActiveNotification(null);
+            setPendingCall(null);
         } else if (activeNotification) {
             router.push(`/chat/${activeNotification.chatId}`);
             setActiveNotification(null);
         }
     };
+
+    // --- Audio Feedback Logic (Ringtones) ---
+    const stopAllSounds = async () => {
+        try {
+            if (ringtoneSoundRef.current) {
+                await ringtoneSoundRef.current.stopAsync();
+                await ringtoneSoundRef.current.unloadAsync();
+                ringtoneSoundRef.current = null;
+            }
+            if (ringbackSoundRef.current) {
+                await ringbackSoundRef.current.stopAsync();
+                await ringbackSoundRef.current.unloadAsync();
+                ringbackSoundRef.current = null;
+            }
+        } catch (e) {
+            console.log('[NotificationContext] Error stopping sounds:', e);
+        }
+    };
+
+    const playRingtone = async () => {
+        try {
+            console.log('[NotificationContext] 🔔 Playing ringtone (Mixkit)...');
+            await stopAllSounds();
+
+            const { sound } = await Audio.Sound.createAsync(
+                { uri: RINGTONE_URL },
+                { shouldPlay: true, isLooping: true, volume: 1.0 }
+            );
+            ringtoneSoundRef.current = sound;
+            console.log('[NotificationContext] ✅ Ringtone playing');
+        } catch (e) {
+            console.error('[NotificationContext] ❌ Failed to play ringtone:', e);
+        }
+    };
+
+    const playRingback = async () => {
+        try {
+            console.log('[NotificationContext] ☎️ Playing ringback (Mixkit)...');
+            await stopAllSounds();
+
+            const { sound } = await Audio.Sound.createAsync(
+                { uri: RINGBACK_URL },
+                { shouldPlay: true, isLooping: true, volume: 1.0 }
+            );
+            ringbackSoundRef.current = sound;
+            console.log('[NotificationContext] ✅ Ringback playing');
+        } catch (e) {
+            console.error('[NotificationContext] ❌ Failed to play ringback:', e);
+        }
+    };
+
+    useEffect(() => {
+        const currentCall = activeCall || pendingCall?.call;
+        const incoming = isCallIncoming || !!pendingCall;
+
+        console.log('[NotificationContext] Audio Effect Triggered:', {
+            activeId: activeCall?.id,
+            pendingId: pendingCall?.call?.id,
+            status: currentCall?.status,
+            incoming
+        });
+
+        if (!currentCall) {
+            stopAllSounds();
+            Vibration.cancel();
+            return;
+        }
+
+        if (currentCall.status === 'calling') {
+            if (incoming) {
+                playRingtone();
+                Vibration.vibrate([0, 500, 1000], true);
+            } else {
+                playRingback();
+            }
+        } else if (currentCall.status === 'active') {
+            stopAllSounds();
+            Vibration.cancel();
+        } else {
+            stopAllSounds();
+            Vibration.cancel();
+        }
+    }, [activeCall?.id, activeCall?.status, pendingCall?.call.id, isCallIncoming]);
 
     // Global Call Status Polling
     useEffect(() => {
@@ -226,6 +361,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
                 setCallOtherProfile(null);
                 setIsCallIncoming(false);
                 Vibration.cancel();
+                stopAllSounds();
                 webrtcService.cleanup('db_poll_terminated');
             }
         }, 2000);
@@ -414,7 +550,14 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     }, [user, handleNewMessage, handleIncomingCall, router]);
 
     return (
-        <NotificationContext.Provider value={{ setActiveCall, setCallOtherProfile, setIsCallIncoming }}>
+        <NotificationContext.Provider value={{
+            activeCall,
+            setActiveCall,
+            callOtherProfile,
+            setCallOtherProfile,
+            isCallIncoming,
+            setIsCallIncoming
+        }}>
             {children}
             <NotificationBanner
                 visible={!!activeNotification}
