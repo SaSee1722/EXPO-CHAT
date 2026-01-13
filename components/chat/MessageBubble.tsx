@@ -21,6 +21,8 @@ import { AudioPlayer } from './AudioPlayer';
 import { VideoMessage } from '@/components/chat/VideoMessage';
 import { ReactionPicker } from './ReactionPicker';
 import { MessageActionsMenu } from './MessageActionsMenu';
+import { EmojiPicker } from './EmojiPicker';
+import { Pressable } from 'react-native';
 
 interface MessageBubbleProps {
   message: Message;
@@ -33,6 +35,7 @@ interface MessageBubbleProps {
   isSelected?: boolean;
   selectionMode?: boolean;
   onSelect?: () => void;
+  userId?: string | null;
 }
 
 export function MessageBubble({
@@ -45,7 +48,8 @@ export function MessageBubble({
   onDeleteForEveryone,
   isSelected,
   selectionMode,
-  onSelect
+  onSelect,
+  userId
 }: MessageBubbleProps) {
   const colorScheme = useColorScheme();
   const themeColors = Colors[colorScheme ?? 'light'];
@@ -57,6 +61,14 @@ export function MessageBubble({
   const [isFullEmojiPickerVisible, setIsFullEmojiPickerVisible] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [isDownloaded, setIsDownloaded] = useState(false);
+
+  // Calculate which reactions are active for THIS user
+  const activeReactions = useMemo(() => {
+    if (!message.reactions || !userId) return [];
+    return Object.entries(message.reactions)
+      .filter(([_, userIds]) => (userIds as string[]).includes(userId))
+      .map(([emoji, _]) => emoji);
+  }, [message.reactions, userId]);
 
   // Check if file is downloaded locally
   React.useEffect(() => {
@@ -171,13 +183,18 @@ export function MessageBubble({
       <View style={[styles.reactionsContainer, isOwn && styles.ownReactions]}>
         {Object.entries(message.reactions).map(([emoji, userIds]) => {
           if (!userIds || (userIds as string[]).length === 0) return null;
+          const isActive = userId && (userIds as string[]).includes(userId);
           return (
-            <View key={emoji} style={styles.reactionBadge}>
+            <TouchableOpacity
+              key={emoji}
+              style={[styles.reactionBadge, isActive && styles.activeReactionBadge]}
+              onPress={() => onReaction?.(emoji)}
+            >
               <Text style={styles.reactionEmoji}>{emoji}</Text>
               {(userIds as string[]).length > 1 && (
-                <Text style={styles.reactionCount}>{(userIds as string[]).length}</Text>
+                <Text style={[styles.reactionCount, isActive && styles.activeReactionCount]}>{(userIds as string[]).length}</Text>
               )}
-            </View>
+            </TouchableOpacity>
           );
         })}
       </View>
@@ -227,6 +244,7 @@ export function MessageBubble({
         onClose={() => setIsReactionVisible(false)}
         onSelect={(emoji) => onReaction?.(emoji)}
         onShowEmojiPicker={() => setIsFullEmojiPickerVisible(true)}
+        activeReactions={activeReactions}
         isOwnMessage={isOwn}
       />
 
@@ -238,6 +256,31 @@ export function MessageBubble({
         onDeleteForEveryone={() => onDeleteForEveryone?.(message.id)}
         isOwnMessage={isOwn}
       />
+
+      <Modal
+        visible={isFullEmojiPickerVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setIsFullEmojiPickerVisible(false)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setIsFullEmojiPickerVisible(false)}>
+          <View style={styles.emojiPickerContainer}>
+            <View style={styles.emojiPickerHeader}>
+              <Text style={styles.emojiPickerTitle}>Pick a Reaction</Text>
+              <TouchableOpacity onPress={() => setIsFullEmojiPickerVisible(false)}>
+                <Ionicons name="close" size={24} color="#FFF" />
+              </TouchableOpacity>
+            </View>
+            <EmojiPicker
+              onEmojiSelected={(emoji) => {
+                onReaction?.(emoji.emoji);
+                setIsFullEmojiPickerVisible(false);
+              }}
+              height={400}
+            />
+          </View>
+        </Pressable>
+      </Modal>
 
       <FullScreenImageViewer visible={isViewerVisible} imageUri={message.media_url || ''} onClose={() => setIsViewerVisible(false)} />
     </View>
@@ -345,5 +388,37 @@ const styles = StyleSheet.create({
     color: '#FFF',
     marginLeft: 2,
     fontWeight: '600',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  emojiPickerContainer: {
+    backgroundColor: '#000',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    overflow: 'hidden',
+    height: 460,
+  },
+  emojiPickerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#333',
+  },
+  emojiPickerTitle: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  activeReactionBadge: {
+    backgroundColor: 'rgba(135, 206, 235, 0.2)',
+    borderColor: '#87CEEB',
+  },
+  activeReactionCount: {
+    color: '#87CEEB',
   }
 });

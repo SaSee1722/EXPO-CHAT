@@ -610,6 +610,7 @@ export default function ChatScreen() {
                     onReplyPress={handleReplyPress}
                     onDelete={(id) => deleteMessage(id)}
                     onDeleteForEveryone={(id) => deleteMessageForEveryone(id)}
+                    userId={user?.id}
                   />
                 );
               }}
