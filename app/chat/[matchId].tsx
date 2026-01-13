@@ -47,7 +47,7 @@ export default function ChatScreen() {
   const { user } = useAuth();
   const { showAlert } = useAlert();
   const { profile: currentUserProfile, isUserOnline, getPresenceText, typingMap, setPresence, setTypingStatus: setGlobalTypingStatus } = useProfileContext();
-  const { messages, sending, sendMessage, sendMediaMessage, toggleReaction, deleteMessage: baseDeleteMessage } = useMessages(matchId, user?.id || null);
+  const { messages, sending, sendMessage, sendMediaMessage, toggleReaction, deleteMessage: baseDeleteMessage, deleteMessageForEveryone } = useMessages(matchId, user?.id || null);
 
   const deleteMessage = async (id: string) => {
     const { error } = await baseDeleteMessage(id);
@@ -609,6 +609,7 @@ export default function ChatScreen() {
                     onReply={(msg) => setReplyingTo(msg)}
                     onReplyPress={handleReplyPress}
                     onDelete={(id) => deleteMessage(id)}
+                    onDeleteForEveryone={(id) => deleteMessageForEveryone(id)}
                   />
                 );
               }}

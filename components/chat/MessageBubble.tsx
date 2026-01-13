@@ -29,6 +29,7 @@ interface MessageBubbleProps {
   onReply?: (message: Message) => void;
   onReplyPress?: (messageId: string) => void;
   onDelete?: (messageId: string) => void;
+  onDeleteForEveryone?: (messageId: string) => void;
   isSelected?: boolean;
   selectionMode?: boolean;
   onSelect?: () => void;
@@ -41,6 +42,7 @@ export function MessageBubble({
   onReply,
   onReplyPress,
   onDelete,
+  onDeleteForEveryone,
   isSelected,
   selectionMode,
   onSelect
@@ -79,6 +81,7 @@ export function MessageBubble({
   // Animation logic for Swipe to Reply
   const translateX = useSharedValue(0);
   const panGesture = Gesture.Pan()
+    .activeOffsetX([0, 20]) // Only trigger on right swipe, don't swallow taps
     .onUpdate((event) => {
       if (selectionMode) return;
       if (event.translationX > 0) translateX.value = event.translationX;
@@ -112,6 +115,7 @@ export function MessageBubble({
   };
 
   const handlePress = () => {
+    console.log('[MessageBubble] Tap detected. Type:', message.type);
     if (selectionMode) {
       onSelect?.();
     } else if (!message.deleted_for_everyone) {
@@ -160,6 +164,26 @@ export function MessageBubble({
     }
   };
 
+  const renderReactions = () => {
+    if (!message.reactions || Object.keys(message.reactions).length === 0) return null;
+
+    return (
+      <View style={[styles.reactionsContainer, isOwn && styles.ownReactions]}>
+        {Object.entries(message.reactions).map(([emoji, userIds]) => {
+          if (!userIds || (userIds as string[]).length === 0) return null;
+          return (
+            <View key={emoji} style={styles.reactionBadge}>
+              <Text style={styles.reactionEmoji}>{emoji}</Text>
+              {(userIds as string[]).length > 1 && (
+                <Text style={styles.reactionCount}>{(userIds as string[]).length}</Text>
+              )}
+            </View>
+          );
+        })}
+      </View>
+    );
+  };
+
   return (
     <View style={[styles.container, isOwn && styles.ownContainer]}>
       <GestureDetector gesture={panGesture}>
@@ -172,10 +196,12 @@ export function MessageBubble({
               styles.bubble,
               isOwn ? styles.senderBubble : styles.receiverBubble,
               {
-                backgroundColor: isEmojiOnly ? 'transparent' : (isOwn ? themeColors.bubbleSender : themeColors.bubbleReceiver),
+                backgroundColor: isEmojiOnly ? 'transparent' : (isSelected ? 'rgba(135, 206, 235, 0.3)' : (isOwn ? themeColors.bubbleSender : themeColors.bubbleReceiver)),
                 paddingHorizontal: isEmojiOnly ? 0 : (['image', 'video', 'sticker'].includes(message.type) ? 3 : 12),
                 paddingVertical: isEmojiOnly ? 0 : (['image', 'video', 'sticker'].includes(message.type) ? 3 : 8),
                 minWidth: (message.reply_to || message.reply_to_message) ? 150 : 0,
+                borderWidth: isSelected ? 2 : 0,
+                borderColor: themeColors.primary,
               },
             ]}
           >
@@ -189,16 +215,27 @@ export function MessageBubble({
         </Animated.View>
       </GestureDetector>
 
+      {renderReactions()}
+
       <View style={styles.footer}>
         <Text style={styles.time}>{formatTime(message.created_at)}</Text>
         {getStatusIcon()}
       </View>
+
+      <ReactionPicker
+        visible={isReactionVisible}
+        onClose={() => setIsReactionVisible(false)}
+        onSelect={(emoji) => onReaction?.(emoji)}
+        onShowEmojiPicker={() => setIsFullEmojiPickerVisible(true)}
+        isOwnMessage={isOwn}
+      />
 
       <MessageActionsMenu
         visible={isActionsVisible}
         onClose={() => setIsActionsVisible(false)}
         onReply={() => onReply?.(message)}
         onDelete={() => onDelete?.(message.id)}
+        onDeleteForEveryone={() => onDeleteForEveryone?.(message.id)}
         isOwnMessage={isOwn}
       />
 
@@ -276,5 +313,37 @@ const styles = StyleSheet.create({
   replyText: {
     fontSize: 12,
     color: '#FFF',
+  },
+  reactionsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: -8,
+    marginBottom: 4,
+    zIndex: 10,
+  },
+  ownReactions: {
+    justifyContent: 'flex-end',
+    alignSelf: 'flex-end',
+  },
+  reactionBadge: {
+    backgroundColor: '#333',
+    borderRadius: 12,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#444',
+    marginRight: 4,
+    ...Shadows.small,
+  },
+  reactionEmoji: {
+    fontSize: 14,
+  },
+  reactionCount: {
+    fontSize: 10,
+    color: '#FFF',
+    marginLeft: 2,
+    fontWeight: '600',
   }
 });
