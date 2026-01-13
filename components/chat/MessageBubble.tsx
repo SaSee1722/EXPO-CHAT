@@ -133,6 +133,8 @@ export function MessageBubble({
     } else if (!message.deleted_for_everyone) {
       if (message.type === 'image' || message.type === 'sticker') {
         setIsViewerVisible(true);
+      } else if (message.type === 'video') {
+        setIsVideoVisible(true);
       } else {
         setIsReactionVisible(true);
       }
@@ -283,6 +285,12 @@ export function MessageBubble({
       </Modal>
 
       <FullScreenImageViewer visible={isViewerVisible} imageUri={message.media_url || ''} onClose={() => setIsViewerVisible(false)} />
+
+      <FullScreenVideoViewer
+        visible={isVideoVisible}
+        videoUri={message.media_url || ''}
+        onClose={() => setIsVideoVisible(false)}
+      />
     </View>
   );
 }

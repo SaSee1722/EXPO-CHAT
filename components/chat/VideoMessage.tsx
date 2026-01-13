@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity, ActivityIndicator, Text } from 'react-native';
-import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import { Message } from '../../types';
 import { Typography } from '../../constants/theme';
 
@@ -12,13 +12,21 @@ interface VideoMessageProps {
 }
 
 export const VideoMessage: React.FC<VideoMessageProps> = ({ message, isOwn, isDownloaded }) => {
+    const player = useVideoPlayer(message.media_url || '', (player) => {
+        player.loop = false;
+        player.muted = true;
+        player.pause();
+    });
+
     return (
         <View style={styles.container}>
             {message.media_url ? (
-                <Image
-                    source={{ uri: message.media_url }}
+                <VideoView
+                    player={player}
                     style={styles.thumbnail}
                     contentFit="cover"
+                    allowsFullscreen={false}
+                    allowsPictureInPicture={false}
                 />
             ) : (
                 <View style={[styles.thumbnail, styles.placeholder]}>
