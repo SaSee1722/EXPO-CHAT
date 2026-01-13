@@ -376,6 +376,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         matchService.markAllMessagesAsDelivered(user.id);
 
         notificationService.registerForPushNotificationsAsync(user.id);
+        Notifications.setBadgeCountAsync(0);
 
         // Wire up WebRTC broadcast handlers
         webrtcService.onIncomingCall = (payload) => {

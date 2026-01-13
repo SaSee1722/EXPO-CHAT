@@ -24,37 +24,7 @@ export const callService = {
       .select()
       .single();
 
-    if (!error && data) {
-      (async () => {
-        try {
-          // Get receiver push token
-          const { data: receiverProfile } = await supabase.from('profiles').select('push_token').eq('id', receiverId).single();
-          const { data: senderProfile } = await supabase.from('profiles').select('display_name').eq('id', callerId).single();
-
-          if (receiverProfile?.push_token) {
-            const title = 'Incoming Call';
-            const body = `${senderProfile?.display_name || 'Someone'} is calling you...`;
-
-            await notificationService.sendPushNotification(
-              receiverProfile.push_token,
-              title,
-              body,
-              {
-                matchId: matchId,
-                callId: data.id,
-                type: 'call',
-                callerId,
-                callType
-              },
-              'call'
-            );
-          }
-        } catch (e) {
-          console.error('Failed to send call notification:', e);
-        }
-      })();
-    }
-
+    // Notifications are handled by Supabase Database Webhooks triggering the push-notification Edge Function
     return { data, error };
   },
 

@@ -38,65 +38,70 @@ export const notificationService = {
         activeMatchId = id;
     },
     async registerForPushNotificationsAsync(userId: string) {
+        console.log('[NotificationService] Registering for push notifications...');
+
         if (Platform.OS === 'android') {
-            // Default channel for messages
             await Notifications.setNotificationChannelAsync('default', {
                 name: 'Messages',
                 importance: Notifications.AndroidImportance.MAX,
                 vibrationPattern: [0, 250, 250, 250],
                 lightColor: '#FF231F7C',
+                showBadge: true,
             });
 
-            // High priority channel for calls
             await Notifications.setNotificationChannelAsync('calls', {
                 name: 'Calls',
                 importance: Notifications.AndroidImportance.MAX,
                 sound: 'default',
                 vibrationPattern: [0, 250, 250, 250],
                 lightColor: '#87CEEB',
+                showBadge: true,
             });
         }
 
         if (!Device.isDevice) {
-            console.log('Must use physical device for Push Notifications');
+            console.log('[NotificationService] ⚠️ Must use physical device for Push Notifications');
             return null;
         }
 
+        // Explicitly request permissions with options for iOS
         const { status: existingStatus } = await Notifications.getPermissionsAsync();
         let finalStatus = existingStatus;
 
         if (existingStatus !== 'granted') {
-            const { status } = await Notifications.requestPermissionsAsync();
+            const { status } = await Notifications.requestPermissionsAsync({
+                ios: {
+                    allowAlert: true,
+                    allowBadge: true,
+                    allowSound: true,
+                },
+            });
             finalStatus = status;
         }
 
         if (finalStatus !== 'granted') {
-            console.log('Failed to get push token for push notification!');
+            console.error('[NotificationService] ❌ Failed to get push token: Permission not granted');
             return null;
         }
-
-        // Get the token (Project ID is strictly required for Expo Push, but for raw FCM we might just use default)
-        // For now, assuming Expo management structure or standard getExpoPushToken
-        // If using bare FCM, we 'd use getDevicePushTokenAsync. 
-        // Let's stick to Expo Push Token for ease, or Device if they set up FCM credentials directly.
-        // Given the request for "FCM", usually implies direct credential usage, but Expo handles this nicely.
 
         try {
             const projectId = Constants?.expoConfig?.extra?.eas?.projectId ?? Constants?.easConfig?.projectId;
             if (!projectId) {
-                console.warn('EAS Project ID not found in config. Push tokens might fail.');
+                console.warn('[NotificationService] ⚠️ EAS Project ID not found in config. Push tokens might fail.');
             }
 
+            console.log('[NotificationService] Fetching Expo Push Token...');
             const tokenData = await Notifications.getExpoPushTokenAsync({
                 projectId: projectId,
             });
             const token = tokenData.data;
+            console.log('[NotificationService] ✅ Push Token:', token);
 
             // Save to Supabase
             await this.updatePushToken(userId, token);
             return token;
         } catch (e) {
-            console.error("Error getting push token:", e);
+            console.error("[NotificationService] ❌ Error getting push token:", e);
             return null;
         }
     },
