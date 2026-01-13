@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { matchService } from '@/services/matchService';
 import { Message } from '@/types';
 import * as FileSystem from 'expo-file-system/legacy';
+import { encryptionService } from '@/services/encryptionService';
 
 export function useMessages(matchId: string | null, userId: string | null) {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -44,7 +45,10 @@ export function useMessages(matchId: string | null, userId: string | null) {
         },
         async (payload) => {
           if (payload.eventType === 'INSERT') {
-            const newMessage = payload.new as Message;
+            const newMessage = {
+              ...payload.new as Message,
+              content: encryptionService.decrypt((payload.new as any).content)
+            };
             setMessages(prev => {
               if (prev.find(m => m.id === newMessage.id)) return prev;
               // Add to the START of the array for inverted FlatList
@@ -60,7 +64,10 @@ export function useMessages(matchId: string | null, userId: string | null) {
               matchService.markMessagesAsRead(matchId, userId);
             }
           } else if (payload.eventType === 'UPDATE') {
-            const updatedMessage = payload.new as Message;
+            const updatedMessage = {
+              ...payload.new as Message,
+              content: encryptionService.decrypt((payload.new as any).content)
+            };
 
             // Check if message was deleted for current user
             if (userId && updatedMessage.deleted_by?.includes(userId)) {

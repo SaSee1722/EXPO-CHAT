@@ -8,6 +8,7 @@ import { callService } from '@/services/callService';
 import { webrtcService } from '@/services/webrtcService';
 import { NotificationBanner, NotificationPayload } from '@/components/ui/NotificationBanner';
 import { CallOverlay } from '@/components/chat/CallOverlay';
+import { encryptionService } from '@/services/encryptionService';
 import { useAuth, getSupabaseClient } from '@/template';
 import { Call, Profile } from '@/types';
 import { Audio } from 'expo-av';
@@ -110,7 +111,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
                         content: newMessage.type === 'image' ? '📷 Photo' :
                             newMessage.type === 'audio' ? '🎵 Audio' :
                                 newMessage.type === 'video' ? '🎥 Video' :
-                                    newMessage.content,
+                                    encryptionService.decrypt(newMessage.content),
                         type: 'message',
                         unreadCount: newCount
                     });

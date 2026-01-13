@@ -3,6 +3,7 @@ import { notificationService } from './notificationService';
 import { Message } from '@/types';
 import { Platform } from 'react-native';
 import { storageService } from './storageService';
+import { encryptionService } from './encryptionService';
 
 const supabase = getSupabaseClient();
 
@@ -128,7 +129,10 @@ export const matchService = {
           return {
             ...match,
             profile,
-            lastMessage: messages?.[0],
+            lastMessage: messages?.[0] ? {
+              ...messages[0],
+              content: encryptionService.decrypt(messages[0].content)
+            } : undefined,
             unreadCount: unreadCount || 0,
             isLocked: !!lockData,
           };
@@ -149,16 +153,25 @@ export const matchService = {
     }
 
     const { data, error } = await query.order('created_at', { ascending: false });
-    return { data, error };
+
+    // Decrypt messages
+    const decryptedData = data?.map(m => ({
+      ...m,
+      content: encryptionService.decrypt(m.content)
+    }));
+
+    return { data: decryptedData, error };
   },
 
   async sendMessage(match_id: string, sender_id: string, content: string, type: Message['type'] = 'text', media_url?: string, metadata?: any, reply_to?: string, reply_to_message?: any) {
+    const encryptedContent = encryptionService.encrypt(content);
+
     const { data, error } = await supabase
       .from('messages')
       .insert({
         match_id,
         sender_id,
-        content,
+        content: encryptedContent,
         type,
         media_url,
         metadata,
@@ -168,6 +181,10 @@ export const matchService = {
       })
       .select()
       .single();
+
+    if (data) {
+      data.content = encryptionService.decrypt(data.content);
+    }
 
     return { data, error };
   },
