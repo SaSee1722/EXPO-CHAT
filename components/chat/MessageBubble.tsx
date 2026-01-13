@@ -173,9 +173,9 @@ export function MessageBubble({
               isOwn ? styles.senderBubble : styles.receiverBubble,
               {
                 backgroundColor: isEmojiOnly ? 'transparent' : (isOwn ? themeColors.bubbleSender : themeColors.bubbleReceiver),
-                paddingHorizontal: isEmojiOnly ? 0 : 12,
-                paddingVertical: isEmojiOnly ? 0 : 8,
-                minWidth: message.reply_to ? 150 : 0,
+                paddingHorizontal: isEmojiOnly ? 0 : (['image', 'video', 'sticker'].includes(message.type) ? 3 : 12),
+                paddingVertical: isEmojiOnly ? 0 : (['image', 'video', 'sticker'].includes(message.type) ? 3 : 8),
+                minWidth: (message.reply_to || message.reply_to_message) ? 150 : 0,
               },
             ]}
           >
@@ -208,7 +208,11 @@ export function MessageBubble({
 }
 
 const styles = StyleSheet.create({
-  container: { marginBottom: 8, marginHorizontal: 12 },
+  container: {
+    marginBottom: 8,
+    marginHorizontal: 12,
+    alignItems: 'flex-start', // Force received bubbles to be tight
+  },
   ownContainer: { alignItems: 'flex-end' },
   bubble: {
     borderRadius: 18,
