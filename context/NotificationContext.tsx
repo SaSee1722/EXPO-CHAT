@@ -41,6 +41,8 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     const [pendingCall, setPendingCall] = useState<{ call: Call, profile: Profile | null } | null>(null);
     const ringtoneSoundRef = useRef<Audio.Sound | null>(null);
     const ringbackSoundRef = useRef<Audio.Sound | null>(null);
+    const [unreadCount, setUnreadCount] = useState(0);
+    const notificationTimeoutRef = useRef<any>(null);
 
     useEffect(() => {
         activeCallRef.current = activeCall;
@@ -88,28 +90,42 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
         if (isInChat) return;
 
-        const { data: senderProfile } = await supabase
-            .from('profiles')
-            .select('display_name, photos, gender')
-            .eq('id', newMessage.sender_id)
-            .single();
+        // Increase unread count and keep it in a local variable for immediate use
+        setUnreadCount(prev => {
+            const newCount = prev + 1;
 
-        setActiveNotification({
-            id: newMessage.id,
-            chatId: newMessage.match_id,
-            senderId: newMessage.sender_id,
-            senderName: senderProfile?.display_name || 'Gossip User',
-            gender: senderProfile?.gender,
-            senderAvatar: senderProfile?.photos?.[0] || null,
-            content: newMessage.type === 'image' ? '📷 Photo' :
-                newMessage.type === 'audio' ? '🎵 Audio' :
-                    newMessage.type === 'video' ? '🎥 Video' :
-                        newMessage.content,
-            type: 'message'
+            supabase
+                .from('profiles')
+                .select('display_name, photos, gender')
+                .eq('id', newMessage.sender_id)
+                .single()
+                .then(({ data: senderProfile }) => {
+                    setActiveNotification({
+                        id: newMessage.id,
+                        chatId: newMessage.match_id,
+                        senderId: newMessage.sender_id,
+                        senderName: senderProfile?.display_name || 'Gossip User',
+                        gender: senderProfile?.gender,
+                        senderAvatar: senderProfile?.photos?.[0] || null,
+                        content: newMessage.type === 'image' ? '📷 Photo' :
+                            newMessage.type === 'audio' ? '🎵 Audio' :
+                                newMessage.type === 'video' ? '🎥 Video' :
+                                    newMessage.content,
+                        type: 'message',
+                        unreadCount: newCount
+                    });
+                });
+
+            return newCount;
         });
 
-        setTimeout(() => setActiveNotification(null), 4000);
-    }, [user]);
+        // Manage timeout
+        if (notificationTimeoutRef.current) clearTimeout(notificationTimeoutRef.current);
+        notificationTimeoutRef.current = setTimeout(() => {
+            setActiveNotification(null);
+            setUnreadCount(0);
+        }, 5000);
+    }, [user, segmentsRef, paramsRef]);
 
     // --- Call Logic ---
     const handleIncomingCall = useCallback(async (newCall: any) => {
@@ -259,10 +275,12 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
                 setIsCallIncoming(true);
             }
             setActiveNotification(null);
+            setUnreadCount(0);
             setPendingCall(null);
         } else if (activeNotification) {
             router.push(`/chat/${activeNotification.chatId}`);
             setActiveNotification(null);
+            setUnreadCount(0);
         }
     };
 
@@ -564,7 +582,10 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
                 visible={!!activeNotification}
                 notification={activeNotification}
                 onPress={handlePressBanner}
-                onDismiss={() => setActiveNotification(null)}
+                onDismiss={() => {
+                    setActiveNotification(null);
+                    setUnreadCount(0);
+                }}
                 onAction={handleAction}
             />
             {activeCall && (

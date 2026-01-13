@@ -17,6 +17,7 @@ export interface NotificationPayload {
     callId?: string;
     callType?: 'voice' | 'video';
     gender?: string;
+    unreadCount?: number;
 }
 
 interface NotificationBannerProps {
@@ -61,7 +62,9 @@ export function NotificationBanner({ notification, onPress, onDismiss, onAction,
                         <Text style={styles.time}>Just now</Text>
                     </View>
                     <Text style={styles.message} numberOfLines={2}>
-                        {notification.content}
+                        {notification.type === 'call'
+                            ? notification.content
+                            : `${notification.unreadCount || 1} new message${(notification.unreadCount || 1) > 1 ? 's' : ''}`}
                     </Text>
 
                     {/* Call Actions */}
