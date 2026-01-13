@@ -131,15 +131,18 @@ export const notificationService = {
     },
 
     async sendPushNotification(expoPushToken: string, title: string, body: string, data: any, type: 'message' | 'call' = 'message') {
+        // Apply privacy for system notifications
+        const maskedBody = type === 'call' ? body : 'New message received';
+
         const message = {
             to: expoPushToken,
             sound: 'default',
             title: title,
-            body: body,
-            data: { ...data, type }, // Ensure type is in data for handling
+            body: maskedBody,
+            data: { ...data, type },
             channelId: type === 'call' ? 'calls' : 'default',
-            priority: 'high', // Use high priority for all to ensure reliability
-            ttl: type === 'call' ? 60 : 2419200, // Calls expire quickly (60s), messages last 4 weeks
+            priority: 'high',
+            ttl: type === 'call' ? 60 : 2419200,
         };
 
         try {

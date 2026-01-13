@@ -71,9 +71,10 @@ serve(async (req) => {
             .neq('status', 'read');
 
         // 4. Construct and Send to Expo
+        const unreadTotal = (count || 0) + 1;
         const bodyText = isCall
             ? 'Incoming call...'
-            : (record.type === 'text' ? record.content : `New ${record.type || 'message'}`);
+            : `${unreadTotal} new message${unreadTotal > 1 ? 's' : ''}`;
 
         const expoPayload = {
             to: receiverProfile.push_token,
