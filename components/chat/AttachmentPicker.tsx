@@ -103,8 +103,6 @@ export const AttachmentPicker = ({ isVisible, onClose, onSelectMedia }: Attachme
             <Pressable style={styles.backdrop} onPress={onClose} />
 
             <Animated.View
-                entering={SlideInDown.springify().damping(20)}
-                exiting={SlideOutDown.springify().damping(20)}
                 style={styles.sheet}
             >
                 <BlurView intensity={80} tint="dark" style={styles.blurContainer}>
