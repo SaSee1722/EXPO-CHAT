@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { matchService } from '@/services/matchService';
 import { Message } from '@/types';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 
 export function useMessages(matchId: string | null, userId: string | null) {
   const [messages, setMessages] = useState<Message[]>([]);
