@@ -6,7 +6,6 @@ module.exports = defineConfig([
   expoConfig,
   {
     rules: {
-      'prettier/prettier': 'warn',
       'import/no-unresolved': 'off',
       'import/extensions': 'off',
       'import/no-duplicates': 'off',
