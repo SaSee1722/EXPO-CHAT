@@ -5,9 +5,12 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 serve(async (req) => {
     try {
         const payload = await req.json()
-        const { record, table, type } = payload
+        console.log('[Push Notification] Full Payload received:', JSON.stringify(payload));
 
-        console.log(`[Push Notification] Incoming webhook: ${table} ${type}`);
+        // Supabase Webhooks can wrap the record in different ways depending on configuration
+        const record = payload.record || payload.new || payload;
+        const table = payload.table || (record.match_id && !record.caller_id ? 'messages' : 'calls');
+        const type = payload.type || 'INSERT';
 
         const supabase = createClient(
             Deno.env.get('SUPABASE_URL') ?? '',
@@ -17,11 +20,10 @@ serve(async (req) => {
         // 1. Determine Sender and Receiver
         const isCall = table === 'calls' || !!record.caller_id;
         const senderId = isCall ? record.caller_id : record.sender_id;
-        let receiverId = isCall ? record.receiver_id : null;
         const matchId = record.match_id;
+        let receiverId = isCall ? record.receiver_id : null;
 
-        if (!isCall) {
-            // Get match details to find the receiver for messages
+        if (!isCall && matchId) {
             const { data: match } = await supabase
                 .from('matches')
                 .select('user1_id, user2_id')
@@ -33,113 +35,85 @@ serve(async (req) => {
             }
         }
 
+        console.log(`[Push Notification] Processing: Table=${table}, Sender=${senderId}, Receiver=${receiverId}`);
+
         if (!receiverId) {
-            console.error('[Push Notification] Receiver ID not found');
-            return new Response(JSON.stringify({ error: 'Receiver not found' }), { status: 200 })
+            console.warn('[Push Notification] ⚠️ No receiver identified.');
+            return new Response(JSON.stringify({ error: 'No receiver' }), { status: 200 });
         }
 
-        // 2. Get Profiles
+        // 2. Get Receiver Token
         const { data: receiverProfile } = await supabase
             .from('profiles')
-            .select('push_token')
+            .select('push_token, display_name')
             .eq('id', receiverId)
             .single()
 
         if (!receiverProfile?.push_token) {
-            console.log(`[Push Notification] No token for receiver ${receiverId}`);
-            return new Response(JSON.stringify({ message: 'No push token for receiver' }), { status: 200 })
+            console.log(`[Push Notification] ⚠️ No push token found for user ${receiverId}`);
+            return new Response(JSON.stringify({ message: 'No push token' }), { status: 200 })
         }
 
         const { data: senderProfile } = await supabase
             .from('profiles')
-            .select('display_name, photos')
+            .select('display_name')
             .eq('id', senderId)
             .single()
 
         const senderName = senderProfile?.display_name || 'Someone'
-        const senderPhoto = senderProfile?.photos?.[0] || null;
 
-        // 3. Get Receiver's Total Unread Count
-        const { data: matches } = await supabase
-            .from('matches')
-            .select('id')
-            .or(`user1_id.eq.${receiverId},user2_id.eq.${receiverId}`);
-
-        const matchIds = matches?.map(m => m.id) || [];
-
-        const { count: unreadCount } = await supabase
+        // 3. Get Unread Count for badge
+        const { count } = await supabase
             .from('messages')
             .select('*', { count: 'exact', head: true })
-            .in('match_id', matchIds)
+            .eq('match_id', matchId)
             .neq('sender_id', receiverId)
             .neq('status', 'read');
 
-        const totalUnread = (unreadCount || 0);
-
-        // 4. Construct Notification Payload
-        let title = senderName;
-        let body = '';
-
-        if (isCall) {
-            title = 'Incoming Call';
-            body = `${senderName} is calling you...`;
-        } else {
-            // Show content if possible, or fallback
-            if (record.type === 'text') {
-                body = record.content;
-            } else if (record.type === 'image') {
-                body = '📷 Photo';
-            } else if (record.type === 'video') {
-                body = '🎥 Video';
-            } else if (record.type === 'audio') {
-                body = '🎵 Voice message';
-            } else {
-                body = 'New message received';
-            }
-        }
+        // 4. Construct and Send to Expo
+        const bodyText = isCall
+            ? 'Incoming call...'
+            : (record.type === 'text' ? record.content : `New ${record.type || 'message'}`);
 
         const expoPayload = {
             to: receiverProfile.push_token,
             sound: 'default',
-            title: title,
-            body: body,
+            title: senderName,
+            body: bodyText,
+            badge: (count || 0) + 1,
             priority: 'high',
-            channelId: isCall ? 'calls' : 'default',
-            badge: totalUnread,
             data: {
-                matchId: matchId,
-                senderId: senderId,
-                senderName: senderName,
-                senderAvatar: senderPhoto,
+                matchId,
                 type: isCall ? 'call' : 'message',
                 callId: isCall ? record.id : null,
-                callType: isCall ? record.call_type : null
-            },
-            mutableContent: true,
+                senderName: senderName
+            }
         }
 
-        console.log(`[Push Notification] Sending to ${receiverProfile.push_token}`);
+        console.log(`[Push Notification] 📤 Sending to Expo: ${receiverProfile.push_token}`);
 
-        // 5. Send to Expo Push Service
         const res = await fetch('https://exp.host/--/api/v2/push/send', {
             method: 'POST',
-            headers: {
-                'Accept': 'application/json',
-                'Accept-encoding': 'gzip, deflate',
-                'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(expoPayload),
         })
 
         const responseData = await res.json();
-        console.log('[Push Notification] Expo result:', responseData);
+        console.log('[Push Notification] Expo result:', JSON.stringify(responseData));
 
-        return new Response(
-            JSON.stringify(responseData),
-            { headers: { "Content-Type": "application/json" } },
-        )
+        // 5. Update status to delivered if successful
+        const expoStatus = responseData?.data?.[0]?.status || responseData?.data?.status;
+        if (!isCall && record.id && expoStatus === 'ok') {
+            await supabase
+                .from('messages')
+                .update({ status: 'delivered' })
+                .eq('id', record.id);
+            console.log(`[Push Notification] ✅ Message ${record.id} status set to delivered`);
+        }
+
+        return new Response(JSON.stringify(responseData), { status: 200 })
     } catch (err) {
-        console.error('[Push Notification] Internal Error:', err);
+        console.error('[Push Notification] ❌ Fatal Error:', err);
         return new Response(JSON.stringify({ error: err.message }), { status: 500 })
     }
 })
