@@ -49,7 +49,7 @@ export default function WhatsAppVoiceNote({ onRecordingComplete, onCancel, onRec
                 useNativeDriver: true,
             }).start();
         }
-    }, [isRecording, uri, insets.bottom]);
+    }, [isRecording, uri, insets.bottom, slideAnim]);
 
     useEffect(() => {
         return () => {

@@ -15,23 +15,45 @@ export function TypingIndicator() {
     const dot3 = useSharedValue(0);
 
     useEffect(() => {
-        const animation = (value: any, delay: number) => {
-            value.value = withDelay(
-                delay,
+        const startAnimation = () => {
+            dot1.value = withRepeat(
+                withSequence(
+                    withTiming(-6, { duration: 500 }),
+                    withTiming(0, { duration: 500 })
+                ),
+                -1
+            );
+
+            dot2.value = withDelay(
+                200,
                 withRepeat(
                     withSequence(
-                        withTiming(-5, { duration: 400 }),
-                        withTiming(0, { duration: 400 })
+                        withTiming(-6, { duration: 500 }),
+                        withTiming(0, { duration: 500 })
                     ),
-                    -1,
-                    true
+                    -1
+                )
+            );
+
+            dot3.value = withDelay(
+                400,
+                withRepeat(
+                    withSequence(
+                        withTiming(-6, { duration: 500 }),
+                        withTiming(0, { duration: 500 })
+                    ),
+                    -1
                 )
             );
         };
 
-        animation(dot1, 0);
-        animation(dot2, 200);
-        animation(dot3, 400);
+        startAnimation();
+
+        return () => {
+            dot1.value = 0;
+            dot2.value = 0;
+            dot3.value = 0;
+        };
     }, [dot1, dot2, dot3]);
 
     const dotStyle1 = useAnimatedStyle(() => ({
@@ -79,6 +101,6 @@ const styles = StyleSheet.create({
         width: 6,
         height: 6,
         borderRadius: 3,
-        backgroundColor: '#808080',
+        backgroundColor: '#87CEEB',
     },
 });

@@ -18,11 +18,17 @@ serve(async (req) => {
 
         // 1. Determine Sender and Receiver
         const isCall = table === 'calls' || !!record.caller_id;
-        const senderId = isCall ? record.caller_id : record.sender_id;
-        const matchId = record.match_id;
-        let receiverId = isCall ? record.receiver_id : null;
 
-        if (!isCall && matchId) {
+        if (isCall) {
+            console.log('[Push Notification] 🔇 Call detected, skipping system notification per request.');
+            return new Response(JSON.stringify({ message: 'Call notifications disabled' }), { status: 200 });
+        }
+
+        const senderId = record.sender_id;
+        const matchId = record.match_id;
+        let receiverId = null;
+
+        if (matchId) {
             const { data: match } = await supabase
                 .from('matches')
                 .select('user1_id, user2_id')
@@ -84,12 +90,15 @@ serve(async (req) => {
             .neq('sender_id', receiverId)
             .neq('status', 'read');
 
-        const totalForThisChat = (matchUnreadCount || 0) + 1;
-        const bodyText = isCall
-            ? 'Incoming call...'
-            : `${totalForThisChat} new message${totalForThisChat > 1 ? 's' : ''}`;
+        // Use the count directly from the DB. 
+        // Since we are triggered AFTER insert, matchUnreadCount ALREADY includes this new message.
+        const totalForThisChat = (matchUnreadCount || 1);
+        const bodyText = `${totalForThisChat} new message${totalForThisChat > 1 ? 's' : ''}`;
 
-        const finalBadgeCount = (globalUnreadCount || 0) + 1;
+        // Same logic for the Global Badge
+        const finalBadgeCount = (globalUnreadCount || 1);
+
+        const normalizedMatchId = matchId.toLowerCase();
 
         const expoPayload = {
             to: receiverProfile.push_token,
@@ -99,13 +108,12 @@ serve(async (req) => {
             badge: finalBadgeCount,
             priority: 'high',
             mutableContent: true,
-            displayId: matchId, // Android grouping
-            threadId: matchId,  // iOS grouping
-            tag: matchId,       // Android grouping (legacy/stable)
+            displayId: normalizedMatchId, // CRITICAL: Only use this for replacement on Android
+            channelId: 'messages',
+            threadId: normalizedMatchId,
             data: {
-                matchId,
-                type: isCall ? 'call' : 'message',
-                callId: isCall ? record.id : null,
+                matchId: normalizedMatchId,
+                type: 'message',
                 senderName: senderName
             }
         }

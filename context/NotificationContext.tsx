@@ -378,7 +378,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
             stopAllSounds();
             Vibration.cancel();
         }
-    }, [activeCall?.id, activeCall?.status, pendingCall?.call.id, isCallIncoming, playRingtone, playRingback]);
+    }, [activeCall, pendingCall, isCallIncoming, playRingtone, playRingback]);
 
     // Global Call Status Polling
     useEffect(() => {

@@ -11,11 +11,12 @@ import Animated, {
     interpolate,
     Extrapolate
 } from 'react-native-reanimated';
-import { PanGestureHandler } from 'react-native-gesture-handler';
+import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import { RTCView, MediaStream } from 'react-native-webrtc';
 import { useAuth } from '@/template';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getGenderColor } from '@/constants/theme';
+import { runOnJS } from 'react-native-reanimated';
 
 import { Profile, Call } from '@/types';
 import { webrtcService } from '@/services/webrtcService';
@@ -48,6 +49,7 @@ export function CallOverlay({
     const [isSpeakerOn, setIsSpeakerOn] = useState(call.call_type === 'voice'); // Default speaker ON for voice
     const [permissionError, setPermissionError] = useState(false);
     const [showControls, setShowControls] = useState(true); // Controls visibility state
+    const [isLocalMain, setIsLocalMain] = useState(false);
 
     const intervalRef = useRef<any>(null);
     const hideControlsTimeoutRef = useRef<any>(null);
@@ -57,8 +59,25 @@ export function CallOverlay({
     // Draggable video preview
     const translateX = useSharedValue(0);
     const translateY = useSharedValue(0);
-    const offsetX = useSharedValue(0);
-    const offsetY = useSharedValue(0);
+    const context = useSharedValue({ x: 0, y: 0 });
+
+    const panGesture = Gesture.Pan()
+        .onStart(() => {
+            context.value = { x: translateX.value, y: translateY.value };
+        })
+        .onUpdate((event) => {
+            translateX.value = event.translationX + context.value.x;
+            translateY.value = event.translationY + context.value.y;
+        });
+
+    const tapGesture = Gesture.Tap().onEnd(() => {
+        'worklet';
+        runOnJS(setIsLocalMain)(!isLocalMain);
+    });
+
+    const combinedGesture = Gesture.Exclusive(tapGesture, panGesture);
+
+
 
     // Effect for initializing WebRTC when call becomes active
     useEffect(() => {
@@ -110,6 +129,7 @@ export function CallOverlay({
                 webrtcService.cleanup('overlay_exit');
                 setLocalStream(null);
                 setRemoteStream(null);
+                setIsLocalMain(false);
             }
         }
     }, [visible, call.status]);
@@ -152,22 +172,8 @@ export function CallOverlay({
         return `${mins}:${secs.toString().padStart(2, '0')}`;
     };
 
-    // Auto-hide controls effect
-    useEffect(() => {
-        if (call.status === 'active' || (call.status === 'calling' && !isIncoming)) {
-            // Start auto-hide timer when call is active or outgoing call is starting
-            resetHideTimer();
-        }
-
-        return () => {
-            if (hideControlsTimeoutRef.current) {
-                clearTimeout(hideControlsTimeoutRef.current);
-            }
-        };
-    }, [call.status, isIncoming]);
-
     // Reset hide timer and show controls
-    const resetHideTimer = () => {
+    const resetHideTimer = React.useCallback(() => {
         // Clear existing timer
         if (hideControlsTimeoutRef.current) {
             clearTimeout(hideControlsTimeoutRef.current);
@@ -182,7 +188,21 @@ export function CallOverlay({
             setShowControls(false);
             controlsOpacity.value = withTiming(0, { duration: 300 });
         }, 3000);
-    };
+    }, [controlsOpacity]);
+
+    // Auto-hide controls effect
+    useEffect(() => {
+        if (call.status === 'active' || (call.status === 'calling' && !isIncoming)) {
+            // Start auto-hide timer when call is active or outgoing call is starting
+            resetHideTimer();
+        }
+
+        return () => {
+            if (hideControlsTimeoutRef.current) {
+                clearTimeout(hideControlsTimeoutRef.current);
+            }
+        };
+    }, [call.status, isIncoming, resetHideTimer]);
 
     // Handle screen tap to toggle controls
     const handleScreenTap = () => {
@@ -209,28 +229,6 @@ export function CallOverlay({
     const controlsAnimatedStyle = useAnimatedStyle(() => ({
         opacity: controlsOpacity.value,
     }));
-
-    // Pan gesture handler for draggable video preview (Android compatible)
-    const gestureHandler = useAnimatedStyle(() => ({
-        transform: [
-            { translateX: translateX.value },
-            { translateY: translateY.value }
-        ],
-    }));
-
-    const onPanGestureEvent = (event: any) => {
-        'worklet';
-        translateX.value = offsetX.value + event.nativeEvent.translationX;
-        translateY.value = offsetY.value + event.nativeEvent.translationY;
-    };
-
-    const onPanHandlerStateChange = (event: any) => {
-        'worklet';
-        if (event.nativeEvent.state === 5) { // END state
-            offsetX.value = translateX.value;
-            offsetY.value = translateY.value;
-        }
-    };
 
     const previewAnimatedStyle = useAnimatedStyle(() => ({
         transform: [
@@ -265,15 +263,18 @@ export function CallOverlay({
     const photoUrl = otherProfile?.photos?.[0] || 'https://via.placeholder.com/150';
     const showVideo = call.call_type === 'video' && call.status === 'active';
 
+    const mainStream = isLocalMain ? localStream : remoteStream;
+    const miniStream = isLocalMain ? remoteStream : localStream;
+
     return (
         <Modal visible={visible} transparent animationType="slide">
             <TouchableWithoutFeedback onPress={handleScreenTap}>
                 <View style={styles.container}>
                     {showVideo ? (
                         <>
-                            {remoteStream ? (
+                            {mainStream ? (
                                 <RTCView
-                                    streamURL={remoteStream.toURL()}
+                                    streamURL={mainStream.toURL()}
                                     style={StyleSheet.absoluteFillObject}
                                     objectFit="cover"
                                     zOrder={0}
@@ -309,20 +310,17 @@ export function CallOverlay({
                         </>
                     )}
 
-                    {showVideo && localStream && !isCameraOff && (
-                        <PanGestureHandler
-                            onGestureEvent={onPanGestureEvent}
-                            onHandlerStateChange={onPanHandlerStateChange}
-                        >
+                    {showVideo && miniStream && (isLocalMain || !isCameraOff) && (
+                        <GestureDetector gesture={combinedGesture}>
                             <Animated.View style={[styles.localVideoWrapper, previewAnimatedStyle]}>
                                 <RTCView
-                                    streamURL={localStream.toURL()}
+                                    streamURL={miniStream.toURL()}
                                     style={styles.localVideo}
                                     objectFit="cover"
                                     zOrder={1}
                                 />
                             </Animated.View>
-                        </PanGestureHandler>
+                        </GestureDetector>
                     )}
 
                     <View style={[styles.content, showVideo && styles.contentVideoMode]}>

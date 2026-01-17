@@ -1,0 +1,4 @@
+onlyBuiltDependencies:
+  - protobufjs
+  - react-native-elements
+  - unrs-resolver

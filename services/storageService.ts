@@ -44,7 +44,7 @@ export const storageService = {
 
                     console.log(`[StorageService] 📡 Sending ${uint8Array.byteLength} bytes to Supabase storage...`);
 
-                    const { data, error: uploadError } = await supabase.storage
+                    const { error: uploadError } = await supabase.storage
                         .from(bucket)
                         .upload(path, uint8Array, {
                             contentType: contentType || 'application/octet-stream',

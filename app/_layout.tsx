@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { Platform } from 'react-native';
+import { Platform, PermissionsAndroid } from 'react-native';
 import { AuthProvider, AlertProvider } from '@/template';
 import { ProfileGuard } from '@/components/ProfileGuard';
 import { ProfileProvider } from '@/context/ProfileContext';
@@ -52,7 +52,6 @@ export default function RootLayout() {
 
         // 3. Camera (Required for Video Calls)
         if (Platform.OS === 'android') {
-          const { PermissionsAndroid } = require('react-native');
 
           // Android 13+ Notification Permission (explicit check)
           if (Platform.Version >= 33) {

@@ -1,9 +1,9 @@
-import { View, Text, TouchableOpacity, StyleSheet, useColorScheme } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import { FullScreenImageViewer } from '../chat/FullScreenImageViewer';
-import { Spacing, Colors, Typography, Shadows, BorderRadius, getGenderColor } from '@/constants/theme';
+import { Typography, Shadows, getGenderColor } from '@/constants/theme';
 import { Match } from '@/types';
 import { useProfileContext } from '@/context/ProfileContext';
 import { BlurView } from 'expo-blur';
@@ -14,8 +14,10 @@ interface MatchItemProps {
 }
 
 export function MatchItem({ match, onPress }: MatchItemProps) {
-  const colorScheme = useColorScheme();
-  const themeColors = Colors[colorScheme ?? 'light'];
+  // colorScheme is not used
+
+  // themeColors is not used in this component
+
   const [isViewerVisible, setIsViewerVisible] = useState(false);
   const { isUserOnline, typingMap } = useProfileContext();
   const isLocked = !!match.isLocked;
@@ -161,10 +163,9 @@ const styles = StyleSheet.create({
   avatarGlow: {
     padding: 2,
     borderRadius: 36,
-    backgroundColor: 'transparent',
   },
   avatarOnlineGlow: {
-    backgroundColor: 'rgba(135, 206, 235, 0.2)',
+    // Removed blue tint box to fix UI glitch
   },
   avatar: {
     width: 60,

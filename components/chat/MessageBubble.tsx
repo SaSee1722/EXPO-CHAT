@@ -1,9 +1,10 @@
 // Re-bundling fix to resolve stale import errors
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, useColorScheme, ActivityIndicator, Modal } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-import { BlurView } from 'expo-blur';
+// BlurView removed
+
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -52,6 +53,7 @@ function MessageBubbleComponent({
 }: MessageBubbleProps) {
   const colorScheme = useColorScheme();
   const themeColors = Colors[colorScheme ?? 'light'];
+
   const [isViewerVisible, setIsViewerVisible] = useState(false);
   const [isVideoVisible, setIsVideoVisible] = useState(false);
   const [isReactionVisible, setIsReactionVisible] = useState(false);

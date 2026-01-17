@@ -1,5 +1,5 @@
 import React from 'react';
-import { Text, TextStyle, StyleSheet, useColorScheme, View, ViewStyle, Platform } from 'react-native';
+import { Text, TextStyle, StyleSheet, useColorScheme, View, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import MaskedView from '@react-native-masked-view/masked-view';
 import { Colors } from '@/constants/theme';

@@ -68,20 +68,12 @@ export const notificationService = {
         console.log('[NotificationService] Registering for push notifications...');
 
         if (Platform.OS === 'android') {
-            await Notifications.setNotificationChannelAsync('default', {
+            // Channel for Messages - ONLY system notifications allowed
+            await Notifications.setNotificationChannelAsync('messages', {
                 name: 'Messages',
                 importance: Notifications.AndroidImportance.MAX,
                 vibrationPattern: [0, 250, 250, 250],
                 lightColor: '#FF231F7C',
-                showBadge: true,
-            });
-
-            await Notifications.setNotificationChannelAsync('calls', {
-                name: 'Calls',
-                importance: Notifications.AndroidImportance.MAX,
-                sound: 'default',
-                vibrationPattern: [0, 250, 250, 250],
-                lightColor: '#87CEEB',
                 showBadge: true,
             });
         }
@@ -145,13 +137,16 @@ export const notificationService = {
     },
 
     // Helper to schedule local notification (simulating background receipt if needed)
-    async triggerLocalNotification(title: string, body: string, data: any) {
+    async triggerLocalNotification(title: string, body: string, data: any, channelId: 'messages' | 'calls' = 'messages') {
         await Notifications.scheduleNotificationAsync({
             content: {
                 title,
                 body,
                 data,
                 sound: true,
+                badge: 1,
+                // On Android, this MUST match one of the channels created in registerForPushNotificationsAsync
+                ...(Platform.OS === 'android' ? { channelId } : {}),
             },
             trigger: null, // Immediate
         });
@@ -168,7 +163,7 @@ export const notificationService = {
             title: title,
             body: maskedBody,
             data: { ...data, type },
-            channelId: type === 'call' ? 'calls' : 'default',
+            channelId: type === 'call' ? 'calls' : 'messages',
             priority: 'high',
             ttl: type === 'call' ? 60 : 2419200,
             mutableContent: true,

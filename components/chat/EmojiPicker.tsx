@@ -1,10 +1,7 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
+import React from 'react';
+import { View, StyleSheet } from 'react-native';
 import { EmojiKeyboard, useRecentPicksPersistence } from 'rn-emoji-keyboard';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '@/constants/theme';
-import { Image } from 'expo-image';
 
 interface EmojiPickerProps {
     onEmojiSelected: (emoji: { emoji: string }) => void;

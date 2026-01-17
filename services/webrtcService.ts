@@ -1,10 +1,5 @@
-import {
-    RTCPeerConnection,
-    RTCIceCandidate,
-    RTCSessionDescription,
-    mediaDevices,
-    MediaStream,
-} from 'react-native-webrtc';
+import { RTCPeerConnection, RTCIceCandidate, RTCSessionDescription, mediaDevices, MediaStream, MediaStreamTrack } from 'react-native-webrtc';
+import { Camera } from 'expo-camera';
 import { Audio } from 'expo-av';
 import { Platform, PermissionsAndroid } from 'react-native';
 import { getSupabaseClient } from '@/template';
@@ -194,7 +189,6 @@ class WebRTCService {
                 console.log('[WebRTC] iOS Audio permission:', audioStatus);
 
                 if (isVideo) {
-                    const { Camera } = require('expo-camera');
                     const { status: cameraStatus } = await Camera.requestCameraPermissionsAsync();
                     console.log('[WebRTC] iOS Camera permission:', cameraStatus);
                 }
@@ -244,7 +238,7 @@ class WebRTCService {
             this.localStream = stream as MediaStream;
 
             // Enable all tracks
-            stream.getTracks().forEach(track => {
+            stream.getTracks().forEach((track: MediaStreamTrack) => {
                 track.enabled = true;
                 console.log(`[WebRTC] Local ${track.kind} track enabled`);
             });
@@ -258,7 +252,7 @@ class WebRTCService {
                 // Clear existing senders if any (to avoid duplicates if we recreated stream)
                 const senders = this.peerConnection.getSenders();
                 senders.forEach(sender => {
-                    try { this.peerConnection?.removeTrack(sender); } catch (e) { }
+                    try { this.peerConnection?.removeTrack(sender); } catch { }
                 });
 
                 this.localStream.getTracks().forEach(track => {

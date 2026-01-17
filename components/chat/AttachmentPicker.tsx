@@ -1,29 +1,18 @@
-import React, { useEffect, useRef } from 'react';
+import React from 'react';
 import {
     View,
     Text,
     StyleSheet,
     TouchableOpacity,
-    Dimensions,
     Pressable,
     Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import Animated, {
-    useSharedValue,
-    useAnimatedStyle,
-    withSpring,
-    withTiming,
-    FadeIn,
-    FadeOut,
-    SlideInDown,
-    SlideOutDown,
-} from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
+import { BlurView } from 'expo-blur';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
-import { Colors, Shadows, Typography } from '@/constants/theme';
-import { BlurView } from 'expo-blur';
-// Removed expo-video-thumbnails as it requires a native rebuild
+import { Shadows, Typography } from '@/constants/theme';
 
 interface AttachmentPickerProps {
     isVisible: boolean;
@@ -31,7 +20,8 @@ interface AttachmentPickerProps {
     onSelectMedia: (uri: string, type: 'image' | 'video' | 'file', metadata?: any) => void;
 }
 
-const { width, height } = Dimensions.get('window');
+// width is not used in this component
+
 
 export const AttachmentPicker = ({ isVisible, onClose, onSelectMedia }: AttachmentPickerProps) => {
     if (!isVisible) return null;

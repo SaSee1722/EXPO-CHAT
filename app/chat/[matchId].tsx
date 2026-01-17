@@ -62,7 +62,6 @@ export default function ChatScreen() {
   const [isRecording, setIsRecording] = React.useState(false);
   const inputRef = React.useRef<TextInput>(null);
   const typingChannelRef = React.useRef<any>(null);
-  const personalTypingChannelRef = React.useRef<any>(null);
 
   const handleEmojiSelect = (emojiObj: { emoji: string }) => {
     setInputText((prev) => prev + emojiObj.emoji);
@@ -97,46 +96,24 @@ export default function ChatScreen() {
           matchService.markMessagesAsRead(matchId, user.id);
         }
       })
+      .on('broadcast', { event: 'typing' }, ({ payload }) => {
+        setGlobalTypingStatus(matchId, payload.isTyping);
+      })
       .subscribe();
 
+    typingChannelRef.current = channel;
     matchService.markMessagesAsRead(matchId, user.id);
     webrtcService.initialize(user.id, matchId);
 
     return () => {
       supabase.removeChannel(channel);
       typingChannelRef.current = null;
-      if (personalTypingChannelRef.current) {
-        supabase.removeChannel(personalTypingChannelRef.current);
-        personalTypingChannelRef.current = null;
-      }
     };
   }, [matchId, user, setGlobalTypingStatus]);
 
-  React.useEffect(() => {
-    if (!user || !otherProfile) return;
-    const supabase = matchService.getSupabaseClient();
-    const personalChannel = supabase.channel(`typing:from:${otherProfile.id}`);
-
-    personalChannel
-      .on('broadcast', { event: 'typing' }, ({ payload }) => {
-        if (payload.matchId === matchId) {
-          setGlobalTypingStatus(matchId, payload.isTyping);
-        }
-      })
-      .subscribe();
-
-    personalTypingChannelRef.current = personalChannel;
-
-    return () => {
-      supabase.removeChannel(personalChannel);
-      personalTypingChannelRef.current = null;
-    };
-  }, [user, otherProfile, matchId, setGlobalTypingStatus]);
-
   const emitTypingStatus = (isTyping: boolean) => {
-    if (!user || !matchId || !otherProfile) return;
-    const supabase = matchService.getSupabaseClient();
-    supabase.channel(`typing:to:${otherProfile.id}`).send({
+    if (!typingChannelRef.current) return;
+    typingChannelRef.current.send({
       type: 'broadcast',
       event: 'typing',
       payload: { matchId, isTyping }

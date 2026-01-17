@@ -9,6 +9,8 @@ module.exports = defineConfig([
       'import/no-unresolved': 'off',
       'import/extensions': 'off',
       'import/no-duplicates': 'off',
+      'import/no-named-as-default': 'off',
+      'import/no-named-as-default-member': 'off',
       'no-duplicate-imports': 'off',
       'react-hooks/exhaustive-deps': 'warn',
       'no-console': 'off',
