@@ -75,37 +75,30 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         };
     }, [user, authInitialized, setTypingStatus]);
 
-    const isUserOnline = (profile: Profile | null) => {
-        if (!profile) return false;
+    const isUserOnline = useCallback((p: Profile | null) => {
+        if (!p) return false;
 
         // 1. Check hot presence from realtime (most accurate)
-        const hotPresence = presenceMap[profile.id];
+        const hotPresence = presenceMap[p.id];
         if (hotPresence && (Date.now() - hotPresence.timestamp) < 30000) {
             return hotPresence.isOnline;
         }
 
         // 2. Check database is_online flag with time-based verification
-        // Even if is_online is true, verify last_seen_at is recent
-        // This handles cases where app was force-closed without setting offline
-        if (profile.is_online === true) {
-            // If no last_seen_at, trust the flag
-            if (!profile.last_seen_at) return true;
-
+        if (p.is_online === true) {
+            if (!p.last_seen_at) return true;
             try {
-                const lastSeen = new Date(profile.last_seen_at).getTime();
+                const lastSeen = new Date(p.last_seen_at).getTime();
                 const now = Date.now();
-                // If last_seen is older than 30 seconds, consider offline
-                // (heartbeat updates every 10s, so 30s means 3 missed updates)
                 return (now - lastSeen) < 30000;
-            } catch (e) {
+            } catch {
                 return false;
             }
         }
-
         return false;
-    };
+    }, [presenceMap]);
 
-    const getPresenceText = (otherProfile: Profile | null) => {
+    const getPresenceText = useCallback((otherProfile: Profile | null) => {
         if (!otherProfile) return '';
         const online = isUserOnline(otherProfile);
         if (online) return 'Online';
@@ -115,8 +108,6 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         try {
             const date = new Date(otherProfile.last_seen_at);
             const now = new Date();
-            const diff = now.getTime() - date.getTime();
-
             if (isNaN(date.getTime())) return 'Offline';
 
             // Today
@@ -133,35 +124,44 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
             // Older
             return `last seen on ${date.toLocaleDateString([], { month: 'short', day: 'numeric' })} at ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-        } catch (e) {
+        } catch {
             return 'Offline';
         }
-    };
+    }, [isUserOnline]);
 
     const fetchProfile = useCallback(async (userId: string) => {
         setLoading(true);
-        const { data, error } = await profileService.getMyProfile(userId);
-        if (error) {
-            if (error.code !== 'PGRST116') {
-                setError(error.message);
+        try {
+            const { data, error } = await profileService.getMyProfile(userId);
+            if (error) {
+                if (error.code !== 'PGRST116') {
+                    setError(error.message);
+                }
+                setProfile(null);
+            } else {
+                setProfile(data);
+                setError(null);
             }
-            setProfile(null);
-        } else {
-            setProfile(data);
-            setError(null);
+        } catch (err: any) {
+            console.error('[ProfileContext] Unexpected error fetching profile:', err);
+            setError(err.message || 'Failed to load profile');
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     }, []);
 
     useEffect(() => {
         if (authInitialized && user) {
+            console.log('[Presence] Initializing presence for:', user.id);
             fetchProfile(user.id);
+            updateOnlineStatus(true); // Mark online immediately on start
         }
-    }, [user, authInitialized, fetchProfile]);
+    }, [user, authInitialized, fetchProfile, updateOnlineStatus]);
 
     useEffect(() => {
         if (user && authInitialized) {
             const supabase = getSupabaseClient();
+            // Use a consistent channel for the user's pulse
             const channel = supabase.channel(`presence:${user.id}`, {
                 config: {
                     presence: {
@@ -172,6 +172,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
             channel
                 .on('presence', { event: 'sync' }, () => {
+                    // console.log('[Presence] Sync');
                     updateOnlineStatus(true);
                 })
                 .on('presence' as any, { event: 'join' }, ({ key }: any) => {
@@ -187,7 +188,8 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
                 });
 
             return () => {
-                updateOnlineStatus(false);
+                // When the individual channel unmounts, we don't necessarily want to set offline
+                // because AppState handles backgrounding. But we should clean up the channel.
                 supabase.removeChannel(channel);
             };
         }

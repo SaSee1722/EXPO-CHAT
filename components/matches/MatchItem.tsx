@@ -81,15 +81,46 @@ export function MatchItem({ match, onPress }: MatchItemProps) {
           </View>
         ) : lastMessage ? (
           <View style={styles.messageRow}>
-            {lastMessage.deleted_for_everyone ? (
-              <Text style={[styles.message, { fontStyle: 'italic', opacity: 0.6 }]} numberOfLines={1}>
-                Message removed
-              </Text>
-            ) : (
-              <Text style={styles.message} numberOfLines={1}>
-                {lastMessage.content}
-              </Text>
-            )}
+            <View style={styles.messagePreview}>
+              {lastMessage.deleted_for_everyone ? (
+                <Text style={[styles.message, { fontStyle: 'italic', opacity: 0.6 }]} numberOfLines={1}>
+                  Message removed
+                </Text>
+              ) : (
+                <>
+                  {lastMessage.type === 'image' && (
+                    <Ionicons name="camera" size={14} color={(match.unreadCount ?? 0) > 0 ? '#87CEEB' : '#AAA'} style={styles.mediaIcon} />
+                  )}
+                  {lastMessage.type === 'video' && (
+                    <Ionicons name="videocam" size={14} color={(match.unreadCount ?? 0) > 0 ? '#87CEEB' : '#AAA'} style={styles.mediaIcon} />
+                  )}
+                  {lastMessage.type === 'audio' && (
+                    <Ionicons name="mic" size={14} color={(match.unreadCount ?? 0) > 0 ? '#87CEEB' : '#AAA'} style={styles.mediaIcon} />
+                  )}
+                  {lastMessage.type === 'file' && (
+                    <Ionicons name="document" size={14} color={(match.unreadCount ?? 0) > 0 ? '#87CEEB' : '#AAA'} style={styles.mediaIcon} />
+                  )}
+                  {lastMessage.type === 'sticker' && (
+                    <Ionicons name="happy" size={14} color={(match.unreadCount ?? 0) > 0 ? '#87CEEB' : '#AAA'} style={styles.mediaIcon} />
+                  )}
+
+                  <Text
+                    style={[
+                      styles.message,
+                      (match.unreadCount ?? 0) > 0 && { color: '#FFF', fontWeight: '600' }
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {lastMessage.type === 'text' ? lastMessage.content :
+                      lastMessage.type === 'image' ? 'Photo' :
+                        lastMessage.type === 'video' ? 'Video' :
+                          lastMessage.type === 'audio' ? 'Voice message' :
+                            lastMessage.type === 'file' ? (lastMessage.metadata?.fileName || 'File') :
+                              lastMessage.type === 'sticker' ? 'Sticker' : 'Message'}
+                  </Text>
+                </>
+              )}
+            </View>
             {(match.unreadCount ?? 0) > 0 && (
               <View style={styles.unreadBadge}>
                 <Text style={styles.unreadText}>{match.unreadCount}</Text>
@@ -189,6 +220,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 8,
+  },
+  messagePreview: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  mediaIcon: {
+    marginRight: 6,
   },
   unreadBadge: {
     backgroundColor: '#87CEEB',

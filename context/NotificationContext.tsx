@@ -42,7 +42,6 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     const [pendingCall, setPendingCall] = useState<{ call: Call, profile: Profile | null } | null>(null);
     const ringtoneSoundRef = useRef<Audio.Sound | null>(null);
     const ringbackSoundRef = useRef<Audio.Sound | null>(null);
-    const [unreadCount, setUnreadCount] = useState(0);
     const notificationTimeoutRef = useRef<any>(null);
 
     useEffect(() => {
@@ -68,11 +67,18 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         const isInChat = currentSegments.includes('chat') && !!currentParams.matchId;
 
         if (isInChat) {
-            notificationService.setActiveChatId(currentParams.matchId as string);
+            const matchId = currentParams.matchId as string;
+            notificationService.setActiveChatId(matchId);
+            // Mark as read immediately when entering
+            if (user) {
+                matchService.markMessagesAsRead(matchId, user.id);
+                notificationService.syncBadgeCount(user.id);
+            }
         } else {
             notificationService.setActiveChatId(null);
+            if (user) notificationService.syncBadgeCount(user.id);
         }
-    }, [segments, params]);
+    }, [segments, params, user]); // Added user as dependency
 
     // --- Message Logic ---
     const handleNewMessage = useCallback(async (newMessage: any) => {
@@ -84,49 +90,56 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
             (currentParams.matchId === newMessage.match_id || (currentParams.matchId as string)?.toLowerCase() === newMessage.match_id?.toLowerCase());
 
         if (isInChat) {
-            try { await matchService.markMessagesAsRead(newMessage.match_id, user!.id); } catch { }
+            try {
+                await matchService.markMessagesAsRead(newMessage.match_id, user!.id);
+                notificationService.syncBadgeCount(user!.id);
+            } catch { }
         } else {
             try { await matchService.markMessagesAsDelivered(newMessage.match_id, user!.id); } catch { }
         }
 
         if (isInChat) return;
 
-        // Increase unread count and keep it in a local variable for immediate use
-        setUnreadCount(prev => {
-            const newCount = prev + 1;
+        // Get per-chat unread count for the banner
+        const { count: unreadCount } = await supabase
+            .from('messages')
+            .select('*', { count: 'exact', head: true })
+            .eq('match_id', newMessage.match_id)
+            .neq('sender_id', user!.id)
+            .neq('status', 'read');
 
-            supabase
-                .from('profiles')
-                .select('display_name, photos, gender')
-                .eq('id', newMessage.sender_id)
-                .single()
-                .then(({ data: senderProfile }) => {
-                    setActiveNotification({
-                        id: newMessage.id,
-                        chatId: newMessage.match_id,
-                        senderId: newMessage.sender_id,
-                        senderName: senderProfile?.display_name || 'Gossip User',
-                        gender: senderProfile?.gender,
-                        senderAvatar: senderProfile?.photos?.[0] || null,
-                        content: newMessage.type === 'image' ? '📷 Photo' :
-                            newMessage.type === 'audio' ? '🎵 Audio' :
-                                newMessage.type === 'video' ? '🎥 Video' :
-                                    encryptionService.decrypt(newMessage.content),
-                        type: 'message',
-                        unreadCount: newCount
-                    });
+        const totalForChat = (unreadCount || 0);
+
+        supabase
+            .from('profiles')
+            .select('display_name, photos, gender')
+            .eq('id', newMessage.sender_id)
+            .single()
+            .then(({ data: senderProfile }) => {
+                const decryptedContent = newMessage.type === 'image' ? '📷 Photo' :
+                    newMessage.type === 'audio' ? '🎵 Audio' :
+                        newMessage.type === 'video' ? '🎥 Video' :
+                            encryptionService.decrypt(newMessage.content);
+
+                setActiveNotification({
+                    id: newMessage.id,
+                    chatId: newMessage.match_id,
+                    senderId: newMessage.sender_id,
+                    senderName: senderProfile?.display_name || 'Gossip User',
+                    gender: senderProfile?.gender,
+                    senderAvatar: senderProfile?.photos?.[0] || null,
+                    content: totalForChat > 1 ? `${totalForChat} new messages` : decryptedContent,
+                    type: 'message',
+                    unreadCount: totalForChat
                 });
-
-            return newCount;
-        });
+            });
 
         // Manage timeout
         if (notificationTimeoutRef.current) clearTimeout(notificationTimeoutRef.current);
         notificationTimeoutRef.current = setTimeout(() => {
             setActiveNotification(null);
-            setUnreadCount(0);
         }, 5000);
-    }, [user, segmentsRef, paramsRef]);
+    }, [user]);
 
     // --- Call Logic ---
     const handleIncomingCall = useCallback(async (newCall: any) => {
@@ -276,12 +289,11 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
                 setIsCallIncoming(true);
             }
             setActiveNotification(null);
-            setUnreadCount(0);
             setPendingCall(null);
         } else if (activeNotification) {
-            router.push(`/chat/${activeNotification.chatId}`);
+            const targetChatId = activeNotification.chatId;
             setActiveNotification(null);
-            setUnreadCount(0);
+            router.push(`/chat/${targetChatId}`);
         }
     };
 
@@ -303,7 +315,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         }
     };
 
-    const playRingtone = async () => {
+    const playRingtone = useCallback(async () => {
         try {
             console.log('[NotificationContext] 🔔 Playing ringtone (Mixkit)...');
             await stopAllSounds();
@@ -317,9 +329,9 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         } catch (e) {
             console.error('[NotificationContext] ❌ Failed to play ringtone:', e);
         }
-    };
+    }, []);
 
-    const playRingback = async () => {
+    const playRingback = useCallback(async () => {
         try {
             console.log('[NotificationContext] ☎️ Playing ringback (Mixkit)...');
             await stopAllSounds();
@@ -333,7 +345,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         } catch (e) {
             console.error('[NotificationContext] ❌ Failed to play ringback:', e);
         }
-    };
+    }, []);
 
     useEffect(() => {
         const currentCall = activeCall || pendingCall?.call;
@@ -366,7 +378,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
             stopAllSounds();
             Vibration.cancel();
         }
-    }, [activeCall?.id, activeCall?.status, pendingCall?.call.id, isCallIncoming]);
+    }, [activeCall?.id, activeCall?.status, pendingCall?.call.id, isCallIncoming, playRingtone, playRingback]);
 
     // Global Call Status Polling
     useEffect(() => {
@@ -395,7 +407,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         matchService.markAllMessagesAsDelivered(user.id);
 
         notificationService.registerForPushNotificationsAsync(user.id);
-        Notifications.setBadgeCountAsync(0);
+        notificationService.syncBadgeCount(user.id);
 
         // Wire up WebRTC broadcast handlers
         webrtcService.onIncomingCall = (payload) => {
@@ -585,7 +597,6 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
                 onPress={handlePressBanner}
                 onDismiss={() => {
                     setActiveNotification(null);
-                    setUnreadCount(0);
                 }}
                 onAction={handleAction}
             />

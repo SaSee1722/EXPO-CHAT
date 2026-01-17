@@ -16,10 +16,28 @@ export function ProfileGuard({ children }: ProfileGuardProps) {
     const navigationState = useRootNavigationState();
 
     useEffect(() => {
-        if (!authInitialized || !navigationState?.key) return;
+        console.log('[ProfileGuard] State Check:', {
+            authInitialized,
+            hasUser: !!user,
+            hasProfile: !!profile,
+            profileLoading,
+            pathname,
+            navReady: !!navigationState?.key
+        });
+
+        if (!authInitialized) {
+            console.log('[ProfileGuard] Waiting for auth initialization...');
+            return;
+        }
+
+        if (!navigationState?.key) {
+            console.log('[ProfileGuard] Navigation state not yet ready, deferring redirect...');
+            return;
+        }
 
         if (!user) {
             if (pathname !== '/auth' && pathname !== '/get-started') {
+                console.log('[ProfileGuard] No user, redirecting to /get-started');
                 router.replace('/get-started');
             }
             return;
@@ -29,6 +47,7 @@ export function ProfileGuard({ children }: ProfileGuardProps) {
 
         // ONLY redirect if there is NO error and we are sure the profile is missing
         if (!profileLoading && !profile && !profileError) {
+            console.log('[ProfileGuard] No profile found, redirecting to /setup-profile');
             router.replace('/setup-profile');
         }
     }, [authInitialized, user, profile, profileLoading, profileError, pathname, router, navigationState?.key]);
@@ -60,11 +79,6 @@ export function ProfileGuard({ children }: ProfileGuardProps) {
     return (
         <>
             {children}
-            {user && profileLoading && !isActuallyOnSetup && (
-                <View style={styles.loadingOverlay}>
-                    <ActivityIndicator size="large" color="#87CEEB" />
-                </View>
-            )}
         </>
     );
 }

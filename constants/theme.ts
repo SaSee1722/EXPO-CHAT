@@ -80,60 +80,43 @@ export const BorderRadius = {
   round: 999,
 };
 
-// Typography configured for SpaceMono
-const fontConfig = {
-  fontFamily: 'SpaceMono',
-};
-
 export const Typography = {
   header: {
-    ...fontConfig,
     fontSize: 28,
     fontWeight: Platform.OS === 'ios' ? '900' : '700' as any,
     lineHeight: 34,
-    letterSpacing: Platform.OS === 'ios' ? 8 : 12,
   },
   h1: {
-    ...fontConfig,
     fontSize: 32,
     fontWeight: '700' as const,
     lineHeight: 40,
-    letterSpacing: Platform.OS === 'ios' ? 2 : 4,
   },
   h2: {
-    ...fontConfig,
     fontSize: 24,
     fontWeight: '700' as const,
     lineHeight: 32,
-    letterSpacing: Platform.OS === 'ios' ? 2 : 4,
   },
   h3: {
-    ...fontConfig,
     fontSize: 20,
     fontWeight: '600' as const,
     lineHeight: 28,
-    letterSpacing: Platform.OS === 'ios' ? 1 : 2,
   },
   chat: {
-    ...fontConfig,
     fontSize: 15,
     fontWeight: '400' as const,
     lineHeight: 20,
   },
   body: {
-    ...fontConfig,
     fontSize: 16,
     fontWeight: '400' as const,
     lineHeight: 24,
   },
   button: {
-    ...fontConfig,
     fontSize: 16,
     fontWeight: '600' as const,
     lineHeight: 24,
   },
   caption: {
-    ...fontConfig,
     fontSize: 12,
     fontWeight: '400' as const,
     lineHeight: 16,

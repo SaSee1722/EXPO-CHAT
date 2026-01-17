@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Animated } from 'react-native';
 import { useAudioPlayer } from 'expo-audio';
 import { Ionicons } from '@expo/vector-icons';
-import * as ExpoFileSystem from 'expo-file-system/legacy';
+import { mediaCacheService } from '../../services/mediaCacheService';
 
 interface AudioPlayerProps {
     url: string;
@@ -45,18 +45,10 @@ export function AudioPlayer({ url, isOwn, duration, messageId, disabled }: Audio
 
     useEffect(() => {
         const checkLocal = async () => {
-            if (isOwn) {
-                setIsDownloaded(true);
-                return;
-            }
             if (!url) return;
-            const fileName = `voice_${messageId || 'temp'}.m4a`;
-            const localUri = `${(ExpoFileSystem as any).cacheDirectory}${fileName}`;
-            try {
-                const info = await ExpoFileSystem.getInfoAsync(localUri);
-                setIsDownloaded(info.exists);
-            } catch {
-                // Ignore
+            const cached = await mediaCacheService.getLocalUri(messageId || 'temp', 'audio', url);
+            if (cached) {
+                setIsDownloaded(true);
             }
         };
         checkLocal();
@@ -129,10 +121,10 @@ export function AudioPlayer({ url, isOwn, duration, messageId, disabled }: Audio
         if (!isDownloaded && !isDownloading) {
             try {
                 setIsDownloading(true);
-                const fileName = `voice_${messageId || 'temp'}.m4a`;
-                const localUri = `${(ExpoFileSystem as any).cacheDirectory}${fileName}`;
-                await ExpoFileSystem.downloadAsync(url, localUri);
-                setIsDownloaded(true);
+                const downloaded = await mediaCacheService.downloadMedia(url, messageId || 'temp', 'audio');
+                if (downloaded) {
+                    setIsDownloaded(true);
+                }
             } catch (e) {
                 console.error('[AudioPlayer] Download failed:', e);
             } finally {

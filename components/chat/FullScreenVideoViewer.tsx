@@ -4,7 +4,7 @@ import { useVideoPlayer, VideoView } from 'expo-video';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { getSupabaseClient } from '@/template';
+// FullScreenVideoViewer.tsx
 
 interface FullScreenVideoViewerProps {
     visible: boolean;
@@ -15,7 +15,13 @@ interface FullScreenVideoViewerProps {
 export function FullScreenVideoViewer({ visible, videoUri, onClose }: FullScreenVideoViewerProps) {
     const insets = useSafeAreaInsets();
 
-    const player = useVideoPlayer(videoUri, (player) => {
+    const getSafeUri = (uri: string) => {
+        if (!uri) return '';
+        if (uri.startsWith('http')) return encodeURI(uri);
+        return uri;
+    };
+
+    const player = useVideoPlayer(getSafeUri(videoUri), (player) => {
         player.loop = false;
         player.muted = false; // Ensure audio is ON in full screen
         if (visible) {
@@ -25,7 +31,7 @@ export function FullScreenVideoViewer({ visible, videoUri, onClose }: FullScreen
 
     React.useEffect(() => {
         if (videoUri) {
-            player.replaceAsync(videoUri);
+            player.replaceAsync(getSafeUri(videoUri));
             if (visible) player.play();
         }
 

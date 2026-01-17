@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity, ActivityIndicator, Text } from 'react-native';
+import { View, StyleSheet, ActivityIndicator, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { Message } from '../../types';
@@ -9,10 +9,11 @@ interface VideoMessageProps {
     message: Message;
     isOwn: boolean;
     isDownloaded: boolean;
+    localUri?: string | null;
 }
 
-export const VideoMessage: React.FC<VideoMessageProps> = ({ message, isOwn, isDownloaded }) => {
-    const player = useVideoPlayer(message.media_url || '', (player) => {
+export const VideoMessage: React.FC<VideoMessageProps> = ({ message, isOwn, isDownloaded, localUri }) => {
+    const player = useVideoPlayer(localUri || message.media_url || '', (player) => {
         player.loop = false;
         player.muted = true;
         player.pause();

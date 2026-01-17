@@ -25,8 +25,7 @@ Notifications.setNotificationHandler({
         return {
             shouldShowAlert: !isCurrentlyViewingThisChat,
             shouldPlaySound: !isCurrentlyViewingThisChat,
-            shouldSetBadge: true,
-            // Modern Expo/OS properties
+            shouldSetBadge: !isCurrentlyViewingThisChat,
             shouldShowBanner: !isCurrentlyViewingThisChat,
             shouldShowList: true,
         };
@@ -36,6 +35,34 @@ Notifications.setNotificationHandler({
 export const notificationService = {
     setActiveChatId(id: string | null) {
         activeMatchId = id;
+    },
+    async syncBadgeCount(userId: string) {
+        if (!userId) return;
+        try {
+            // 1. Get all match IDs for this user
+            const { data: matches } = await supabase
+                .from('matches')
+                .select('id')
+                .or(`user1_id.eq.${userId},user2_id.eq.${userId}`);
+
+            const matchIds = matches?.map(m => m.id) || [];
+            if (matchIds.length === 0) {
+                await Notifications.setBadgeCountAsync(0);
+                return;
+            }
+
+            // 2. Count total unread across those matches
+            const { count } = await supabase
+                .from('messages')
+                .select('*', { count: 'exact', head: true })
+                .in('match_id', matchIds)
+                .neq('sender_id', userId)
+                .neq('status', 'read');
+
+            await Notifications.setBadgeCountAsync(count || 0);
+        } catch (e) {
+            console.error('[NotificationService] Failed to sync badge count:', e);
+        }
     },
     async registerForPushNotificationsAsync(userId: string) {
         console.log('[NotificationService] Registering for push notifications...');
@@ -133,6 +160,7 @@ export const notificationService = {
     async sendPushNotification(expoPushToken: string, title: string, body: string, data: any, type: 'message' | 'call' = 'message') {
         // Apply privacy for system notifications
         const maskedBody = type === 'call' ? body : 'New message received';
+        const matchId = data?.matchId;
 
         const message = {
             to: expoPushToken,
@@ -143,6 +171,10 @@ export const notificationService = {
             channelId: type === 'call' ? 'calls' : 'default',
             priority: 'high',
             ttl: type === 'call' ? 60 : 2419200,
+            mutableContent: true,
+            displayId: matchId, // Android grouping
+            threadId: matchId,  // iOS grouping
+            tag: matchId,       // Android grouping (stable)
         };
 
         try {
@@ -155,8 +187,7 @@ export const notificationService = {
                 },
                 body: JSON.stringify(message),
             });
-            const result = await response.json();
-            // console.log('Push send result:', result);
+            await response.json();
         } catch (error) {
             console.error('Error sending push notification:', error);
         }

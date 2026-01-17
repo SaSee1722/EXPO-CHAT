@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { matchService } from '@/services/matchService';
 import { Message } from '@/types';
-import * as FileSystem from 'expo-file-system/legacy';
 import { encryptionService } from '@/services/encryptionService';
+import { mediaCacheService } from '@/services/mediaCacheService';
 
 export function useMessages(matchId: string | null, userId: string | null) {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -50,7 +50,17 @@ export function useMessages(matchId: string | null, userId: string | null) {
               content: encryptionService.decrypt((payload.new as any).content)
             };
             setMessages(prev => {
+              // 1. Check if we already have this real ID (safety)
               if (prev.find(m => m.id === newMessage.id)) return prev;
+
+              // 2. Check if this message is a response to our optimistic send
+              const clientId = newMessage.metadata?.client_id;
+              if (clientId && prev.some(m => m.id === clientId)) {
+                // Instantly swap optimistic for real to avoid double bubbles
+                return prev.map(m => m.id === clientId ? newMessage : m);
+              }
+
+              // 3. Otherwise add as new
               // Add to the START of the array for inverted FlatList
               return [newMessage, ...prev];
             });
@@ -93,15 +103,15 @@ export function useMessages(matchId: string | null, userId: string | null) {
   const sendMessage = async (content: string, type: Message['type'] = 'text', media_url?: string, metadata?: any, reply_to?: string, reply_to_message?: any) => {
     if (!matchId || !userId) return;
 
-    const tempId = `temp-${Date.now()}`;
+    const clientId = `client-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const optimisticMessage: any = {
-      id: tempId,
+      id: clientId,
       match_id: matchId,
       sender_id: userId,
       content,
       type,
       media_url,
-      metadata,
+      metadata: { ...metadata, client_id: clientId },
       reply_to,
       reply_to_message,
       status: 'sent',
@@ -112,19 +122,23 @@ export function useMessages(matchId: string | null, userId: string | null) {
     setMessages(prev => [optimisticMessage, ...prev]);
     setSending(true);
 
-    const { data, error } = await matchService.sendMessage(matchId, userId, content, type, media_url, metadata, reply_to, reply_to_message);
+    const { data, error } = await matchService.sendMessage(
+      matchId,
+      userId,
+      content,
+      type,
+      media_url,
+      { ...metadata, client_id: clientId },
+      reply_to,
+      reply_to_message
+    );
 
-    if (!error && data) {
-      setMessages(prev => {
-        // If the real-time listener already added the message, just remove the temp one
-        if (prev.some(m => m.id === data.id)) {
-          return prev.filter(m => m.id !== tempId);
-        }
-        // Otherwise, swap the temp message with the official one
-        return prev.map(m => m.id === tempId ? data : m);
-      });
-    } else if (error) {
-      setMessages(prev => prev.filter(m => m.id !== tempId));
+    if (error) {
+      setMessages(prev => prev.filter(m => m.id !== clientId));
+    } else if (data) {
+      // The real-time listener will likely handle the swap via client_id, 
+      // but we do a safety swap here in case real-time fails
+      setMessages(prev => prev.map(m => m.id === clientId ? data : m));
     }
 
     setSending(false);
@@ -134,15 +148,15 @@ export function useMessages(matchId: string | null, userId: string | null) {
   const sendMediaMessage = async (uri: string, type: 'image' | 'video' | 'file' | 'audio', metadata?: any) => {
     if (!matchId || !userId) return { error: 'Missing matchId or userId' };
 
-    const tempId = `temp-${Date.now()}`;
+    const clientId = `client-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const optimisticMessage: any = {
-      id: tempId,
+      id: clientId,
       match_id: matchId,
       sender_id: userId,
       content: metadata?.caption || '',
       type,
       media_url: uri, // Use local URI for immediate preview
-      metadata: { ...metadata, isUploading: true },
+      metadata: { ...metadata, isUploading: true, client_id: clientId },
       status: 'sending',
       created_at: new Date().toISOString(),
     };
@@ -151,45 +165,33 @@ export function useMessages(matchId: string | null, userId: string | null) {
     setSending(true);
 
     try {
-      // 0. Pre-cache the file so MessageBubble can find it locally immediately
-      const timestamp = Date.now();
-      const extension = uri.split('.').pop() || (type === 'video' ? 'mp4' : type === 'audio' ? 'm4a' : 'jpg');
-      const cloudPath = `${matchId}/${timestamp}.${extension}`;
-      const cacheUri = `${(FileSystem as any).cacheDirectory}${cloudPath.replace(/\//g, '_')}`;
-
-      try {
-        await FileSystem.copyAsync({ from: uri, to: cacheUri });
-      } catch (e) {
-        console.warn('[useMessages] Cache copy failed:', e);
-      }
-
       // 1. Upload the media
       const { data: publicUrl, error: uploadError } = await matchService.uploadChatMedia(matchId, uri, type);
 
-      if (uploadError || !publicUrl) {
-        throw uploadError || new Error('Upload failed');
-      }
+      if (uploadError || !publicUrl) throw uploadError || new Error('Upload failed');
 
-      // 3. Send the official message
+      // 2. Send the official message with the same client_id
       const { data: realMessage, error: sendError } = await matchService.sendMessage(
         matchId,
         userId,
         metadata?.caption || '',
         type,
         publicUrl,
-        { ...metadata, fileName: cloudPath.replace(/\//g, '_'), isUploading: false }
+        { ...metadata, isUploading: false, client_id: clientId }
       );
 
-      if (sendError || !realMessage) {
-        throw sendError || new Error('Send failed');
-      }
+      if (sendError || !realMessage) throw sendError || new Error('Send failed');
 
-      setMessages(prev => prev.map(m => m.id === tempId ? realMessage : m));
+      // 3. Save to persistent cache
+      await mediaCacheService.saveToCache(uri, realMessage.id, type, publicUrl);
+
+      // 4. Swap (Real-time listener also does this)
+      setMessages(prev => prev.map(m => (m.id === clientId || m.id === realMessage.id) ? realMessage : m));
       setSending(false);
       return { data: realMessage };
     } catch (error: any) {
       console.error('[useMessages] ❌ Media message failed:', error);
-      setMessages(prev => prev.filter(m => m.id !== tempId));
+      setMessages(prev => prev.filter(m => m.id !== clientId));
       setSending(false);
       return { error };
     }

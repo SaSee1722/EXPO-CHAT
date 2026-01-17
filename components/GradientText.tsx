@@ -90,7 +90,6 @@ export const GradientText: React.FC<GradientTextProps> = ({
 
 const styles = StyleSheet.create({
     text: {
-        fontFamily: 'SpaceMono',
         fontWeight: '700',
     },
 });

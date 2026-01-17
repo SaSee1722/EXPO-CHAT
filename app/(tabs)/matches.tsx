@@ -1,8 +1,8 @@
 import React, { useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, useColorScheme, Platform, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, FlatList, RefreshControl } from 'react-native';
 import { useAuth } from '@/template';
 import { useMatches } from '@/hooks/useMatches';
-import { Colors, Spacing, Typography, Shadows } from '@/constants/theme';
+import { Spacing, Typography, Shadows } from '@/constants/theme';
 import { MatchItem } from '@/components/matches/MatchItem';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -41,7 +41,14 @@ export default function MatchesScreen() {
         renderItem={({ item }) => (
           <MatchItem
             match={item}
-            onPress={() => router.push(`/chat/${item.id}`)}
+            onPress={() => router.push({
+              pathname: '/chat/[matchId]',
+              params: {
+                matchId: item.id,
+                name: item.profile?.display_name,
+                gender: item.profile?.gender
+              }
+            })}
           />
         )}
         ListEmptyComponent={

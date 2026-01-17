@@ -1,10 +1,8 @@
 // Re-bundling fix to resolve stale import errors
-import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, useColorScheme, ActivityIndicator, Alert, Modal } from 'react-native';
+import React, { useState, useMemo, useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, useColorScheme, ActivityIndicator, Modal } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-import * as FileSystem from 'expo-file-system/legacy';
-import * as Sharing from 'expo-sharing';
 import { BlurView } from 'expo-blur';
 import Animated, {
   useSharedValue,
@@ -23,6 +21,7 @@ import { ReactionPicker } from './ReactionPicker';
 import { MessageActionsMenu } from './MessageActionsMenu';
 import { EmojiPicker } from './EmojiPicker';
 import { Pressable } from 'react-native';
+import { mediaCacheService } from '../../services/mediaCacheService';
 
 interface MessageBubbleProps {
   message: Message;
@@ -38,7 +37,7 @@ interface MessageBubbleProps {
   userId?: string | null;
 }
 
-export function MessageBubble({
+function MessageBubbleComponent({
   message,
   isOwn,
   onReaction,
@@ -55,12 +54,11 @@ export function MessageBubble({
   const themeColors = Colors[colorScheme ?? 'light'];
   const [isViewerVisible, setIsViewerVisible] = useState(false);
   const [isVideoVisible, setIsVideoVisible] = useState(false);
-  const [isDownloading, setIsDownloading] = useState(false);
   const [isReactionVisible, setIsReactionVisible] = useState(false);
   const [isActionsVisible, setIsActionsVisible] = useState(false);
   const [isFullEmojiPickerVisible, setIsFullEmojiPickerVisible] = useState(false);
-  const [downloadProgress, setDownloadProgress] = useState(0);
   const [isDownloaded, setIsDownloaded] = useState(false);
+  const [localUri, setLocalUri] = useState<string | null>(null);
 
   // Calculate which reactions are active for THIS user
   const activeReactions = useMemo(() => {
@@ -70,17 +68,27 @@ export function MessageBubble({
       .map(([emoji, _]) => emoji);
   }, [message.reactions, userId]);
 
-  // Check if file is downloaded locally
+  // Handle media caching (check local and download if needed)
   React.useEffect(() => {
-    const checkFile = async () => {
-      if (message.type === 'file' || message.type === 'video' || message.type === 'audio') {
-        const fileName = message.metadata?.fileName || `${message.id}.${message.type === 'video' ? 'mp4' : 'bin'}`;
-        const localUri = `${(FileSystem as any).cacheDirectory}${fileName}`;
-        const fileInfo = await FileSystem.getInfoAsync(localUri);
-        setIsDownloaded(fileInfo.exists && (fileInfo.size || 0) > 0);
+    const handleMedia = async () => {
+      if (['image', 'video', 'audio', 'file', 'sticker'].includes(message.type) && message.media_url) {
+        // 1. Check if we already have it locally
+        const cached = await mediaCacheService.getLocalUri(message.id, message.type, message.media_url);
+
+        if (cached) {
+          setLocalUri(cached);
+          setIsDownloaded(true);
+        } else {
+          // 2. If not cached, download it automatically to save future data
+          const downloaded = await mediaCacheService.downloadMedia(message.media_url, message.id, message.type);
+          if (downloaded) {
+            setLocalUri(downloaded);
+            setIsDownloaded(true);
+          }
+        }
       }
     };
-    checkFile();
+    handleMedia();
   }, [message.id, message.type, message.media_url]);
 
   // Detected if message is ONLY emojis
@@ -93,14 +101,17 @@ export function MessageBubble({
   // Animation logic for Swipe to Reply
   const translateX = useSharedValue(0);
   const panGesture = Gesture.Pan()
-    .activeOffsetX([0, 20]) // Only trigger on right swipe, don't swallow taps
+    .activeOffsetX([0, 20])
     .onUpdate((event) => {
       if (selectionMode) return;
       if (event.translationX > 0) translateX.value = event.translationX;
     })
     .onEnd((event) => {
-      if (selectionMode) return;
-      if (event.translationX > 50 && onReply) runOnJS(onReply)(message);
+      'worklet';
+      if (selectionMode || !event) return;
+      if (event.translationX > 50 && onReply) {
+        runOnJS(onReply)(message);
+      }
       translateX.value = withSpring(0);
     });
 
@@ -127,7 +138,6 @@ export function MessageBubble({
   };
 
   const handlePress = () => {
-    console.log('[MessageBubble] Tap detected. Type:', message.type);
     if (selectionMode) {
       onSelect?.();
     } else if (!message.deleted_for_everyone) {
@@ -150,15 +160,22 @@ export function MessageBubble({
       case 'image':
         return (
           <Image
-            source={{ uri: message.media_url }}
+            source={{ uri: localUri || message.media_url }}
             style={styles.mediaImage}
             contentFit="cover"
           />
         );
       case 'audio':
-        return <AudioPlayer url={message.media_url!} isOwn={isOwn} messageId={message.id} />;
+        return (
+          <AudioPlayer
+            url={localUri || message.media_url!}
+            isOwn={isOwn}
+            messageId={message.id}
+            duration={message.metadata?.duration}
+          />
+        );
       case 'video':
-        return <VideoMessage message={message} isOwn={isOwn} isDownloaded={isDownloaded} />;
+        return <VideoMessage message={message} isOwn={isOwn} isDownloaded={isDownloaded} localUri={localUri} />;
       case 'file':
         return (
           <View style={styles.fileContainer}>
@@ -284,22 +301,24 @@ export function MessageBubble({
         </Pressable>
       </Modal>
 
-      <FullScreenImageViewer visible={isViewerVisible} imageUri={message.media_url || ''} onClose={() => setIsViewerVisible(false)} />
+      <FullScreenImageViewer visible={isViewerVisible} imageUri={localUri || message.media_url || ''} onClose={() => setIsViewerVisible(false)} />
 
       <FullScreenVideoViewer
         visible={isVideoVisible}
-        videoUri={message.media_url || ''}
+        videoUri={localUri || message.media_url || ''}
         onClose={() => setIsVideoVisible(false)}
       />
     </View>
   );
 }
 
+export const MessageBubble = MessageBubbleComponent;
+
 const styles = StyleSheet.create({
   container: {
     marginBottom: 8,
     marginHorizontal: 12,
-    alignItems: 'flex-start', // Force received bubbles to be tight
+    alignItems: 'flex-start',
   },
   ownContainer: { alignItems: 'flex-end' },
   bubble: {

@@ -68,9 +68,11 @@ export const storageService = {
                             try {
                                 // Try to verify the file exists
                                 const verify = await fetch(publicUrl, { method: 'HEAD' });
-                                console.log(`[StorageService] Verification status: ${verify.status}`);
+                                if (verify && verify.status) {
+                                    console.log(`[StorageService] Verification status: ${verify.status}`);
+                                }
 
-                                if (verify.ok) {
+                                if (verify && verify.ok) {
                                     console.log('[StorageService] ✨ Ghost Recovery Success! File exists in cloud.');
                                     return { data: publicUrl, error: null };
                                 }

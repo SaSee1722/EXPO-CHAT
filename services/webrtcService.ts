@@ -166,22 +166,50 @@ class WebRTCService {
     }
 
     async startLocalStream(isVideo = true) {
+        // If a stream exists, check if it matches the current video requirement
         if (this.localStream) {
-            console.log('[WebRTC] Local stream already exists');
-            return;
+            const hasVideo = this.localStream.getVideoTracks().length > 0;
+            if (hasVideo === isVideo) {
+                console.log('[WebRTC] Local stream already exists with correct tracks');
+                return;
+            }
+            // If mismatch, stop and recreate
+            console.log('[WebRTC] Existing stream track mismatch, recreating...');
+            this.localStream.getTracks().forEach(t => t.stop());
+            this.localStream = undefined;
         }
 
         try {
-            console.log('[WebRTC] Requesting media permissions...');
+            console.log(`[WebRTC] Requesting ${isVideo ? 'Video+Audio' : 'Audio'} permissions...`);
 
-            // Request permissions
+            // Request permissions based on platform
             if (Platform.OS === 'android') {
                 const permissions = [PermissionsAndroid.PERMISSIONS.RECORD_AUDIO];
                 if (isVideo) permissions.push(PermissionsAndroid.PERMISSIONS.CAMERA);
-                await PermissionsAndroid.requestMultiple(permissions);
+                const status = await PermissionsAndroid.requestMultiple(permissions);
+                console.log('[WebRTC] Android permissions status:', status);
             } else {
-                await Audio.requestPermissionsAsync();
+                // iOS: Request Audio and Camera separately if needed
+                const { status: audioStatus } = await Audio.requestPermissionsAsync();
+                console.log('[WebRTC] iOS Audio permission:', audioStatus);
+
+                if (isVideo) {
+                    const { Camera } = require('expo-camera');
+                    const { status: cameraStatus } = await Camera.requestCameraPermissionsAsync();
+                    console.log('[WebRTC] iOS Camera permission:', cameraStatus);
+                }
             }
+
+            // Force audio mode again right before acquisition to ensure hardware is ready
+            await Audio.setAudioModeAsync({
+                allowsRecordingIOS: true,
+                playsInSilentModeIOS: true,
+                staysActiveInBackground: true,
+                shouldDuckAndroid: true,
+                playThroughEarpieceAndroid: false, // Default to speaker for now
+                interruptionModeIOS: 1,
+                interruptionModeAndroid: 1,
+            });
 
             const isSimulator = !Device.isDevice && Platform.OS === 'ios';
             const constraints = {
@@ -193,25 +221,27 @@ class WebRTCService {
                 video: isVideo ? {
                     width: { ideal: 640 },
                     height: { ideal: 480 },
-                    frameRate: { ideal: 30 },
                     facingMode: 'user'
                 } : false,
             };
 
+            console.log('[WebRTC] Calling getUserMedia...');
             let stream;
             try {
                 stream = (await mediaDevices.getUserMedia(constraints as any)) as MediaStream;
                 console.log('[WebRTC] Media acquired successfully');
             } catch (err) {
+                console.warn('[WebRTC] getUserMedia failed with constraints, trying simple fallback', err);
                 if (isSimulator && isVideo) {
-                    console.log('[WebRTC] Video failed on simulator, trying audio only');
-                    stream = (await mediaDevices.getUserMedia({ audio: true, video: false })) as MediaStream;
+                    console.log('[WebRTC] Simulator detected, falling back to audio-only');
+                    stream = (await mediaDevices.getUserMedia({ audio: true, video: false })) as any;
                 } else {
-                    throw err;
+                    // Try even simpler
+                    stream = (await mediaDevices.getUserMedia({ audio: true, video: isVideo })) as any;
                 }
             }
 
-            this.localStream = stream;
+            this.localStream = stream as MediaStream;
 
             // Enable all tracks
             stream.getTracks().forEach(track => {
@@ -223,7 +253,14 @@ class WebRTCService {
 
             // Add tracks to peer connection if it exists
             if (this.peerConnection) {
-                console.log('[WebRTC] Adding local tracks to peer connection');
+                console.log('[WebRTC] Adding local tracks to existing peer connection');
+
+                // Clear existing senders if any (to avoid duplicates if we recreated stream)
+                const senders = this.peerConnection.getSenders();
+                senders.forEach(sender => {
+                    try { this.peerConnection?.removeTrack(sender); } catch (e) { }
+                });
+
                 this.localStream.getTracks().forEach(track => {
                     this.peerConnection?.addTrack(track, this.localStream!);
                 });

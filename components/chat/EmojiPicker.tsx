@@ -60,7 +60,7 @@ export const EmojiPicker = ({ onEmojiSelected, height = 300 }: EmojiPickerProps)
                     }
                 }}
                 styles={{
-                    header: { fontFamily: 'SpaceMono' },
+                    header: { fontWeight: '600' },
                     container: {
                         borderRadius: 0,
                         flex: 1,

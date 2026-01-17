@@ -10,7 +10,6 @@ serve(async (req) => {
         // Supabase Webhooks can wrap the record in different ways depending on configuration
         const record = payload.record || payload.new || payload;
         const table = payload.table || (record.match_id && !record.caller_id ? 'messages' : 'calls');
-        const type = payload.type || 'INSERT';
 
         const supabase = createClient(
             Deno.env.get('SUPABASE_URL') ?? '',
@@ -62,27 +61,47 @@ serve(async (req) => {
 
         const senderName = senderProfile?.display_name || 'Someone'
 
-        // 3. Get Unread Count for badge
-        const { count } = await supabase
+        // 3. Get Global Unread Count for accurate badge across all chats
+        const { data: userMatches } = await supabase
+            .from('matches')
+            .select('id')
+            .or(`user1_id.eq.${receiverId},user2_id.eq.${receiverId}`);
+
+        const matchIds = userMatches?.map(m => m.id) || [];
+
+        const { count: globalUnreadCount } = await supabase
+            .from('messages')
+            .select('*', { count: 'exact', head: true })
+            .in('match_id', matchIds)
+            .neq('sender_id', receiverId)
+            .neq('status', 'read');
+
+        // Number of unread notifications for the banner text (per chat)
+        const { count: matchUnreadCount } = await supabase
             .from('messages')
             .select('*', { count: 'exact', head: true })
             .eq('match_id', matchId)
             .neq('sender_id', receiverId)
             .neq('status', 'read');
 
-        // 4. Construct and Send to Expo
-        const unreadTotal = (count || 0) + 1;
+        const totalForThisChat = (matchUnreadCount || 0) + 1;
         const bodyText = isCall
             ? 'Incoming call...'
-            : `${unreadTotal} new message${unreadTotal > 1 ? 's' : ''}`;
+            : `${totalForThisChat} new message${totalForThisChat > 1 ? 's' : ''}`;
+
+        const finalBadgeCount = (globalUnreadCount || 0) + 1;
 
         const expoPayload = {
             to: receiverProfile.push_token,
             sound: 'default',
             title: senderName,
             body: bodyText,
-            badge: (count || 0) + 1,
+            badge: finalBadgeCount,
             priority: 'high',
+            mutableContent: true,
+            displayId: matchId, // Android grouping
+            threadId: matchId,  // iOS grouping
+            tag: matchId,       // Android grouping (legacy/stable)
             data: {
                 matchId,
                 type: isCall ? 'call' : 'message',

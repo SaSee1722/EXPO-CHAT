@@ -62,83 +62,95 @@ export const matchService = {
   async getMatches(userId: string) {
     if (!userId) return { data: [], error: null };
 
-    // Fetch where user is either user1 or user2 separately to avoid .or() 400 errors on web
-    const [res1, res2] = await Promise.all([
-      supabase.from('matches').select('*').eq('user1_id', userId),
-      supabase.from('matches').select('*').eq('user2_id', userId)
+    console.log('[MatchService] 🚀 Fetching matches in bulk for:', userId);
+
+    // 1. Fetch matches where user is either user1 or user2
+    const { data: matches, error: matchError } = await supabase
+      .from('matches')
+      .select('*')
+      .or(`user1_id.eq.${userId},user2_id.eq.${userId}`)
+      .order('created_at', { ascending: false });
+
+    if (matchError) {
+      console.error('[MatchService] Match fetch error:', matchError);
+      return { data: null, error: matchError };
+    }
+
+    if (!matches || matches.length === 0) return { data: [], error: null };
+
+    const matchIds = matches.map(m => m.id);
+    const otherUserIds = matches.map(m => m.user1_id === userId ? m.user2_id : m.user1_id);
+
+    // 2. Fetch all required data in parallel blocks
+    const [profilesRes, lastMessagesRes, unreadCountsRes, locksRes, blocksRes] = await Promise.all([
+      // Fetch all other user profiles in one go
+      supabase.from('profiles').select('*').in('id', otherUserIds),
+      // Fetch recent messages for all matches (we'll filter for the latest in JS)
+      supabase.from('messages')
+        .select('*')
+        .in('match_id', matchIds)
+        .order('created_at', { ascending: false }),
+      // Fetch unread messages for this user (to count later)
+      supabase.from('messages')
+        .select('match_id, id')
+        .in('match_id', matchIds)
+        .neq('sender_id', userId)
+        .neq('status', 'read'),
+      // Fetch all chat locks for this user
+      supabase.from('chat_locks').select('match_id').eq('user_id', userId),
+      // Fetch blocks
+      supabase.from('blocks')
+        .select('blocked_id, blocker_id')
+        .or(`blocker_id.eq.${userId},blocked_id.eq.${userId}`)
     ]);
 
-    const error = res1.error || res2.error;
-    if (error) return { data: null, error };
-
-    const data = [...(res1.data || []), ...(res2.data || [])];
-
-    // Sort combined results by created_at descending
-    data.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-
-
-    // Fetch blocked user IDs to filter them out of matches
-    const { data: blockedData } = await supabase
-      .from('blocks')
-      .select('blocked_id, blocker_id')
-      .or(`blocker_id.eq.${userId},blocked_id.eq.${userId}`);
-
+    // 3. Process data into maps for O(1) lookup
+    const profileMap = new Map(profilesRes.data?.map(p => [p.id, p]));
+    const lockSet = new Set(locksRes.data?.map(l => l.match_id));
     const blockedUserIds = new Set(
-      blockedData?.map(b => b.blocker_id === userId ? b.blocked_id : b.blocker_id) || []
+      blocksRes.data?.map(b => b.blocker_id === userId ? b.blocked_id : b.blocker_id) || []
     );
 
-    // Get profiles and last messages for each match
-    const enrichedMatches = await Promise.all(
-      (data || [])
-        .filter(match => {
-          const otherUserId = match.user1_id === userId ? match.user2_id : match.user1_id;
-          return !blockedUserIds.has(otherUserId);
-        })
-        .map(async (match: any) => {
-          const otherUserId = match.user1_id === userId ? match.user2_id : match.user1_id;
+    // Map to store latest message per match
+    const lastMessageMap = new Map();
+    if (lastMessagesRes.data) {
+      for (const msg of lastMessagesRes.data) {
+        if (!lastMessageMap.has(msg.match_id)) {
+          // Only decrypt if it's the latest one we're keeping
+          lastMessageMap.set(msg.match_id, {
+            ...msg,
+            content: encryptionService.decrypt(msg.content)
+          });
+        }
+      }
+    }
 
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', otherUserId)
-            .single();
+    // Map to count unread messages per match
+    const unreadCountMap = new Map();
+    if (unreadCountsRes.data) {
+      for (const msg of unreadCountsRes.data) {
+        unreadCountMap.set(msg.match_id, (unreadCountMap.get(msg.match_id) || 0) + 1);
+      }
+    }
 
-          const { data: messages } = await supabase
-            .from('messages')
-            .select('*')
-            .eq('match_id', match.id)
-            .not('deleted_by', 'cs', `{${userId}}`) // Filter out messages user deleted for themselves
-            .order('created_at', { ascending: false })
-            .limit(1);
+    // 4. Assemble enriched matches
+    const enrichedMatches = matches
+      .filter(match => {
+        const otherUserId = match.user1_id === userId ? match.user2_id : match.user1_id;
+        return !blockedUserIds.has(otherUserId);
+      })
+      .map(match => {
+        const otherUserId = match.user1_id === userId ? match.user2_id : match.user1_id;
+        return {
+          ...match,
+          profile: profileMap.get(otherUserId),
+          lastMessage: lastMessageMap.get(match.id),
+          unreadCount: unreadCountMap.get(match.id) || 0,
+          isLocked: lockSet.has(match.id),
+        };
+      });
 
-          const { count: unreadCount } = await supabase
-            .from('messages')
-            .select('*', { count: 'exact', head: true })
-            .eq('match_id', match.id)
-            .neq('sender_id', userId)
-            .neq('status', 'read')
-            .not('deleted_by', 'cs', `{${userId}}`); // Filter out unread count for deleted messages
-
-          const { data: lockData } = await supabase
-            .from('chat_locks')
-            .select('id')
-            .eq('user_id', userId)
-            .eq('match_id', match.id)
-            .maybeSingle();
-
-          return {
-            ...match,
-            profile,
-            lastMessage: messages?.[0] ? {
-              ...messages[0],
-              content: encryptionService.decrypt(messages[0].content)
-            } : undefined,
-            unreadCount: unreadCount || 0,
-            isLocked: !!lockData,
-          };
-        })
-    );
-
+    console.log(`[MatchService] ✅ Enriched ${enrichedMatches.length} matches using bulk queries`);
     return { data: enrichedMatches, error: null };
   },
 

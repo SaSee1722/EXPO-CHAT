@@ -18,9 +18,7 @@ import { Camera } from 'expo-camera';
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
-  const [fontsLoaded] = useFonts({
-    'SpaceMono': require('../assets/fonts/SpaceMono-Regular.ttf'),
-  });
+  const [fontsLoaded] = useFonts({});
 
   useEffect(() => {
     // Set up global audio mode
