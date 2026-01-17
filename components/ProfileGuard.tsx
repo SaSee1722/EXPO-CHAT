@@ -1,3 +1,5 @@
+// Environment synced
+// Refreshing lint state...
 import React, { useEffect } from 'react';
 import { View, ActivityIndicator, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { useRouter, usePathname, useRootNavigationState } from 'expo-router';

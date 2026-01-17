@@ -155,8 +155,10 @@
     "@types/react": "~19.1.17",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~10.0.0",
+    "eslint-import-resolver-typescript": "^4.4.4",
     "react-dev-inspector": "^2.0.1",
-    "typescript": "~5.9.3"
+    "typescript": "~5.9.3",
+    "unrs-resolver": "^1.11.1"
   },
   "private": true
 }

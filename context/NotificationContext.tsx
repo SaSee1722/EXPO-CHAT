@@ -1,3 +1,4 @@
+// Environment synced
 import React, { createContext, useEffect, useState, useRef, useCallback } from 'react';
 import * as Notifications from 'expo-notifications';
 import { useRouter, useSegments, useGlobalSearchParams } from 'expo-router';
