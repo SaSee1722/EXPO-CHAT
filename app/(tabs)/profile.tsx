@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Platform, RefreshControl, Modal, Switch, TextInput } from 'react-native';
-import { Image } from 'expo-image';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Platform, RefreshControl, Modal, Switch, TextInput, Image } from 'react-native';
+// import { Image } from 'expo-image';
 import { useAuth, useAlert } from '@/template';
 import { useProfileContext } from '@/context/ProfileContext';
 import { Spacing, BorderRadius, Typography } from '@/constants/theme';
@@ -194,16 +194,16 @@ export default function ProfileScreen() {
                     <View style={styles.avatarInnerContainer}>
                       {remoteUrl ? (
                         <Image
-                          key={validImageSource?.uri || 'empty'} // Force re-render on source change
+                          key={validImageSource ? 'base64-loaded' : remoteUrl}
                           source={validImageSource || { uri: remoteUrl }}
                           style={styles.avatarImage}
-                          contentFit="cover"
-                          transition={200}
+                          resizeMode="cover"
                           onError={async (e) => {
+                            // Only attempt fallback if we haven't already
+                            if (validImageSource) return;
+
                             console.log('[ProfileScreen] ⚠️ Standard image load failed, attempting Base64 fallback...');
                             try {
-                              // Fallback: Manually fetch bytes and convert to Base64
-                              // This bypasses strict Content-Type checks on the native side
                               const response = await fetch(remoteUrl);
                               if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
@@ -212,11 +212,13 @@ export default function ProfileScreen() {
                               reader.readAsDataURL(blob);
                               reader.onloadend = () => {
                                 const base64data = reader.result;
-                                console.log('[ProfileScreen] ✅ Base64 fallback successful');
-                                setValidImageSource({ uri: base64data });
+                                if (base64data && typeof base64data === 'string') {
+                                  console.log('[ProfileScreen] ✅ Base64 conversion successful (Length: ' + base64data.length + ')');
+                                  setValidImageSource({ uri: base64data });
+                                }
                               };
                             } catch (err) {
-                              console.error('[ProfileScreen] ❌ All image load attempts failed:', err);
+                              console.error('[ProfileScreen] ❌ Detailed Error:', err);
                             }
                           }}
                         />
@@ -414,7 +416,7 @@ export default function ProfileScreen() {
             <Image
               source={{ uri: remoteUrl }}
               style={styles.imageViewerImage}
-              contentFit="contain"
+              resizeMode="contain"
             />
           </View>
         </Modal>

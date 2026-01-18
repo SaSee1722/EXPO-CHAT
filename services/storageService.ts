@@ -34,68 +34,27 @@ export const storageService = {
                     const { error: uploadError } = await supabase.storage.from(bucket).upload(path, blob, { upsert: true });
                     if (uploadError) throw uploadError;
                 } else {
-                    // MOBILE STABLE PATH - MEMORY EFFICIENT
-                    console.log(`[StorageService] ⚡ Fetching local URI: ${uri}`);
+                    console.log(`[StorageService] ⚡ Uploading via FileSystem: ${uri}`);
 
-                    const response = await fetch(uri);
-                    const blob = await response.blob();
-
-                    console.log(`[StorageService] 📡 Sending ${blob.size} bytes via Supabase SDK...`);
-
-                    const { error: uploadError } = await supabase.storage
-                        .from(bucket)
-                        .upload(path, blob, {
-                            contentType: contentType || blob.type || 'application/octet-stream',
-                            cacheControl: '3600',
-                            upsert: true,
-                            onUploadProgress: (event: any) => {
-                                if (onProgress && event.total) {
-                                    onProgress(event.loaded / event.total);
-                                }
-                            }
-                        } as any);
-
-                    if (uploadError) {
-                        const errorMsg = String(uploadError.message || uploadError);
-                        console.log(`[StorageService] ⚠️ SDK Error on attempt ${attempt}: ${errorMsg}`);
-
-                        // ENHANCED GHOST RECOVERY: Check if file actually uploaded despite error
-                        if (errorMsg.includes('Network request failed') || errorMsg.includes('cannot parse response') || response?.status === 500) {
-                            console.log('[StorageService] 🔍 Network error detected. Checking if file exists...');
-
-                            const { data: { publicUrl } } = supabase.storage.from(bucket).getPublicUrl(path);
-
-                            // Wait longer for storage to sync
-                            await new Promise(r => setTimeout(r, 1500));
-
-                            try {
-                                // Try to verify the file exists
-                                const verify = await fetch(publicUrl, { method: 'HEAD' });
-                                if (verify && verify.status) {
-                                    console.log(`[StorageService] Verification status: ${verify.status}`);
-                                }
-
-                                if (verify && verify.ok) {
-                                    console.log('[StorageService] ✨ Ghost Recovery Success! File exists in cloud.');
-                                    return { data: publicUrl, error: null };
-                                }
-
-                                // Also check via Supabase list API
-                                const { data: files } = await supabase.storage.from(bucket).list(path.split('/').slice(0, -1).join('/'));
-                                const fileName = path.split('/').pop();
-                                const fileExists = files?.some(f => f.name === fileName);
-
-                                if (fileExists) {
-                                    console.log('[StorageService] ✨ File found via list API! Recovery successful.');
-                                    return { data: publicUrl, error: null };
-                                }
-                            } catch (e) {
-                                console.log('[StorageService] Verification check failed:', e);
+                    // Use FileSystem.uploadAsync for reliable native uploads
+                    // This avoids 0-byte issues common with fetch(file_uri) on React Native
+                    const uploadResult = await FileSystem.uploadAsync(
+                        `${process.env.EXPO_PUBLIC_SUPABASE_URL}/storage/v1/object/${bucket}/${path}`,
+                        uri,
+                        {
+                            httpMethod: 'POST',
+                            uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+                            headers: {
+                                Authorization: `Bearer ${process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY}`,
+                                'Content-Type': contentType || 'image/jpeg',
+                                'x-upsert': 'true',
                             }
                         }
+                    );
 
-                        // If not a network error or recovery failed, throw to retry
-                        throw new Error(errorMsg);
+                    if (uploadResult.status !== 200) {
+                        console.error('[StorageService] Upload failed:', uploadResult.body);
+                        throw new Error(`Upload failed with status ${uploadResult.status}`);
                     }
                 }
 
