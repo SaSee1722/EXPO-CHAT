@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Animated, Platform, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Animated, Platform } from 'react-native';
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { GradientText } from '@/components/GradientText';
@@ -115,17 +116,11 @@ export default function GetStartedScreen() {
     return (
         <View style={styles.container}>
             {/* Dark gradient base */}
-            <LinearGradient
-                colors={['#050505', '#0f0f12', '#050505']}
-                style={StyleSheet.absoluteFill}
-            />
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: '#000000' }]} />
 
             {/* Animated Background Elements */}
             <MAnimated.View style={[styles.bubble, styles.bubble1, bubble1Style]}>
-                <LinearGradient
-                    colors={['rgba(135, 206, 235, 0.2)', 'rgba(135, 206, 235, 0)']}
-                    style={StyleSheet.absoluteFill}
-                />
+                <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(135, 206, 235, 0.05)', borderRadius: 150 }]} />
             </MAnimated.View>
             <MAnimated.View style={[styles.bubble, styles.bubble2, bubble2Style]}>
                 <LinearGradient
@@ -155,14 +150,11 @@ export default function GetStartedScreen() {
                 {/* Center Space Brand Icon */}
                 <View style={styles.logoSpace}>
                     <MAnimated.View style={[styles.brandIconContainer, logoFloatStyle]}>
-                        <View style={styles.brandIconGlow} />
-                        <View style={styles.brandIconInner}>
-                            <Image
-                                source={require('@/assets/images/logo.png')}
-                                style={styles.brandLogoImage}
-                                resizeMode="contain"
-                            />
-                        </View>
+                        <Image
+                            source={require('@/assets/images/app-logo.png')}
+                            style={styles.brandLogoImage}
+                            contentFit="contain"
+                        />
                     </MAnimated.View>
                 </View>
 
@@ -228,7 +220,7 @@ function FeatureItem({ icon, text, color }: { icon: any, text: string, color: st
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#050505',
+        backgroundColor: '#000000',
     },
     bubble: {
         position: 'absolute',
@@ -258,7 +250,7 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 48,
         fontWeight: Platform.OS === 'android' ? '700' : '900',
-        letterSpacing: Platform.OS === 'android' ? 8 : 10,
+        letterSpacing: 10,
         color: '#FFFFFF',
         textAlign: 'center',
     },
@@ -293,33 +285,11 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
     },
-    brandIconGlow: {
-        position: 'absolute',
-        width: 140,
-        height: 140,
-        backgroundColor: 'rgba(135, 206, 235, 0.15)',
-        borderRadius: 70,
-        filter: Platform.OS === 'ios' ? 'blur(25px)' : undefined,
-    },
-    brandIconInner: {
-        width: 110,
-        height: 110,
-        borderRadius: 55,
-        backgroundColor: 'rgba(0, 0, 0, 0.4)',
-        borderWidth: 1.5,
-        borderColor: 'rgba(135, 206, 235, 0.4)',
-        alignItems: 'center',
-        justifyContent: 'center',
-        shadowColor: '#87CEEB',
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.7,
-        shadowRadius: 20,
-        elevation: 15,
-        overflow: 'hidden',
-    },
     brandLogoImage: {
-        width: '100%',
-        height: '100%',
+        width: 120,
+        height: 120,
+        borderRadius: 28,
+        overflow: 'hidden',
     },
     glassCard: {
         borderRadius: 32,

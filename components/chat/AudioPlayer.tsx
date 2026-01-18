@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Animated } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
+import { CircularProgress } from '@/components/ui/CircularProgress';
 import { useAudioPlayer } from 'expo-audio';
 import { Ionicons } from '@expo/vector-icons';
 import { mediaCacheService } from '../../services/mediaCacheService';
@@ -19,6 +20,7 @@ export function AudioPlayer({ url, isOwn, duration, messageId, disabled }: Audio
     const [isDownloading, setIsDownloading] = useState(false);
     const [isPlaying, setIsPlaying] = useState(false);
     const [hasEnded, setHasEnded] = useState(false);
+    const [downloadProgress, setDownloadProgress] = useState(0);
 
     const lastUrl = useRef(url);
 
@@ -121,7 +123,13 @@ export function AudioPlayer({ url, isOwn, duration, messageId, disabled }: Audio
         if (!isDownloaded && !isDownloading) {
             try {
                 setIsDownloading(true);
-                const downloaded = await mediaCacheService.downloadMedia(url, messageId || 'temp', 'audio');
+                setDownloadProgress(0);
+                const downloaded = await mediaCacheService.downloadMedia(
+                    url,
+                    messageId || 'temp',
+                    'audio',
+                    (p) => setDownloadProgress(p)
+                );
                 if (downloaded) {
                     setIsDownloaded(true);
                 }
@@ -171,7 +179,14 @@ export function AudioPlayer({ url, isOwn, duration, messageId, disabled }: Audio
         <View style={styles.container}>
             <TouchableOpacity onPress={handlePlayPause} style={styles.playBtn} activeOpacity={0.8}>
                 {isDownloading ? (
-                    <ActivityIndicator size="small" color={isOwn ? '#000' : '#87CEEB'} />
+                    <View style={styles.progressInner}>
+                        <CircularProgress
+                            progress={downloadProgress}
+                            size={36}
+                            strokeWidth={3}
+                            color={isOwn ? '#000' : '#87CEEB'}
+                        />
+                    </View>
                 ) : (
                     <Ionicons
                         name={!isDownloaded ? 'cloud-download' : (isPlaying ? 'pause' : 'play')}
@@ -286,4 +301,10 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         marginTop: 2,
     },
+    progressInner: {
+        width: 44,
+        height: 44,
+        justifyContent: 'center',
+        alignItems: 'center',
+    }
 });

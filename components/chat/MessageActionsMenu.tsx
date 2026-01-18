@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, Text, TouchableOpacity, Modal, Pressable, Animated } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, Modal, Pressable, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 interface MessageActionsMenuProps {
@@ -8,10 +8,12 @@ interface MessageActionsMenuProps {
     onReply?: () => void;
     onDelete?: () => void;
     onDeleteForEveryone?: () => void;
+    onSaveToGallery?: () => void;
+    onSaveToDownloads?: () => void;
     isOwnMessage?: boolean;
 }
 
-export function MessageActionsMenu({ visible, onClose, onReply, onDelete, onDeleteForEveryone, isOwnMessage }: MessageActionsMenuProps) {
+export function MessageActionsMenu({ visible, onClose, onReply, onDelete, onDeleteForEveryone, onSaveToGallery, onSaveToDownloads, isOwnMessage }: MessageActionsMenuProps) {
     const [fadeAnim] = React.useState(new Animated.Value(0));
 
     React.useEffect(() => {
@@ -48,6 +50,18 @@ export function MessageActionsMenu({ visible, onClose, onReply, onDelete, onDele
                         <TouchableOpacity style={styles.actionButton} onPress={() => { onDeleteForEveryone(); onClose(); }}>
                             <Ionicons name="trash" size={20} color="#FF4458" />
                             <Text style={styles.actionText}>Delete for Everyone</Text>
+                        </TouchableOpacity>
+                    )}
+                    {onSaveToGallery && (
+                        <TouchableOpacity style={styles.actionButton} onPress={() => { onSaveToGallery(); onClose(); }}>
+                            <Ionicons name="download-outline" size={20} color="#4CAF50" />
+                            <Text style={styles.actionText}>Save to Gallery</Text>
+                        </TouchableOpacity>
+                    )}
+                    {onSaveToDownloads && (
+                        <TouchableOpacity style={styles.actionButton} onPress={() => { onSaveToDownloads(); onClose(); }}>
+                            <Ionicons name="save-outline" size={20} color="#4CAF50" />
+                            <Text style={styles.actionText}>Save to Downloads</Text>
                         </TouchableOpacity>
                     )}
                 </Animated.View>

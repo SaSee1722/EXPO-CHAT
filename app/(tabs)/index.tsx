@@ -133,7 +133,10 @@ export default function DiscoverScreen() {
                   style={styles.gamePrompt}
                   onPress={() => setViewMode('game')}
                 >
-                  <Text style={styles.gamePromptText}>Bored? Visit the GOSSIP Arcade!</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Text style={[styles.gamePromptText, { color: '#87CEEB' }]}>Bored? Visit the </Text>
+                    <GradientText style={{ ...styles.gamePromptText, minWidth: 120, fontWeight: '700' }}>GOSSIP Arcade!</GradientText>
+                  </View>
                 </TouchableOpacity>
               </View>
             )}

@@ -139,14 +139,15 @@ export const profileService = {
 
   // UNIVERSAL UPLOAD: Works on both Web and Mobile
   async uploadPhoto(userId: string, uri: string) {
-    // Generate filename
-    const fileName = `${userId}/${Date.now()}.jpg`;
+    const extension = uri.split('.').pop()?.toLowerCase() || 'jpg';
+    const fileName = `${userId}/${Date.now()}.${extension}`;
+    const contentType = extension === 'png' ? 'image/png' : 'image/jpeg';
 
     const { data, error } = await storageService.uploadFile(
       'profile-photos',
       uri,
       fileName,
-      'image/jpeg'
+      contentType
     );
 
     return { data, error };

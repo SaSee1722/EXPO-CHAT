@@ -201,30 +201,54 @@ export const matchService = {
     return { data, error };
   },
 
-  async uploadChatMedia(matchId: string, uri: string, type: 'image' | 'video' | 'file' | 'audio') {
+  async uploadChatMedia(matchId: string, uri: string, type: 'image' | 'video' | 'file' | 'audio', onProgress?: (progress: number) => void) {
     const timestamp = Date.now();
     const extension = uri.split('.').pop() || (type === 'video' ? 'mp4' : type === 'audio' ? 'm4a' : 'jpg');
     const fileName = `${matchId}/${timestamp}.${extension}`;
 
     // Determine content type
     let contentType = 'application/octet-stream';
-    if (type === 'image') contentType = 'image/jpeg';
-    else if (type === 'video') contentType = 'video/mp4';
-    else if (type === 'audio') contentType = 'audio/m4a';
+    const lowerExt = extension.toLowerCase();
+    if (type === 'image') {
+      contentType = lowerExt === 'png' ? 'image/png' : 'image/jpeg';
+    } else if (type === 'video') {
+      contentType = 'video/mp4';
+    } else if (type === 'audio') {
+      contentType = lowerExt === 'm4a' ? 'audio/m4a' : 'audio/mpeg';
+    }
 
     console.log(`[MatchService] 📤 Uploading ${type}: ${fileName}`);
 
+    // OPTIMIZE: Compress image before upload if it's an image type
+    let finalUri = uri;
+    if (type === 'image') {
+      try {
+        const manipResult = await import('expo-image-manipulator').then(({ manipulateAsync, SaveFormat }) =>
+          manipulateAsync(
+            uri,
+            [{ resize: { width: 1080 } }], // Resize large chat images to max 1080px width
+            { compress: 0.7, format: SaveFormat.JPEG }
+          )
+        );
+        finalUri = manipResult.uri;
+        console.log('[MatchService] 📉 Compressed chat image for efficiency');
+      } catch (e) {
+        console.warn('[MatchService] Failed to compress chat image, sending original.', e);
+      }
+    }
+
     const { data, error } = await storageService.uploadFile(
       'chat-media',
-      uri,
+      finalUri,
       fileName,
-      contentType
+      contentType,
+      onProgress
     );
 
     return { data, error };
   },
 
-  async uploadVoiceMessage(matchId: string, uri: string) {
+  async uploadVoiceMessage(matchId: string, uri: string, onProgress?: (progress: number) => void) {
     const timestamp = Date.now();
     const fileName = `${matchId}/${timestamp}_voice.m4a`;
     const contentType = 'audio/x-m4a';
@@ -235,7 +259,8 @@ export const matchService = {
       'voice-messages',
       uri,
       fileName,
-      contentType
+      contentType,
+      onProgress
     );
 
     return { data, error };

@@ -13,12 +13,14 @@ import { StatusBar } from 'expo-status-bar';
 import * as NavigationBar from 'expo-navigation-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import { useFonts } from 'expo-font';
+import { CustomSplashScreen } from '@/components/CustomSplashScreen';
 import { Camera } from 'expo-camera';
 
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({});
+  const [showCustomSplash, setShowCustomSplash] = React.useState(true);
 
   useEffect(() => {
     // Set up global audio mode
@@ -124,6 +126,9 @@ export default function RootLayout() {
       <AlertProvider>
         <SafeAreaProvider>
           <StatusBar style="light" />
+          {showCustomSplash && (
+            <CustomSplashScreen onAnimationComplete={() => setShowCustomSplash(false)} />
+          )}
           <AuthProvider>
             <ProfileProvider>
               <NotificationProvider>

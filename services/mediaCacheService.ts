@@ -1,4 +1,6 @@
 import * as FileSystem from 'expo-file-system/legacy';
+import * as MediaLibrary from 'expo-media-library';
+import * as Sharing from 'expo-sharing';
 import { Platform } from 'react-native';
 
 const MEDIA_DIR = `${(FileSystem as any).documentDirectory}chat_media/`;
@@ -53,7 +55,7 @@ export const mediaCacheService = {
         return null;
     },
 
-    async downloadMedia(remoteUrl: string, messageId: string, type: string): Promise<string | null> {
+    async downloadMedia(remoteUrl: string, messageId: string, type: string, onProgress?: (progress: number) => void): Promise<string | null> {
         if (Platform.OS === 'web' || !remoteUrl) return remoteUrl || null;
 
         await this.init();
@@ -70,14 +72,29 @@ export const mediaCacheService = {
             // Double check if exists before downloading
             const info = await FileSystem.getInfoAsync(localUri);
             if (info.exists && (info.size || 0) > 0) {
+                if (onProgress) onProgress(1);
                 return localUri;
             }
 
             console.log(`[MediaCacheService] 📥 Downloading ${type} from: ${remoteUrl.substring(0, 50)}...`);
-            const downloadRes = await FileSystem.downloadAsync(remoteUrl, localUri);
+
+            const downloadResumable = FileSystem.createDownloadResumable(
+                remoteUrl,
+                localUri,
+                {},
+                (downloadProgress) => {
+                    if (downloadProgress.totalBytesExpectedToWrite > 0) {
+                        const progress = downloadProgress.totalBytesWritten / downloadProgress.totalBytesExpectedToWrite;
+                        if (onProgress) onProgress(progress);
+                    }
+                }
+            );
+
+            const downloadRes = await downloadResumable.downloadAsync();
 
             if (downloadRes && downloadRes.status === 200) {
                 console.log(`[MediaCacheService] ✅ Downloaded to: ${downloadRes.uri}`);
+                if (onProgress) onProgress(1);
                 return downloadRes.uri;
             } else {
                 console.warn(`[MediaCacheService] ⚠️ Download failed with status ${downloadRes?.status || 'unknown'}`);
@@ -120,5 +137,31 @@ export const mediaCacheService = {
         } catch (error) {
             console.error('[MediaCacheService] Clear cache failed:', error);
         }
+    },
+
+    /**
+     * Save to system gallery or downloads
+     */
+    async saveToPublicStorage(uri: string, type: string) {
+        if (Platform.OS === 'web' || !uri) return false;
+
+        try {
+            if (type === 'image' || type === 'video' || type === 'sticker') {
+                const { status } = await MediaLibrary.requestPermissionsAsync();
+                if (status === 'granted') {
+                    await MediaLibrary.saveToLibraryAsync(uri);
+                    return true;
+                }
+            } else {
+                // For files, use sharing to allow user to save to downloads/files
+                if (await Sharing.isAvailableAsync()) {
+                    await Sharing.shareAsync(uri);
+                    return true;
+                }
+            }
+        } catch (error) {
+            console.error('[MediaCacheService] saveToPublicStorage failed:', error);
+        }
+        return false;
     }
 };

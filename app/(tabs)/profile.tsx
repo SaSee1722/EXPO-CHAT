@@ -39,26 +39,41 @@ export default function ProfileScreen() {
   const remoteUrl = useMemo(() => {
     const photos = profile?.photos;
     if (!photos) return null;
-    return Array.isArray(photos) ? photos[0] : (typeof photos === 'string' ? photos : null);
+    const url = Array.isArray(photos) ? photos[0] : (typeof photos === 'string' ? photos : null);
+    console.log('[ProfileScreen] 🖼️ remoteUrl:', url);
+    return url;
   }, [profile?.photos]);
 
   const handleUpdatePhoto = async () => {
-    // ... existing photo code ...
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [1, 1],
-        quality: 0.5,
+        quality: 1, // Get full quality first, then compress efficiently
       });
 
       if (!result.canceled && result.assets[0].uri) {
         setUpdatingPhoto(true);
-        const { data: photoUrl, error: uploadError } = await uploadPhoto(result.assets[0].uri);
+
+        // FREE PLAN OPTIMIZATION: Compress image before upload
+        // Resize to 800x800 and compress to 70% quality
+        // This reduces file size from ~3MB to ~150KB
+        const manipResult = await import('expo-image-manipulator').then(({ manipulateAsync, SaveFormat }) =>
+          manipulateAsync(
+            result.assets[0].uri,
+            [{ resize: { width: 800 } }],
+            { compress: 0.7, format: SaveFormat.JPEG }
+          )
+        );
+
+        console.log('[Profile] 📉 Compressed photo for Free Plan efficiency');
+
+        const { data: photoUrl, error: uploadError } = await uploadPhoto(manipResult.uri);
 
         if (uploadError) {
           setUpdatingPhoto(false);
-          showAlert('Failed to upload photo');
+          showAlert(uploadError.message || 'Failed to upload photo');
           return;
         }
 
@@ -73,7 +88,8 @@ export default function ProfileScreen() {
         }
         setUpdatingPhoto(false);
       }
-    } catch {
+    } catch (e) {
+      console.error(e);
       setUpdatingPhoto(false);
       showAlert('Error picking photo');
     }
@@ -128,6 +144,15 @@ export default function ProfileScreen() {
     return '#BF5AF2';
   };
 
+  const [validImageSource, setValidImageSource] = useState<any>(null);
+
+  // Update image source when profile changes
+  useEffect(() => {
+    if (remoteUrl) {
+      setValidImageSource({ uri: remoteUrl });
+    }
+  }, [remoteUrl]);
+
   return (
     <View style={[styles.container, { backgroundColor: '#000000', paddingTop: insets.top }]}>
       {/* ... header code ... */}
@@ -168,7 +193,33 @@ export default function ProfileScreen() {
                   <View style={styles.avatarOuterRing}>
                     <View style={styles.avatarInnerContainer}>
                       {remoteUrl ? (
-                        <Image source={{ uri: remoteUrl }} style={styles.avatarImage} contentFit="cover" transition={200} />
+                        <Image
+                          key={validImageSource?.uri || 'empty'} // Force re-render on source change
+                          source={validImageSource || { uri: remoteUrl }}
+                          style={styles.avatarImage}
+                          contentFit="cover"
+                          transition={200}
+                          onError={async (e) => {
+                            console.log('[ProfileScreen] ⚠️ Standard image load failed, attempting Base64 fallback...');
+                            try {
+                              // Fallback: Manually fetch bytes and convert to Base64
+                              // This bypasses strict Content-Type checks on the native side
+                              const response = await fetch(remoteUrl);
+                              if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+                              const blob = await response.blob();
+                              const reader = new FileReader();
+                              reader.readAsDataURL(blob);
+                              reader.onloadend = () => {
+                                const base64data = reader.result;
+                                console.log('[ProfileScreen] ✅ Base64 fallback successful');
+                                setValidImageSource({ uri: base64data });
+                              };
+                            } catch (err) {
+                              console.error('[ProfileScreen] ❌ All image load attempts failed:', err);
+                            }
+                          }}
+                        />
                       ) : (
                         <View style={styles.placeholderContainer}>
                           <Ionicons name="person" size={50} color="rgba(255,255,255,0.2)" />

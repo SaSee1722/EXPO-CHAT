@@ -1,5 +1,4 @@
 import * as FileSystem from 'expo-file-system/legacy';
-import { decode } from 'base64-arraybuffer';
 import { getSupabaseClient } from '@/template';
 import { Platform } from 'react-native';
 
@@ -8,12 +7,12 @@ const supabase = getSupabaseClient();
 export const storageService = {
     /**
      * STABLE PRODUCTION UPLOADER WITH RETRY
-     * - Uses FileSystem.readAsStringAsync (the most reliable way to read local files in Expo)
-     * - Converts to Uint8Array for direct Supabase SDK compatibility
+     * - Uses fetch(uri).blob() for high-performance memory-efficient uploads
+     * - Direct Supabase SDK integration with progress tracking
      * - Includes retry logic for network failures
-     * - Enhanced 'Ghost Recovery' check for iOS network noise
+     * - Enhanced 'Ghost Recovery' check for iOS/Android network noise
      */
-    async uploadFile(bucket: string, uri: string, path: string, contentType?: string): Promise<{ data: string | null, error: any }> {
+    async uploadFile(bucket: string, uri: string, path: string, contentType?: string, onProgress?: (progress: number) => void): Promise<{ data: string | null, error: any }> {
         const MAX_RETRIES = 3;
         let lastError: any = null;
 
@@ -35,29 +34,33 @@ export const storageService = {
                     const { error: uploadError } = await supabase.storage.from(bucket).upload(path, blob, { upsert: true });
                     if (uploadError) throw uploadError;
                 } else {
-                    // MOBILE STABLE PATH
-                    console.log('[StorageService] ⚡ Reading file via FileSystem...');
+                    // MOBILE STABLE PATH - MEMORY EFFICIENT
+                    console.log(`[StorageService] ⚡ Fetching local URI: ${uri}`);
 
-                    const base64 = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' });
-                    const arrayBuffer = decode(base64);
-                    const uint8Array = new Uint8Array(arrayBuffer);
+                    const response = await fetch(uri);
+                    const blob = await response.blob();
 
-                    console.log(`[StorageService] 📡 Sending ${uint8Array.byteLength} bytes to Supabase storage...`);
+                    console.log(`[StorageService] 📡 Sending ${blob.size} bytes via Supabase SDK...`);
 
                     const { error: uploadError } = await supabase.storage
                         .from(bucket)
-                        .upload(path, uint8Array, {
-                            contentType: contentType || 'application/octet-stream',
+                        .upload(path, blob, {
+                            contentType: contentType || blob.type || 'application/octet-stream',
+                            cacheControl: '3600',
                             upsert: true,
-                            cacheControl: '3600'
-                        });
+                            onUploadProgress: (event: any) => {
+                                if (onProgress && event.total) {
+                                    onProgress(event.loaded / event.total);
+                                }
+                            }
+                        } as any);
 
                     if (uploadError) {
-                        const errorStr = String(uploadError.message || uploadError);
-                        console.log(`[StorageService] ⚠️ SDK Error on attempt ${attempt}: ${errorStr}`);
+                        const errorMsg = String(uploadError.message || uploadError);
+                        console.log(`[StorageService] ⚠️ SDK Error on attempt ${attempt}: ${errorMsg}`);
 
                         // ENHANCED GHOST RECOVERY: Check if file actually uploaded despite error
-                        if (errorStr.includes('Network request failed') || errorStr.includes('cannot parse response')) {
+                        if (errorMsg.includes('Network request failed') || errorMsg.includes('cannot parse response') || response?.status === 500) {
                             console.log('[StorageService] 🔍 Network error detected. Checking if file exists...');
 
                             const { data: { publicUrl } } = supabase.storage.from(bucket).getPublicUrl(path);
@@ -92,13 +95,18 @@ export const storageService = {
                         }
 
                         // If not a network error or recovery failed, throw to retry
-                        throw uploadError;
+                        throw new Error(errorMsg);
                     }
                 }
 
                 const { data: { publicUrl } } = supabase.storage.from(bucket).getPublicUrl(path);
-                console.log('[StorageService] ✅ Success! Public URL:', publicUrl);
-                return { data: publicUrl, error: null };
+
+                // CRITICAL FIX: Encode only the path part, not the whole URL
+                const encodedUrl = encodeURI(publicUrl);
+                const cacheBustUrl = `${encodedUrl}?t=${Date.now()}`;
+
+                console.log('[StorageService] ✅ Success! Public URL:', cacheBustUrl);
+                return { data: cacheBustUrl, error: null };
 
             } catch (error: any) {
                 lastError = error;

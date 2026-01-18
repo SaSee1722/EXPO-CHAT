@@ -8,6 +8,7 @@ export function useMessages(matchId: string | null, userId: string | null) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{ [clientId: string]: number }>({});
 
   const loadMessages = useCallback(async () => {
     if (!matchId) return;
@@ -166,9 +167,23 @@ export function useMessages(matchId: string | null, userId: string | null) {
 
     try {
       // 1. Upload the media
-      const { data: publicUrl, error: uploadError } = await matchService.uploadChatMedia(matchId, uri, type);
+      const { data: publicUrl, error: uploadError } = await matchService.uploadChatMedia(
+        matchId,
+        uri,
+        type,
+        (progress) => {
+          setUploadProgress(prev => ({ ...prev, [clientId]: progress }));
+        }
+      );
 
       if (uploadError || !publicUrl) throw uploadError || new Error('Upload failed');
+
+      // Clear progress once upload is done (sending the message is fast)
+      setUploadProgress(prev => {
+        const next = { ...prev };
+        delete next[clientId];
+        return next;
+      });
 
       // 2. Send the official message with the same client_id
       const { data: realMessage, error: sendError } = await matchService.sendMessage(
@@ -192,6 +207,11 @@ export function useMessages(matchId: string | null, userId: string | null) {
     } catch (error: any) {
       console.error('[useMessages] ❌ Media message failed:', error);
       setMessages(prev => prev.filter(m => m.id !== clientId));
+      setUploadProgress(prev => {
+        const next = { ...prev };
+        delete next[clientId];
+        return next;
+      });
       setSending(false);
       return { error };
     }
@@ -259,5 +279,6 @@ export function useMessages(matchId: string | null, userId: string | null) {
     deleteMessage,
     deleteMessageForMe,
     deleteMessageForEveryone,
+    uploadProgress
   };
 }

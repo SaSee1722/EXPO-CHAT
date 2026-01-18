@@ -9,6 +9,7 @@ import {
   Platform,
   TouchableOpacity,
   Alert,
+  Keyboard,
 } from 'react-native';
 import * as ExpoRouter from 'expo-router';
 import { useAuth, useAlert } from '@/template';
@@ -38,7 +39,7 @@ export default function ChatScreen() {
   const { user } = useAuth();
   const { showAlert } = useAlert();
   const { isUserOnline, getPresenceText, typingMap, setPresence, setTypingStatus: setGlobalTypingStatus } = useProfileContext();
-  const { messages, sendMessage, sendMediaMessage, toggleReaction, deleteMessage: baseDeleteMessage, deleteMessageForEveryone } = useMessages(matchId, user?.id || null);
+  const { messages, sendMessage, sendMediaMessage, toggleReaction, deleteMessage: baseDeleteMessage, deleteMessageForEveryone, uploadProgress } = useMessages(matchId, user?.id || null);
 
   const deleteMessage = React.useCallback(async (id: string) => {
     const { error } = await baseDeleteMessage(id);
@@ -66,6 +67,17 @@ export default function ChatScreen() {
   const handleEmojiSelect = (emojiObj: { emoji: string }) => {
     setInputText((prev) => prev + emojiObj.emoji);
   };
+
+  // Close emoji/attachment picker when keyboard opens
+  React.useEffect(() => {
+    const showSubscription = Keyboard.addListener('keyboardDidShow', () => {
+      setShowEmojiPicker(false);
+      setShowAttachmentPicker(false);
+    });
+    return () => {
+      showSubscription.remove();
+    };
+  }, []);
 
   // Check if chat is locked on mount
   React.useEffect(() => {
@@ -290,14 +302,15 @@ export default function ChatScreen() {
         onDelete={(id) => deleteMessage(id)}
         onDeleteForEveryone={(id) => deleteMessageForEveryone(id)}
         userId={user?.id}
+        uploadProgress={item.metadata?.client_id ? uploadProgress[item.metadata.client_id] : undefined}
       />
     );
-  }, [user?.id, toggleReaction, handleReplyPress, deleteMessage, deleteMessageForEveryone, setReplyingTo]);
+  }, [user?.id, toggleReaction, handleReplyPress, deleteMessage, deleteMessageForEveryone, setReplyingTo, uploadProgress]);
 
   return (
     <>
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={[styles.container, { backgroundColor: '#000000' }]}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
       >
@@ -467,7 +480,10 @@ export default function ChatScreen() {
                   </TouchableOpacity>
                 ) : (
                   <WhatsAppVoiceNote
-                    onRecordingStart={() => setIsRecording(true)}
+                    onRecordingStart={() => {
+                      setIsRecording(true);
+                      Keyboard.dismiss();
+                    }}
                     onRecordingComplete={async (uri, duration) => {
                       setIsRecording(false);
                       if (uri) {
@@ -479,12 +495,26 @@ export default function ChatScreen() {
                 )}
               </View>
 
-              {showEmojiPicker && (
-                <View style={styles.emojiPickerWrapper}>
-                  <EmojiPicker
-                    onEmojiSelected={handleEmojiSelect}
-                    height={300}
-                  />
+              {(showEmojiPicker || showAttachmentPicker) && !Keyboard.isVisible() && (
+                <View style={styles.pickerWrapper}>
+                  {showEmojiPicker && (
+                    <EmojiPicker
+                      onEmojiSelected={handleEmojiSelect}
+                      height={300}
+                    />
+                  )}
+                  {showAttachmentPicker && (
+                    <AttachmentPicker
+                      isVisible={true}
+                      onClose={() => setShowAttachmentPicker(false)}
+                      onSelectMedia={async (uri, type, metadata) => {
+                        setShowAttachmentPicker(false);
+                        if (uri) {
+                          await sendMediaMessage(uri, type as any, metadata);
+                        }
+                      }}
+                    />
+                  )}
                 </View>
               )}
             </View>
@@ -503,13 +533,14 @@ export default function ChatScreen() {
           }}
         />
 
-        <AttachmentPicker
-          isVisible={showAttachmentPicker}
-          onClose={() => setShowAttachmentPicker(false)}
-          onSelectMedia={async (uri, type) => {
-            setShowAttachmentPicker(false);
-            if (uri) {
-              await sendMediaMessage(uri, type as any);
+        <PinSetupModal
+          visible={showPinSetup}
+          onCancel={() => setShowPinSetup(false)}
+          onComplete={async (pin) => {
+            if (user && matchId) {
+              await chatLockService.lockChat(user.id, matchId, pin);
+              setIsLocked(true);
+              setShowPinSetup(false);
             }
           }}
         />
@@ -554,5 +585,5 @@ const styles = StyleSheet.create({
   replyPreviewContent: { flex: 1, marginLeft: 12 },
   replyPreviewUser: { color: '#87CEEB', fontWeight: '700', fontSize: 12 },
   replyPreviewText: { color: '#AAA', fontSize: 13 },
-  emojiPickerWrapper: { height: 300 },
+  pickerWrapper: { height: 300, backgroundColor: '#000' },
 });

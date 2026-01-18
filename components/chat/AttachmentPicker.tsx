@@ -1,4 +1,5 @@
 import React from 'react';
+import * as FileSystem from 'expo-file-system/legacy';
 import {
     View,
     Text,
@@ -38,10 +39,16 @@ export const AttachmentPicker = ({ isVisible, onClose, onSelectMedia }: Attachme
 
         if (!result.canceled && result.assets && result.assets.length > 0) {
             const asset = result.assets[0];
+
+            // Get file size
+            const fileInfo = await FileSystem.getInfoAsync(asset.uri);
+            const fileSize = fileInfo.exists ? fileInfo.size : undefined;
+
             onSelectMedia(asset.uri, 'image', {
                 width: asset.width,
                 height: asset.height,
                 fileName: asset.fileName || 'image.jpg',
+                fileSize,
             });
             onClose();
         }
@@ -60,11 +67,16 @@ export const AttachmentPicker = ({ isVisible, onClose, onSelectMedia }: Attachme
         if (!result.canceled && result.assets && result.assets.length > 0) {
             const asset = result.assets[0];
 
+            // Get file size
+            const fileInfo = await FileSystem.getInfoAsync(asset.uri);
+            const fileSize = fileInfo.exists ? fileInfo.size : undefined;
+
             onSelectMedia(asset.uri, 'video', {
                 duration: asset.duration,
                 width: asset.width,
                 height: asset.height,
                 fileName: asset.fileName || 'video.mp4',
+                fileSize,
                 thumbnail: null, // Fallback
             });
             onClose();

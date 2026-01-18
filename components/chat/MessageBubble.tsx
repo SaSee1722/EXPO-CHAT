@@ -3,6 +3,8 @@ import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, useColorScheme, ActivityIndicator, Modal } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
+import { useAlert } from '@/template';
+import { CircularProgress } from '@/components/ui/CircularProgress';
 // BlurView removed
 
 import Animated, {
@@ -22,6 +24,7 @@ import { ReactionPicker } from './ReactionPicker';
 import { MessageActionsMenu } from './MessageActionsMenu';
 import { EmojiPicker } from './EmojiPicker';
 import { Pressable } from 'react-native';
+import * as Sharing from 'expo-sharing';
 import { mediaCacheService } from '../../services/mediaCacheService';
 
 interface MessageBubbleProps {
@@ -36,6 +39,7 @@ interface MessageBubbleProps {
   selectionMode?: boolean;
   onSelect?: () => void;
   userId?: string | null;
+  uploadProgress?: number;
 }
 
 function MessageBubbleComponent({
@@ -49,8 +53,10 @@ function MessageBubbleComponent({
   isSelected,
   selectionMode,
   onSelect,
-  userId
+  userId,
+  uploadProgress
 }: MessageBubbleProps) {
+  const { showAlert } = useAlert();
   const colorScheme = useColorScheme();
   const themeColors = Colors[colorScheme ?? 'light'];
 
@@ -61,6 +67,8 @@ function MessageBubbleComponent({
   const [isFullEmojiPickerVisible, setIsFullEmojiPickerVisible] = useState(false);
   const [isDownloaded, setIsDownloaded] = useState(false);
   const [localUri, setLocalUri] = useState<string | null>(null);
+  const [downloadProgress, setDownloadProgress] = useState(0);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   // Calculate which reactions are active for THIS user
   const activeReactions = useMemo(() => {
@@ -70,27 +78,22 @@ function MessageBubbleComponent({
       .map(([emoji, _]) => emoji);
   }, [message.reactions, userId]);
 
-  // Handle media caching (check local and download if needed)
+  // Handle media caching (check local availability only)
   React.useEffect(() => {
-    const handleMedia = async () => {
+    const checkLocalMedia = async () => {
       if (['image', 'video', 'audio', 'file', 'sticker'].includes(message.type) && message.media_url) {
-        // 1. Check if we already have it locally
+        // Only check if we already have it locally
         const cached = await mediaCacheService.getLocalUri(message.id, message.type, message.media_url);
-
         if (cached) {
           setLocalUri(cached);
           setIsDownloaded(true);
         } else {
-          // 2. If not cached, download it automatically to save future data
-          const downloaded = await mediaCacheService.downloadMedia(message.media_url, message.id, message.type);
-          if (downloaded) {
-            setLocalUri(downloaded);
-            setIsDownloaded(true);
-          }
+          setIsDownloaded(false);
+          setLocalUri(null);
         }
       }
     };
-    handleMedia();
+    checkLocalMedia();
   }, [message.id, message.type, message.media_url]);
 
   // Detected if message is ONLY emojis
@@ -128,14 +131,99 @@ function MessageBubbleComponent({
 
   const getStatusIcon = () => {
     if (!isOwn) return null;
+    const isInProgress = message.metadata?.isUploading && !['image', 'video', 'sticker', 'file'].includes(message.type);
+
     switch (message.status) {
       case 'read': return <Ionicons name="checkmark-done" size={16} color="#00B0FF" />;
       case 'delivered': return <Ionicons name="checkmark-done" size={16} color="#808080" />;
-      default: return message.metadata?.isUploading ? (
+      default: return isInProgress ? (
         <ActivityIndicator size="small" color="#808080" style={{ transform: [{ scale: 0.6 }] }} />
       ) : (
         <Ionicons name="checkmark" size={16} color="#808080" />
       );
+    }
+  };
+
+  const handleFilePress = async () => {
+    if (!message.media_url) return;
+
+    if (isDownloading) return;
+
+    try {
+      let fileToShare = localUri;
+      if (!isDownloaded) {
+        setIsDownloading(true);
+        setDownloadProgress(0);
+        const downloaded = await mediaCacheService.downloadMedia(
+          message.media_url,
+          message.id,
+          message.type,
+          (p) => setDownloadProgress(p)
+        );
+        setIsDownloading(false);
+        if (downloaded) {
+          fileToShare = downloaded;
+          setLocalUri(downloaded);
+          setIsDownloaded(true);
+        }
+      }
+
+      if (fileToShare) {
+        await Sharing.shareAsync(fileToShare);
+      }
+    } catch (error) {
+      setIsDownloading(false);
+      console.error('[MessageBubble] Failed to share file:', error);
+    }
+  };
+
+  const handleDownloadAndAction = async (action: () => void) => {
+    if (!message.media_url) return;
+    if (isDownloading) return;
+
+    if (isDownloaded && localUri) {
+      action();
+      return;
+    }
+
+    try {
+      setIsDownloading(true);
+      setDownloadProgress(0);
+      const downloaded = await mediaCacheService.downloadMedia(
+        message.media_url,
+        message.id,
+        message.type,
+        (p) => setDownloadProgress(p)
+      );
+      setIsDownloading(false);
+      if (downloaded) {
+        setLocalUri(downloaded);
+        setIsDownloaded(true);
+        action();
+      }
+    } catch (error) {
+      setIsDownloading(false);
+      console.error('[MessageBubble] Manual download failed:', error);
+    }
+  };
+
+  const onSaveToGallery = async () => {
+    if (!localUri) return;
+    const success = await mediaCacheService.saveToPublicStorage(localUri, message.type);
+    if (success) {
+      showAlert('Saved to Gallery', 'The media has been saved to your device.');
+    } else {
+      showAlert('Save Failed', 'Could not save media to gallery.');
+    }
+  };
+
+  const onSaveToDownloads = async () => {
+    if (!localUri) return;
+    const success = await mediaCacheService.saveToPublicStorage(localUri, message.type);
+    if (success) {
+      showAlert('Saved to Downloads', 'The file has been saved to your device.');
+    } else {
+      showAlert('Save Failed', 'Could not save file to downloads.');
     }
   };
 
@@ -144,13 +232,78 @@ function MessageBubbleComponent({
       onSelect?.();
     } else if (!message.deleted_for_everyone) {
       if (message.type === 'image' || message.type === 'sticker') {
-        setIsViewerVisible(true);
+        handleDownloadAndAction(() => setIsViewerVisible(true));
       } else if (message.type === 'video') {
-        setIsVideoVisible(true);
+        handleDownloadAndAction(() => setIsVideoVisible(true));
+      } else if (message.type === 'file') {
+        handleFilePress(); // Already has download logic inside
+      } else if (message.type === 'audio') {
+        // AudioPlayer has its own play/pause and download logic
       } else {
         setIsReactionVisible(true);
       }
     }
+  };
+
+  const renderMediaProgress = () => {
+    const isUploading = !!message.metadata?.isUploading;
+    const currentUploadProgress = uploadProgress !== undefined ? Math.max(0.01, uploadProgress) : 0;
+    const isDownloadingProgress = isDownloading && downloadProgress < 1;
+
+    if (isUploading) {
+      return (
+        <View style={styles.progressOverlay}>
+          <CircularProgress
+            progress={currentUploadProgress}
+            size={56}
+            strokeWidth={4}
+            iconName="close"
+          />
+          {currentUploadProgress > 0 && (
+            <Text style={styles.progressText}>{Math.round(currentUploadProgress * 100)}%</Text>
+          )}
+        </View>
+      );
+    }
+    if (isDownloadingProgress) {
+      return (
+        <View style={styles.progressOverlay}>
+          <CircularProgress
+            progress={downloadProgress}
+            size={56}
+            strokeWidth={4}
+            iconName="close"
+          />
+          <Text style={styles.progressText}>{Math.round(downloadProgress * 100)}%</Text>
+        </View>
+      );
+    }
+
+    // Show download icon and size if not downloaded and not currently downloading
+    if (!isDownloaded && !isDownloading && !isUploading && message.media_url) {
+      return (
+        <View style={styles.progressOverlay}>
+          <TouchableOpacity
+            onPress={() => handleDownloadAndAction(() => { })}
+            style={styles.downloadCircle}
+          >
+            <CircularProgress
+              progress={0}
+              size={56}
+              strokeWidth={4}
+              iconName="cloud-download-outline"
+            />
+            {message.metadata?.fileSize && (
+              <Text style={styles.overlaySizeText}>
+                {(message.metadata.fileSize / 1024 / 1024).toFixed(1)} MB
+              </Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    return null;
   };
 
   const renderContent = () => {
@@ -160,12 +313,16 @@ function MessageBubbleComponent({
 
     switch (message.type) {
       case 'image':
+      case 'sticker':
         return (
-          <Image
-            source={{ uri: localUri || message.media_url }}
-            style={styles.mediaImage}
-            contentFit="cover"
-          />
+          <View style={styles.mediaWrapper}>
+            <Image
+              source={{ uri: localUri || message.media_url }}
+              style={styles.mediaImage}
+              contentFit="cover"
+            />
+            {renderMediaProgress()}
+          </View>
         );
       case 'audio':
         return (
@@ -177,12 +334,39 @@ function MessageBubbleComponent({
           />
         );
       case 'video':
-        return <VideoMessage message={message} isOwn={isOwn} isDownloaded={isDownloaded} localUri={localUri} />;
+        return (
+          <VideoMessage
+            message={message}
+            isOwn={isOwn}
+            isDownloaded={isDownloaded}
+            localUri={localUri}
+            uploadProgress={uploadProgress}
+            downloadProgress={downloadProgress}
+            isDownloading={isDownloading}
+          />
+        );
       case 'file':
         return (
           <View style={styles.fileContainer}>
-            <Ionicons name="document-attach" size={24} color={isOwn ? '#000' : '#FFF'} />
-            <Text style={[styles.fileName, { color: isOwn ? '#000' : '#FFF' }]}>{message.metadata?.fileName || 'File'}</Text>
+            <View style={styles.fileIconWrapper}>
+              <Ionicons name="document-attach" size={24} color={isOwn ? '#000' : '#FFF'} />
+              {!isDownloaded && (
+                <View style={styles.fileDownloadBadge}>
+                  <Ionicons name="arrow-down-circle" size={12} color="#FFF" />
+                </View>
+              )}
+            </View>
+            <View style={styles.fileInfo}>
+              <Text style={[styles.fileName, { color: isOwn ? '#000' : '#FFF' }]} numberOfLines={1}>
+                {message.metadata?.fileName || 'File'}
+              </Text>
+              {!isDownloaded && message.metadata?.fileSize && !renderMediaProgress() && (
+                <Text style={styles.fileSizeText}>
+                  {(message.metadata.fileSize / 1024 / 1024).toFixed(1)} MB
+                </Text>
+              )}
+            </View>
+            {renderMediaProgress()}
           </View>
         );
       default:
@@ -275,6 +459,8 @@ function MessageBubbleComponent({
         onReply={() => onReply?.(message)}
         onDelete={() => onDelete?.(message.id)}
         onDeleteForEveryone={() => onDeleteForEveryone?.(message.id)}
+        onSaveToGallery={isDownloaded && (message.type === 'image' || message.type === 'video' || message.type === 'sticker') ? onSaveToGallery : undefined}
+        onSaveToDownloads={isDownloaded && (message.type === 'file' || message.type === 'audio') ? onSaveToDownloads : undefined}
         isOwnMessage={isOwn}
       />
 
@@ -374,6 +560,29 @@ const styles = StyleSheet.create({
   fileName: {
     fontSize: 14,
     fontWeight: '500',
+    maxWidth: 160,
+  },
+  fileIconWrapper: {
+    position: 'relative',
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fileDownloadBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    backgroundColor: '#87CEEB',
+    borderRadius: 6,
+  },
+  fileInfo: {
+    flex: 1,
+  },
+  fileSizeText: {
+    fontSize: 10,
+    color: '#888',
+    marginTop: 2,
   },
   replyBar: {
     borderLeftWidth: 3,
@@ -449,5 +658,50 @@ const styles = StyleSheet.create({
   },
   activeReactionCount: {
     color: '#87CEEB',
+  },
+  mediaWrapper: {
+    position: 'relative',
+    width: 240,
+    height: 240,
+  },
+  progressOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 14,
+  },
+  progressText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 4,
+  },
+  overlayContainer: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  progressCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  downloadCircle: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  overlaySizeText: {
+    color: '#FFF',
+    fontSize: 10,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  cancelButton: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
   }
 });

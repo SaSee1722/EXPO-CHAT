@@ -1,18 +1,21 @@
 import React from 'react';
-import { View, StyleSheet, ActivityIndicator, Text } from 'react-native';
+import { View, StyleSheet, Text } from 'react-native';
+import { CircularProgress } from '@/components/ui/CircularProgress';
 import { Ionicons } from '@expo/vector-icons';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { Message } from '../../types';
-import { Typography } from '../../constants/theme';
 
 interface VideoMessageProps {
     message: Message;
     isOwn: boolean;
     isDownloaded: boolean;
     localUri?: string | null;
+    uploadProgress?: number;
+    downloadProgress?: number;
+    isDownloading?: boolean;
 }
 
-export const VideoMessage: React.FC<VideoMessageProps> = ({ message, isOwn, isDownloaded, localUri }) => {
+export const VideoMessage: React.FC<VideoMessageProps> = ({ message, isOwn, isDownloaded, localUri, uploadProgress, downloadProgress, isDownloading }) => {
     const player = useVideoPlayer(localUri || message.media_url || '', (player) => {
         player.loop = false;
         player.muted = true;
@@ -36,8 +39,42 @@ export const VideoMessage: React.FC<VideoMessageProps> = ({ message, isOwn, isDo
             )}
 
             <View style={styles.overlay}>
-                {message.metadata?.isUploading ? (
-                    <ActivityIndicator color="#FFF" />
+                {!!message.metadata?.isUploading ? (
+                    <View style={styles.progressContainer}>
+                        <CircularProgress
+                            progress={uploadProgress || 0}
+                            size={60}
+                            strokeWidth={4}
+                            iconName="close"
+                        />
+                        {uploadProgress !== undefined && uploadProgress > 0 && (
+                            <Text style={styles.progressText}>{Math.round(uploadProgress * 100)}%</Text>
+                        )}
+                    </View>
+                ) : (isDownloading && downloadProgress !== undefined && downloadProgress < 1) ? (
+                    <View style={styles.progressContainer}>
+                        <CircularProgress
+                            progress={downloadProgress}
+                            size={60}
+                            strokeWidth={4}
+                            iconName="close"
+                        />
+                        <Text style={styles.progressText}>{Math.round(downloadProgress * 100)}%</Text>
+                    </View>
+                ) : !isDownloaded ? (
+                    <View style={styles.progressContainer}>
+                        <CircularProgress
+                            progress={0}
+                            size={60}
+                            strokeWidth={4}
+                            iconName="cloud-download-outline"
+                        />
+                        {message.metadata?.fileSize && (
+                            <Text style={styles.sizeText}>
+                                {(message.metadata.fileSize / 1024 / 1024).toFixed(1)} MB
+                            </Text>
+                        )}
+                    </View>
                 ) : (
                     <View style={styles.playButton}>
                         <Ionicons name="play" size={30} color="#FFF" />
@@ -45,16 +82,6 @@ export const VideoMessage: React.FC<VideoMessageProps> = ({ message, isOwn, isDo
                 )}
             </View>
 
-            {!isDownloaded && !message.metadata?.isUploading && (
-                <View style={styles.downloadIndicator}>
-                    <Ionicons name="cloud-download" size={16} color="#FFF" />
-                    <Text style={styles.downloadText}>
-                        {message.metadata?.fileSize
-                            ? `${(message.metadata.fileSize / 1024 / 1024).toFixed(1)}MB`
-                            : 'Download'}
-                    </Text>
-                </View>
-            )}
         </View>
     );
 };
@@ -91,22 +118,22 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.3)',
     },
-    downloadIndicator: {
-        position: 'absolute',
-        bottom: 8,
-        left: 8,
-        flexDirection: 'row',
+    progressContainer: {
         alignItems: 'center',
-        backgroundColor: 'rgba(0,0,0,0.6)',
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 12,
-        gap: 4,
+        justifyContent: 'center',
     },
-    downloadText: {
-        ...Typography.caption,
+    progressText: {
+        position: 'absolute',
+        color: '#FFF',
+        fontSize: 12,
+        fontWeight: '700',
+        top: '65%', // Position below the icon
+    },
+    sizeText: {
+        position: 'absolute',
         color: '#FFF',
         fontSize: 10,
         fontWeight: '600',
-    },
+        top: '65%',
+    }
 });

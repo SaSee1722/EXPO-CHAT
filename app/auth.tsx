@@ -89,7 +89,7 @@ export default function AuthScreen() {
 
   return (
     <View style={styles.container}>
-      <LinearGradient colors={['#050505', '#0a0a0c', '#050505']} style={StyleSheet.absoluteFill} />
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: '#000000' }]} />
 
       {/* Animated Orbs */}
       <MAnimated.View style={[styles.orb, styles.orb1, bubble1Style]} />
@@ -109,14 +109,11 @@ export default function AuthScreen() {
           {/* Center Space Brand Icon */}
           <View style={styles.logoSpace}>
             <MAnimated.View style={[styles.brandIconContainer, logoFloatStyle]}>
-              <View style={styles.brandIconGlow} />
-              <View style={styles.brandIconInner}>
-                <Image
-                  source={require('@/assets/images/logo.png')}
-                  style={styles.brandLogoImage}
-                  resizeMode="contain"
-                />
-              </View>
+              <Image
+                source={require('@/assets/images/app-logo.png')}
+                style={styles.brandLogoImage}
+                resizeMode="contain"
+              />
             </MAnimated.View>
           </View>
 
@@ -223,19 +220,19 @@ export default function AuthScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#050505' },
+  container: { flex: 1, backgroundColor: '#000000' },
   orb: { position: 'absolute', width: 300, height: 300, borderRadius: 150, opacity: 0.15 },
   orb1: { top: '5%', right: '-15%', backgroundColor: '#87CEEB' },
   orb2: { bottom: '15%', left: '-15%', backgroundColor: '#FFB6C1' },
   content: { flex: 1 },
   scrollContent: { flexGrow: 1, paddingHorizontal: 24, paddingTop: Platform.OS === 'ios' ? 80 : 40, paddingBottom: 60 },
   header: { alignItems: 'center', marginBottom: 20 },
-  title: { fontSize: 48, fontWeight: Platform.OS === 'android' ? '700' : '900', letterSpacing: Platform.OS === 'android' ? 8 : 10, color: '#FFFFFF', textAlign: 'center' },
+  title: { fontSize: 48, fontWeight: Platform.OS === 'android' ? '800' : '900', letterSpacing: 12, color: '#FFFFFF', textAlign: 'center' },
   subtitleContainer: { flexDirection: 'row', alignItems: 'center', marginTop: 12, paddingHorizontal: 20 },
-  line: { height: 1, flex: 1, backgroundColor: 'rgba(255, 255, 255, 0.1)' },
-  subtitle: { fontSize: 10, letterSpacing: 4, color: 'rgba(255, 255, 255, 0.4)', fontWeight: '700', marginHorizontal: 16, textAlign: 'center' },
-  glassCard: { borderRadius: 32, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.1)', padding: 24 },
-  androidCard: { backgroundColor: 'rgba(255, 255, 255, 0.04)' },
+  line: { height: 1, flex: 1, backgroundColor: 'rgba(255, 255, 255, 0.05)' },
+  subtitle: { fontSize: 10, letterSpacing: 4, color: 'rgba(255, 255, 255, 0.3)', fontWeight: '700', marginHorizontal: 16, textAlign: 'center' },
+  glassCard: { borderRadius: 32, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.05)', padding: 24 },
+  androidCard: { backgroundColor: 'rgba(255, 255, 255, 0.02)' },
   tabsContainer: { flexDirection: 'row', backgroundColor: 'rgba(0, 0, 0, 0.3)', borderRadius: 16, padding: 4, marginBottom: 32, position: 'relative', height: 58 },
   tabIndicator: { position: 'absolute', width: '47%', height: '86%', backgroundColor: 'rgba(255, 255, 255, 0.08)', borderRadius: 12, top: '7%', borderWidth: 0.5, borderColor: 'rgba(255, 255, 255, 0.1)' },
   tab: { flex: 1, alignItems: 'center', justifyContent: 'center', zIndex: 1 },
@@ -263,32 +260,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  brandIconGlow: {
-    position: 'absolute',
-    width: 140,
-    height: 140,
-    backgroundColor: 'rgba(135, 206, 235, 0.15)',
-    borderRadius: 70,
-    filter: Platform.OS === 'ios' ? 'blur(25px)' : undefined,
-  },
-  brandIconInner: {
-    width: 110,
-    height: 110,
-    borderRadius: 55,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-    borderWidth: 1.5,
-    borderColor: 'rgba(135, 206, 235, 0.4)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#87CEEB',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.7,
-    shadowRadius: 20,
-    elevation: 15,
-    overflow: 'hidden',
-  },
   brandLogoImage: {
-    width: '100%',
-    height: '100%',
+    width: 120,
+    height: 120,
+    borderRadius: 28,
+    overflow: 'hidden',
   },
 });
