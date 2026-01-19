@@ -423,6 +423,17 @@ export default function ChatScreen() {
               ListHeaderComponent={typingMap[matchId] ? <TypingIndicator /> : null}
               contentContainerStyle={styles.messageList}
               showsVerticalScrollIndicator={false}
+              // Performance optimizations for 60 FPS
+              windowSize={10}
+              removeClippedSubviews={true}
+              maxToRenderPerBatch={10}
+              initialNumToRender={15}
+              updateCellsBatchingPeriod={50}
+              getItemLayout={(data, index) => ({
+                length: 80,
+                offset: 80 * index,
+                index,
+              })}
               onScrollToIndexFailed={(info) => {
                 flatListRef.current?.scrollToOffset({
                   offset: info.averageItemLength * info.index,

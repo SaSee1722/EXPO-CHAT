@@ -82,31 +82,12 @@ def enableMinifyInReleaseBuilds = (findProperty('android.enableMinifyInReleaseBu
 def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
 
 android {
-    // Hack to fix CMake error when codegen directories for autolinked libraries are missing
-    preBuild.doFirst {
-        def jniDir = file("$projectDir/build/generated/autolinking/src/main/jni")
-        if (jniDir.exists()) {
-            jniDir.eachFileMatch(~/.*\.cmake/) { cmakeFile ->
-                cmakeFile.eachLine { line ->
-                    def matcher = line =~ /add_subdirectory\("([^"]+)"\)/
-                    if (matcher.find()) {
-                        def subDir = file(matcher.group(1))
-                        if (!subDir.exists()) {
-                            println "Pre-build: Creating missing directory required by CMake: ${subDir}"
-                            subDir.mkdirs()
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    ndkVersion = rootProject.ext.ndkVersion
+    ndkVersion rootProject.ext.ndkVersion
 
     buildToolsVersion rootProject.ext.buildToolsVersion
-    compileSdk = rootProject.ext.compileSdkVersion
+    compileSdk rootProject.ext.compileSdkVersion
 
-    namespace = 'com.ssabee1722.gossip'
+    namespace 'com.ssabee1722.gossip'
     defaultConfig {
         applicationId 'com.ssabee1722.gossip'
         minSdkVersion rootProject.ext.minSdkVersion
@@ -115,14 +96,6 @@ android {
         versionName "1.0.0"
 
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
-    }
-    splits {
-        abi {
-            reset()
-            enable = true
-            universalApk = false
-            include "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
-        }
     }
     signingConfigs {
         debug {
@@ -134,14 +107,14 @@ android {
     }
     buildTypes {
         debug {
-            signingConfig = signingConfigs.debug
+            signingConfig signingConfigs.debug
         }
         release {
             // Caution! In production, you need to generate your own keystore file.
             // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig = signingConfigs.debug
+            signingConfig signingConfigs.debug
             def enableShrinkResources = findProperty('android.enableShrinkResourcesInReleaseBuilds') ?: 'false'
-            shrinkResources = enableShrinkResources.toBoolean()
+            shrinkResources enableShrinkResources.toBoolean()
             minifyEnabled enableMinifyInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
             def enablePngCrunchInRelease = findProperty('android.enablePngCrunchInReleaseBuilds') ?: 'true'

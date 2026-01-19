@@ -36,15 +36,51 @@ export function useMatches(userId: string | null) {
     const channel = supabase.channel('matches_list_updates')
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'messages' },
-        () => {
-          loadMatches();
+        { event: 'INSERT', schema: 'public', table: 'messages' },
+        async (payload) => {
+          // Incremental update: Only update the affected match
+          const newMessage = payload.new as any;
+          const matchId = newMessage.match_id;
+
+          setMatches(prev => prev.map(match => {
+            if (match.id !== matchId) return match;
+
+            // Update last message and increment unread if not from current user
+            const isFromOther = newMessage.sender_id !== userId;
+            return {
+              ...match,
+              lastMessage: newMessage,
+              unreadCount: isFromOther ? (match.unreadCount || 0) + 1 : match.unreadCount
+            };
+          }));
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'messages' },
+        async (payload) => {
+          // Update message status (read/delivered) without full reload
+          const updatedMessage = payload.new as any;
+          const matchId = updatedMessage.match_id;
+
+          setMatches(prev => prev.map(match => {
+            if (match.id !== matchId || match.lastMessage?.id !== updatedMessage.id) return match;
+
+            // Update last message status and clear unread if marked as read
+            const newUnreadCount = updatedMessage.status === 'read' ? 0 : match.unreadCount;
+            return {
+              ...match,
+              lastMessage: { ...match.lastMessage, ...updatedMessage },
+              unreadCount: newUnreadCount
+            };
+          }));
         }
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'matches' },
         () => {
+          // New match or match deleted - full reload needed
           loadMatches();
         }
       )
@@ -65,6 +101,7 @@ export function useMatches(userId: string | null) {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'blocks' },
         () => {
+          // Block/unblock - full reload needed
           loadMatches();
         }
       )
@@ -72,19 +109,14 @@ export function useMatches(userId: string | null) {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'chat_locks', filter: `user_id=eq.${userId}` },
         () => {
+          // Lock/unlock - full reload needed
           loadMatches();
         }
       )
       .subscribe();
 
-    // 2. Polling Fallback (Reliability for Poor Network)
-    const interval = setInterval(() => {
-      loadMatches();
-    }, 5000);
-
     return () => {
       supabase.removeChannel(channel);
-      clearInterval(interval);
     };
   }, [loadMatches, userId]);
 

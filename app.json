@@ -51,16 +51,6 @@
     "plugins": [
       "expo-router",
       "expo-notifications",
-      [
-        "expo-splash-screen",
-        {
-          "image": "./assets/app-icon.png",
-          "imageWidth": 240,
-          "resizeMode": "contain",
-          "backgroundColor": "#000000",
-          "userInterfaceStyle": "light"
-        }
-      ],
       "expo-web-browser",
       "expo-asset",
       "expo-font",

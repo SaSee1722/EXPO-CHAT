@@ -3,6 +3,8 @@ import { matchService } from '@/services/matchService';
 import { Message } from '@/types';
 import { encryptionService } from '@/services/encryptionService';
 import { mediaCacheService } from '@/services/mediaCacheService';
+import * as messageDB from '@/services/database/messageDB';
+import * as syncEngine from '@/services/database/syncEngine';
 
 export function useMessages(matchId: string | null, userId: string | null) {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -13,18 +15,28 @@ export function useMessages(matchId: string | null, userId: string | null) {
   const loadMessages = useCallback(async () => {
     if (!matchId) return;
 
-    // Fetch messages (v3: newest first for inverted list)
-    const { data, error } = await matchService.getMessages(matchId, userId || undefined);
+    try {
+      // 1. Load from local database first (instant)
+      const localMessages = await messageDB.getMessages(matchId, userId || undefined);
+      if (localMessages.length > 0) {
+        setMessages(localMessages);
+        setLoading(false);
+        console.log(`[useMessages] Loaded ${localMessages.length} messages from local DB`);
+      }
 
-    if (!error && data) {
-      setMessages(data);
+      // 2. Sync with server in background
+      const syncedMessages = await syncEngine.syncMatchMessages(matchId, userId || undefined);
+      setMessages(syncedMessages);
 
       if (userId) {
         matchService.markMessagesAsDelivered(matchId, userId);
         matchService.markMessagesAsRead(matchId, userId);
       }
+    } catch (error) {
+      console.error('[useMessages] Failed to load messages:', error);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [matchId, userId]);
 
   useEffect(() => {
@@ -50,6 +62,10 @@ export function useMessages(matchId: string | null, userId: string | null) {
               ...payload.new as Message,
               content: encryptionService.decrypt((payload.new as any).content)
             };
+
+            // Save to local database
+            await syncEngine.handleRealtimeMessage(newMessage);
+
             setMessages(prev => {
               // 1. Check if we already have this real ID (safety)
               if (prev.find(m => m.id === newMessage.id)) return prev;
@@ -79,6 +95,9 @@ export function useMessages(matchId: string | null, userId: string | null) {
               ...payload.new as Message,
               content: encryptionService.decrypt((payload.new as any).content)
             };
+
+            // Update in local database
+            await syncEngine.handleMessageUpdate(updatedMessage);
 
             // Check if message was deleted for current user
             if (userId && updatedMessage.deleted_by?.includes(userId)) {

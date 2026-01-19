@@ -11,18 +11,33 @@ import { WebRTCProvider } from '@/context/WebRTCContext';
 import { Audio } from 'expo-av';
 import { StatusBar } from 'expo-status-bar';
 import * as NavigationBar from 'expo-navigation-bar';
-import * as SplashScreen from 'expo-splash-screen';
 import { useFonts } from 'expo-font';
 import { CustomSplashScreen } from '@/components/CustomSplashScreen';
 import { Camera } from 'expo-camera';
-
-SplashScreen.preventAutoHideAsync();
+import { initDatabase } from '@/services/database/messageDB';
+import { initSyncEngine } from '@/services/database/syncEngine';
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({});
   const [showCustomSplash, setShowCustomSplash] = React.useState(true);
+  const [dbInitialized, setDbInitialized] = React.useState(false);
 
   useEffect(() => {
+    // Initialize SQLite database
+    const setupDatabase = async () => {
+      try {
+        console.log('[RootLayout] Initializing SQLite database...');
+        await initDatabase();
+        await initSyncEngine();
+        setDbInitialized(true);
+        console.log('[RootLayout] Database initialized successfully');
+      } catch (e) {
+        console.error('[RootLayout] Failed to initialize database:', e);
+        // Still set as initialized to not block the app
+        setDbInitialized(true);
+      }
+    };
+
     // Set up global audio mode
     const setupAudio = async () => {
       try {
@@ -96,17 +111,14 @@ export default function RootLayout() {
     };
 
     const initialize = async () => {
-      // 1. Setup minimal essentials
+      // Setup database first (critical for offline support)
+      await setupDatabase();
+
+      // Setup essentials
       await setupAudio();
       await setupAndroidBranding();
 
-      // 2. Hide splash screen *before* asking for permissions
-      // This ensures the user sees the app UI even if they ignore the permission dialog
-      if (fontsLoaded) {
-        await SplashScreen.hideAsync();
-      }
-
-      // 3. Request permissions after a short delay to allow UI to render
+      // Request permissions after a short delay to allow UI to render
       setTimeout(() => {
         requestPermissions();
       }, 1000);
@@ -117,7 +129,7 @@ export default function RootLayout() {
     }
   }, [fontsLoaded]);
 
-  if (!fontsLoaded) {
+  if (!fontsLoaded || !dbInitialized) {
     return null;
   }
 

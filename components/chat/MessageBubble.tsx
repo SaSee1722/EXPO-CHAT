@@ -500,7 +500,21 @@ function MessageBubbleComponent({
   );
 }
 
-export const MessageBubble = MessageBubbleComponent;
+// Memoize to prevent unnecessary re-renders
+export const MessageBubble = React.memo(MessageBubbleComponent, (prevProps, nextProps) => {
+  // Only re-render if these specific props change
+  return (
+    prevProps.message.id === nextProps.message.id &&
+    prevProps.message.content === nextProps.message.content &&
+    prevProps.message.status === nextProps.message.status &&
+    JSON.stringify(prevProps.message.reactions) === JSON.stringify(nextProps.message.reactions) &&
+    prevProps.message.deleted_for_everyone === nextProps.message.deleted_for_everyone &&
+    prevProps.isOwn === nextProps.isOwn &&
+    prevProps.isSelected === nextProps.isSelected &&
+    prevProps.selectionMode === nextProps.selectionMode &&
+    prevProps.uploadProgress === nextProps.uploadProgress
+  );
+});
 
 const styles = StyleSheet.create({
   container: {
