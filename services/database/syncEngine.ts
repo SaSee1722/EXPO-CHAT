@@ -8,7 +8,7 @@ import NetInfo from '@react-native-community/netinfo';
  */
 
 let isSyncing = false;
-let syncInterval: NodeJS.Timeout | null = null;
+let syncInterval: ReturnType<typeof setInterval> | null = null;
 
 /**
  * Initialize the sync engine
