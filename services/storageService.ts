@@ -1,87 +1,108 @@
 import * as FileSystem from 'expo-file-system/legacy';
-import { getSupabaseClient } from '@/template';
 import { Platform } from 'react-native';
 
-const supabase = getSupabaseClient();
+const CLOUDINARY_CLOUD_NAME = 'dknphfi7o';
+const CLOUDINARY_UPLOAD_PRESET = 'gossip';
 
 export const storageService = {
     /**
-     * STABLE PRODUCTION UPLOADER WITH RETRY
-     * - Uses fetch(uri).blob() for high-performance memory-efficient uploads
-     * - Direct Supabase SDK integration with progress tracking
-     * - Includes retry logic for network failures
-     * - Enhanced 'Ghost Recovery' check for iOS/Android network noise
+     * CLOUDINARY UPLOADER (Free Unlimited Bandwidth)
+     * - Uploads directly to Cloudinary using Unsigned Preset
+     * - Bypasses Supabase Storage limits completely
+     * - Automatic compression and optimization
+     * - Supports images, videos, audio, and documents (PDFs, etc.)
      */
-    async uploadFile(bucket: string, uri: string, path: string, contentType?: string, onProgress?: (progress: number) => void): Promise<{ data: string | null, error: any }> {
+    async uploadFile(bucket: string, uri: string, path: string, contentType: string = 'image/jpeg', onProgress?: (progress: number) => void): Promise<{ data: string | null, error: any }> {
         const MAX_RETRIES = 3;
         let lastError: any = null;
 
+        // Determine Cloudinary resource type
+        const isVideoOrAudio = contentType.startsWith('video') || contentType.startsWith('audio');
+        const isDocument = contentType.startsWith('application') || contentType === 'text/plain';
+
+        let resourceType = 'image';
+        if (isVideoOrAudio) {
+            resourceType = 'video';
+        } else if (isDocument) {
+            resourceType = 'raw';
+        }
+
+        // Cloudinary API Endpoint
+        const cloudinaryUrl = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/${resourceType}/upload`;
+
         for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
             try {
-                console.log(`[StorageService] 🚀 Upload attempt ${attempt}/${MAX_RETRIES} to ${bucket}: ${path}`);
+                console.log(`[StorageService] ☁️ Uploading to Cloudinary (${resourceType}) attempt ${attempt}/${MAX_RETRIES}`);
 
-                // Small delay on first attempt to help iOS Simulator network stabilize
-                if (attempt === 1) {
-                    await new Promise(r => setTimeout(r, 500));
-                }
-
-                const fileInfo = await FileSystem.getInfoAsync(uri);
-                if (!fileInfo.exists) return { data: null, error: 'File missing on device' };
+                // Map Supabase 'bucket' to Cloudinary 'folder' for organization
+                let folderName = 'chat_media';
+                if (bucket === 'profile-photos') folderName = 'profiles';
+                if (bucket === 'voice-messages') folderName = 'voice_notes';
+                if (resourceType === 'raw') folderName = 'chat_documents';
 
                 if (Platform.OS === 'web') {
+                    // WEB UPLOAD (Standard Fetch)
+                    const formData = new FormData();
                     const response = await fetch(uri);
                     const blob = await response.blob();
-                    const { error: uploadError } = await supabase.storage.from(bucket).upload(path, blob, { upsert: true });
-                    if (uploadError) throw uploadError;
-                } else {
-                    console.log(`[StorageService] ⚡ Uploading via FileSystem: ${uri}`);
 
-                    // Use FileSystem.uploadAsync for reliable native uploads
-                    // This avoids 0-byte issues common with fetch(file_uri) on React Native
+                    formData.append('file', blob);
+                    formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+                    formData.append('folder', folderName);
+
+                    const uploadReq = await fetch(cloudinaryUrl, {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    const data = await uploadReq.json();
+
+                    if (data.error) throw new Error(data.error.message);
+
+                    console.log('[StorageService] ✅ Cloudinary Success (Web):', data.secure_url);
+                    return { data: data.secure_url, error: null };
+
+                } else {
+                    // MOBILE UPLOAD (FileSystem Native)
+                    console.log(`[StorageService] ⚡ Uploading native URI: ${uri}`);
+
                     const uploadResult = await FileSystem.uploadAsync(
-                        `${process.env.EXPO_PUBLIC_SUPABASE_URL}/storage/v1/object/${bucket}/${path}`,
+                        cloudinaryUrl,
                         uri,
                         {
                             httpMethod: 'POST',
-                            uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
-                            headers: {
-                                Authorization: `Bearer ${process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY}`,
-                                'Content-Type': contentType || 'image/jpeg',
-                                'x-upsert': 'true',
+                            uploadType: FileSystem.FileSystemUploadType.MULTIPART,
+                            fieldName: 'file',
+                            parameters: {
+                                upload_preset: CLOUDINARY_UPLOAD_PRESET,
+                                folder: folderName,
                             }
                         }
                     );
 
                     if (uploadResult.status !== 200) {
-                        console.error('[StorageService] Upload failed:', uploadResult.body);
-                        throw new Error(`Upload failed with status ${uploadResult.status}`);
+                        console.error('[StorageService] Cloudinary Upload failed:', uploadResult.body);
+                        throw new Error(`Cloudinary Error: ${uploadResult.status}`);
                     }
+
+                    const data = JSON.parse(uploadResult.body);
+                    if (data.error) throw new Error(data.error.message);
+
+                    console.log('[StorageService] ✅ Cloudinary Success (Mobile):', data.secure_url);
+                    return { data: data.secure_url, error: null };
                 }
-
-                const { data: { publicUrl } } = supabase.storage.from(bucket).getPublicUrl(path);
-
-                // CRITICAL FIX: Encode only the path part, not the whole URL
-                const encodedUrl = encodeURI(publicUrl);
-                const cacheBustUrl = `${encodedUrl}?t=${Date.now()}`;
-
-                console.log('[StorageService] ✅ Success! Public URL:', cacheBustUrl);
-                return { data: cacheBustUrl, error: null };
 
             } catch (error: any) {
                 lastError = error;
-                // Use console.log for retries to avoid notification spam
-                console.log(`[StorageService] ⚠️ Attempt ${attempt}/${MAX_RETRIES} failed:`, error.message);
+                console.log(`[StorageService] ⚠️ Attempt ${attempt} failed:`, error.message);
 
-                // Wait before retrying (exponential backoff)
                 if (attempt < MAX_RETRIES) {
-                    const waitTime = attempt * 1000; // 1s, 2s, 3s
-                    console.log(`[StorageService] ⏳ Waiting ${waitTime}ms before retry...`);
-                    await new Promise(r => setTimeout(r, waitTime));
+                    await new Promise(r => setTimeout(r, 1000 * attempt));
                 }
             }
         }
 
-        console.error('[StorageService] ❌ All retry attempts failed');
-        return { data: null, error: lastError?.message || 'Storage upload failed after retries' };
+        console.error('[StorageService] ❌ All attempts failed');
+        return { data: null, error: lastError?.message || 'Upload failed' };
     }
 };
