@@ -124,16 +124,16 @@ android {
             // see https://reactnative.dev/docs/signed-apk-android.
             signingConfig signingConfigs.debug
             
-            minifyEnabled enableMinifyInReleaseBuilds
-            shrinkResources (findProperty('android.enableShrinkResourcesInReleaseBuilds') ?: 'false').toBoolean()
+            minifyEnabled = enableMinifyInReleaseBuilds
+            shrinkResources = (findProperty('android.enableShrinkResourcesInReleaseBuilds') ?: 'false').toBoolean()
             
             proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
             
             def enablePngCrunchInRelease = findProperty('android.enablePngCrunchInReleaseBuilds') ?: 'merge'
             if (enablePngCrunchInRelease == 'true') {
-                crunchPngs true
+                crunchPngs = true
             } else if (enablePngCrunchInRelease == 'false') {
-                crunchPngs false
+                crunchPngs = false
             }
         }
     }
