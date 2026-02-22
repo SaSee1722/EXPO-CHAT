@@ -146,7 +146,7 @@ export const MessageBubble = React.memo(MessageBubbleComponent, (prevProps, next
 ## 📊 **PERFORMANCE GAINS SUMMARY**
 
 | Metric | Before | After | Improvement |
-|--------|--------|-------|-------------|
+| ------ | ------ | ----- | ----------- |
 | **Matches List Load** | 800-1500ms | **<100ms** | **8-15x faster** ⚡ |
 | **Message Send (perceived)** | 200-500ms | **<16ms** | **Instant** ⚡ |
 | **FPS During Scroll** | 30-45 FPS | **60 FPS** | **Smooth** ⚡ |

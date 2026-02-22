@@ -96,7 +96,7 @@ android.enableBundleCompression=true
 Your app icon and logo are unnecessarily large:
 
 | File | Current Size | Recommended | Savings |
-|------|-------------|-------------|---------|
+| ---- | ------------ | ----------- | ------- |
 | `assets/app-icon.png` | **1.0 MB** (1024x1024) | <50 KB (512x512) | ~950 KB |
 | `assets/images/app-logo.png` | **1.0 MB** (1024x1024) | <50 KB (512x512) | ~950 KB |
 
@@ -134,7 +134,7 @@ You have **151 dependencies**, including some heavy ones:
 ## 📈 Expected Results After Optimizations
 
 | Scenario | Current | After Optimization | Reduction |
-|----------|---------|-------------------|-----------|
+| -------- | ------- | ------------------ | --------- |
 | **Universal APK** | 226 MB | ~120-140 MB | ~40% |
 | **Split APK (arm64)** | N/A | ~40-50 MB | ~80% vs universal |
 | **AAB (Play Store)** | N/A | ~35-45 MB download | ~82% vs universal |
@@ -154,7 +154,7 @@ You have **151 dependencies**, including some heavy ones:
 
 ### **Short-term (30 minutes):**
 
-3. **Optimize images** using TinyPNG or ImageOptim
+1. **Optimize images** using TinyPNG or ImageOptim
    - Target: <50 KB per image
    - Savings: ~2 MB
 
@@ -168,7 +168,7 @@ You have **151 dependencies**, including some heavy ones:
 
 ### **Medium-term (2-4 hours):**
 
-5. **Audit dependencies** - Remove unused packages
+1. **Audit dependencies** - Remove unused packages
    - Potential savings: 10-30 MB
 
 2. **Switch to AAB** for Play Store distribution
@@ -179,7 +179,7 @@ You have **151 dependencies**, including some heavy ones:
 ## 📱 Size Comparison
 
 | Distribution Method | Size | Best For |
-|-------------------|------|----------|
+| ------------------- | ---- | -------- |
 | Universal APK | 226 MB | ❌ Not recommended |
 | Split APK (arm64) | ~60 MB → ~40 MB* | ✅ Direct distribution, testing |
 | Split APK (armeabi-v7a) | ~55 MB → ~35 MB* | ✅ Older devices |

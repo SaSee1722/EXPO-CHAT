@@ -29,10 +29,11 @@ export const initDatabase = async (): Promise<void> => {
         deleted_by TEXT,
         deleted_for_everyone INTEGER DEFAULT 0,
         created_at TEXT NOT NULL,
-        synced INTEGER DEFAULT 0,
-        INDEX idx_match_id (match_id),
-        INDEX idx_created_at (created_at)
+        synced INTEGER DEFAULT 0
       );
+      
+      CREATE INDEX IF NOT EXISTS idx_match_id ON messages (match_id);
+      CREATE INDEX IF NOT EXISTS idx_created_at ON messages (created_at);
       
       CREATE TABLE IF NOT EXISTS pending_messages (
         id TEXT PRIMARY KEY,

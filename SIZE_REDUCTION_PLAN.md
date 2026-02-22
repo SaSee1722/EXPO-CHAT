@@ -219,7 +219,7 @@ Create custom ProGuard rules to remove more unused code.
 ## 📊 Expected Results
 
 | Optimization | Size Reduction | Effort |
-|-------------|----------------|--------|
+| ------------ | -------------- | ------ |
 | Use split APKs | -140 MB | ✅ Already done |
 | Optimize images | -2 MB | 5 min |
 | Enable minification | -50 MB | 5 min |
