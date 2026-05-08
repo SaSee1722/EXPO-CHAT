@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, StyleSheet, Modal, Dimensions, TouchableOpacity, Pressable } from 'react-native';
+import React, { useState } from 'react';
+import { View, StyleSheet, Modal, Dimensions, TouchableOpacity, Pressable, Text } from 'react-native';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, {
     useSharedValue,
@@ -10,6 +10,7 @@ import Animated, {
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { mediaCacheService } from '../../services/mediaCacheService';
 
 const { width, height } = Dimensions.get('window');
 
@@ -28,17 +29,14 @@ export function FullScreenImageViewer({ visible, imageUri, onClose }: FullScreen
     const savedTranslateX = useSharedValue(0);
     const savedTranslateY = useSharedValue(0);
 
+    // Visual feedback for the save button
+    const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'failed'>('idle');
+
     const pinchGesture = Gesture.Pinch()
-        .onUpdate((e) => {
-            scale.value = savedScale.value * e.scale;
-        })
+        .onUpdate((e) => { scale.value = savedScale.value * e.scale; })
         .onEnd(() => {
-            if (scale.value < 1) {
-                scale.value = withSpring(1);
-                savedScale.value = 1;
-            } else {
-                savedScale.value = scale.value;
-            }
+            if (scale.value < 1) { scale.value = withSpring(1); savedScale.value = 1; }
+            else { savedScale.value = scale.value; }
         });
 
     const panGesture = Gesture.Pan()
@@ -84,20 +82,51 @@ export function FullScreenImageViewer({ visible, imageUri, onClose }: FullScreen
         translateX.value = withTiming(0);
         translateY.value = withTiming(0);
         savedScale.value = 1;
+        setSaveState('idle');
         onClose();
     };
+
+    /**
+     * Save to Gallery — EXPLICIT USER ACTION ONLY.
+     * This function is only called when the user taps the save button.
+     * It is NEVER called automatically on image open or download.
+     */
+    const handleSaveToGallery = async () => {
+        if (saveState === 'saving' || !imageUri) return;
+        setSaveState('saving');
+        const success = await mediaCacheService.saveToGallery(imageUri);
+        setSaveState(success ? 'saved' : 'failed');
+        setTimeout(() => setSaveState('idle'), 2000);
+    };
+
+    const saveIcon =
+        saveState === 'saving' ? 'hourglass-outline' :
+        saveState === 'saved' ? 'checkmark-circle' :
+        saveState === 'failed' ? 'close-circle' :
+        'download-outline';
+
+    const saveColor =
+        saveState === 'saved' ? '#4CAF50' :
+        saveState === 'failed' ? '#FF4458' : '#FFF';
 
     return (
         <Modal visible={visible} transparent onRequestClose={handleClose} animationType="fade">
             <GestureHandlerRootView style={styles.container}>
                 <Pressable style={styles.overlay} onPress={handleClose} />
 
-                <TouchableOpacity
-                    style={[styles.closeButton, { top: insets.top + 10 }]}
-                    onPress={handleClose}
-                >
-                    <Ionicons name="close" size={30} color="#FFF" />
-                </TouchableOpacity>
+                {/* Top bar: Close (left) + Save to Gallery (right) */}
+                <View style={[styles.topBar, { paddingTop: insets.top + 10 }]}>
+                    <TouchableOpacity style={styles.iconBtn} onPress={handleClose}>
+                        <Ionicons name="close" size={28} color="#FFF" />
+                    </TouchableOpacity>
+
+                    {/* Explicit save button — never fires automatically */}
+                    <TouchableOpacity style={styles.iconBtn} onPress={handleSaveToGallery}>
+                        <Ionicons name={saveIcon as any} size={26} color={saveColor} />
+                        {saveState === 'saved' && <Text style={styles.savedLabel}>Saved!</Text>}
+                        {saveState === 'failed' && <Text style={styles.failedLabel}>Failed</Text>}
+                    </TouchableOpacity>
+                </View>
 
                 <View style={styles.imageContainer}>
                     <GestureDetector gesture={composed}>
@@ -124,13 +153,33 @@ const styles = StyleSheet.create({
     overlay: {
         ...StyleSheet.absoluteFillObject,
     },
-    closeButton: {
+    topBar: {
         position: 'absolute',
-        right: 20,
+        top: 0,
+        left: 0,
+        right: 0,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        paddingHorizontal: 16,
         zIndex: 10,
+    },
+    iconBtn: {
         padding: 8,
-        backgroundColor: 'rgba(0,0,0,0.5)',
-        borderRadius: 20,
+        backgroundColor: 'rgba(0,0,0,0.55)',
+        borderRadius: 22,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+    },
+    savedLabel: {
+        color: '#4CAF50',
+        fontSize: 13,
+        fontWeight: '700',
+    },
+    failedLabel: {
+        color: '#FF4458',
+        fontSize: 13,
+        fontWeight: '700',
     },
     imageContainer: {
         flex: 1,

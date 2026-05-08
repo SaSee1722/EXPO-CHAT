@@ -11,6 +11,7 @@
     "ios": {
       "supportsTablet": true,
       "bitcode": false,
+      "jsEngine": "hermes",
       "bundleIdentifier": "com.ssabee1722.gossip",
       "infoPlist": {
         "UIBackgroundModes": [
@@ -22,6 +23,7 @@
       }
     },
     "android": {
+      "jsEngine": "hermes",
       "adaptiveIcon": {
         "foregroundImage": "./assets/app-icon.png",
         "backgroundColor": "#000000"

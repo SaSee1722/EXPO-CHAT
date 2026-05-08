@@ -29,6 +29,20 @@ export default function MatchesScreen() {
     setRefreshing(false);
   }, [reload]);
 
+  const renderItem = useCallback(({ item }: { item: any }) => (
+    <MatchItem
+      match={item}
+      onPress={() => router.push({
+        pathname: '/chat/[matchId]',
+        params: {
+          matchId: item.id,
+          name: item.profile?.display_name,
+          gender: item.profile?.gender
+        }
+      })}
+    />
+  ), [router]);
+
   return (
     <View style={[styles.container, { backgroundColor: '#000000', paddingTop: insets.top }]}>
       <View style={styles.header}>
@@ -38,19 +52,7 @@ export default function MatchesScreen() {
       <FlatList
         data={matches}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <MatchItem
-            match={item}
-            onPress={() => router.push({
-              pathname: '/chat/[matchId]',
-              params: {
-                matchId: item.id,
-                name: item.profile?.display_name,
-                gender: item.profile?.gender
-              }
-            })}
-          />
-        )}
+        renderItem={renderItem}
         ListEmptyComponent={
           !loading ? (
             <View style={styles.emptyState}>
@@ -65,6 +67,17 @@ export default function MatchesScreen() {
         contentContainerStyle={styles.listContent}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#87CEEB" />}
         showsVerticalScrollIndicator={false}
+        // ── 60 FPS tuning ──────────────────────────────────
+        windowSize={5}
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={8}
+        initialNumToRender={12}
+        updateCellsBatchingPeriod={30}
+        getItemLayout={(_data, index) => ({
+          length: 88,      // container padding(16*2) + avatar(60) + marginBottom(12) ≈ 88
+          offset: 88 * index,
+          index,
+        })}
       />
     </View>
   );

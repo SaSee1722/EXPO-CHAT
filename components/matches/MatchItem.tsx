@@ -1,19 +1,19 @@
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { useState, memo } from 'react';
 import { FullScreenImageViewer } from '../chat/FullScreenImageViewer';
 import { Typography, Shadows, getGenderColor } from '@/constants/theme';
 import { Match } from '@/types';
 import { useProfileContext } from '@/context/ProfileContext';
-import { BlurView } from 'expo-blur';
+import { useAlias } from '@/context/AliasContext';
 
 interface MatchItemProps {
   match: Match;
   onPress: () => void;
 }
 
-export function MatchItem({ match, onPress }: MatchItemProps) {
+export const MatchItem = memo(function MatchItem({ match, onPress }: MatchItemProps) {
   // colorScheme is not used
 
   // themeColors is not used in this component
@@ -39,6 +39,8 @@ export function MatchItem({ match, onPress }: MatchItemProps) {
   };
 
   const isOnline = isUserOnline(profile || null);
+  const { resolveName } = useAlias();
+  const displayName = resolveName(profile?.id, profile?.display_name) || 'Gossip User';
   const nameColor = getGenderColor(profile?.gender);
 
   return (
@@ -47,7 +49,6 @@ export function MatchItem({ match, onPress }: MatchItemProps) {
       onPress={onPress}
       activeOpacity={0.7}
     >
-      <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
 
       <TouchableOpacity style={styles.avatarContainer} onPress={() => setIsViewerVisible(true)} activeOpacity={0.9}>
         <View style={[styles.avatarGlow, isOnline && styles.avatarOnlineGlow]}>
@@ -59,7 +60,7 @@ export function MatchItem({ match, onPress }: MatchItemProps) {
       <View style={styles.content}>
         <View style={styles.header}>
           <Text style={[styles.name, { color: nameColor }]} numberOfLines={1}>
-            {profile?.display_name || 'Gossip User'}
+            {displayName}
           </Text>
           {lastMessage && (
             <Text style={styles.time}>
@@ -142,7 +143,7 @@ export function MatchItem({ match, onPress }: MatchItemProps) {
       />
     </TouchableOpacity>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {

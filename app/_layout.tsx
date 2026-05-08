@@ -1,3 +1,4 @@
+import 'react-native-url-polyfill/auto';
 import React, { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -16,6 +17,7 @@ import { CustomSplashScreen } from '@/components/CustomSplashScreen';
 import { Camera } from 'expo-camera';
 import { initDatabase } from '@/services/database/messageDB';
 import { initSyncEngine } from '@/services/database/syncEngine';
+import { AliasProvider } from '@/context/AliasContext';
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({});
@@ -142,21 +144,23 @@ export default function RootLayout() {
             <CustomSplashScreen onAnimationComplete={() => setShowCustomSplash(false)} />
           )}
           <AuthProvider>
-            <ProfileProvider>
-              <NotificationProvider>
-                <WebRTCProvider>
-                  <ProfileGuard>
-                    <Stack screenOptions={{ headerShown: false }}>
-                      <Stack.Screen name="index" />
-                      <Stack.Screen name="(tabs)" />
-                      <Stack.Screen name="auth" />
-                      <Stack.Screen name="setup-profile" />
-                      <Stack.Screen name="chat/[matchId]" />
-                    </Stack>
-                  </ProfileGuard>
-                </WebRTCProvider>
-              </NotificationProvider>
-            </ProfileProvider>
+            <AliasProvider>
+              <ProfileProvider>
+                <NotificationProvider>
+                  <WebRTCProvider>
+                    <ProfileGuard>
+                      <Stack screenOptions={{ headerShown: false }}>
+                        <Stack.Screen name="index" />
+                        <Stack.Screen name="(tabs)" />
+                        <Stack.Screen name="auth" />
+                        <Stack.Screen name="setup-profile" />
+                        <Stack.Screen name="chat/[matchId]" />
+                      </Stack>
+                    </ProfileGuard>
+                  </WebRTCProvider>
+                </NotificationProvider>
+              </ProfileProvider>
+            </AliasProvider>
           </AuthProvider>
         </SafeAreaProvider>
       </AlertProvider>

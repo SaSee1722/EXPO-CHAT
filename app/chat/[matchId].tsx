@@ -33,6 +33,8 @@ import { PinSetupModal } from '@/components/chat/PinSetupModal';
 import { LockedChatScreen } from '@/components/chat/LockedChatScreen';
 import { Typography, getGenderColor } from '@/constants/theme';
 import { AttachmentPicker } from '@/components/chat/AttachmentPicker';
+import { useAlias } from '@/context/AliasContext';
+import { SetNicknameModal } from '@/components/chat/SetNicknameModal';
 
 export default function ChatScreen() {
   const { matchId, name, gender } = ExpoRouter.useLocalSearchParams<{ matchId: string; name?: string; gender?: string }>();
@@ -63,6 +65,11 @@ export default function ChatScreen() {
   const [isRecording, setIsRecording] = React.useState(false);
   const inputRef = React.useRef<TextInput>(null);
   const typingChannelRef = React.useRef<any>(null);
+  const { resolveName } = useAlias();
+  const [showNicknameModal, setShowNicknameModal] = React.useState(false);
+
+  // Resolved display name — alias takes priority over real name
+  const displayName = resolveName(otherProfile?.id, otherProfile?.display_name || name as string);
 
   const handleEmojiSelect = (emojiObj: { emoji: string }) => {
     setInputText((prev) => prev + emojiObj.emoji);
@@ -225,7 +232,7 @@ export default function ChatScreen() {
     }
   }, [messagesWithDates]);
 
-  const renderDateHeader = (dateStr: string) => {
+  const renderDateHeader = React.useCallback((dateStr: string) => {
     const date = new Date(dateStr);
     const today = new Date();
     const yesterday = new Date();
@@ -252,7 +259,7 @@ export default function ChatScreen() {
         </View>
       </View>
     );
-  };
+  }, []);
 
   const handleSend = async () => {
     if (!inputText.trim()) return;
@@ -340,9 +347,19 @@ export default function ChatScreen() {
             }}
             activeOpacity={1}
           >
-            <Text style={[styles.headerName, { color: getGenderColor(otherProfile?.gender || gender) }]} numberOfLines={1}>
-              {otherProfile?.display_name || name || 'Chat'}
-            </Text>
+            <View style={styles.nameRow}>
+              <Text style={[styles.headerName, { color: getGenderColor(otherProfile?.gender || gender) }]} numberOfLines={1}>
+                {displayName}
+              </Text>
+              {/* Pencil icon — tap to set / edit nickname */}
+              <TouchableOpacity
+                onPress={() => setShowNicknameModal(true)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                style={styles.nickBtn}
+              >
+                <Ionicons name="pricetag-outline" size={13} color="rgba(135,206,235,0.6)" />
+              </TouchableOpacity>
+            </View>
             <View style={styles.onlineIndicator}>
               {typingMap[matchId] ? (
                 <Text style={[styles.typingText, { color: getGenderColor(otherProfile?.gender) }]}>typing...</Text>
@@ -423,17 +440,15 @@ export default function ChatScreen() {
               ListHeaderComponent={typingMap[matchId] ? <TypingIndicator /> : null}
               contentContainerStyle={styles.messageList}
               showsVerticalScrollIndicator={false}
-              // Performance optimizations for 60 FPS
-              windowSize={10}
-              removeClippedSubviews={true}
-              maxToRenderPerBatch={10}
-              initialNumToRender={15}
-              updateCellsBatchingPeriod={50}
-              getItemLayout={(data, index) => ({
-                length: 80,
-                offset: 80 * index,
-                index,
-              })}
+              // ── 60 FPS tuning ──────────────────────────────────────────
+              windowSize={5}               // Only keep 5 screens of nodes in memory
+              removeClippedSubviews={true} // Detach off-screen views
+              maxToRenderPerBatch={8}      // Render 8 items per JS batch
+              initialNumToRender={12}      // Enough to fill the screen once
+              updateCellsBatchingPeriod={30} // Flush batches every 30ms
+              // No getItemLayout — chat messages have variable heights;
+              // a wrong constant causes broken scroll-to-index jumps
+              maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
               onScrollToIndexFailed={(info) => {
                 flatListRef.current?.scrollToOffset({
                   offset: info.averageItemLength * info.index,
@@ -544,17 +559,15 @@ export default function ChatScreen() {
           }}
         />
 
-        <PinSetupModal
-          visible={showPinSetup}
-          onCancel={() => setShowPinSetup(false)}
-          onComplete={async (pin) => {
-            if (user && matchId) {
-              await chatLockService.lockChat(user.id, matchId, pin);
-              setIsLocked(true);
-              setShowPinSetup(false);
-            }
-          }}
-        />
+        {/* Nickname modal — only mounts when otherProfile is known */}
+        {otherProfile && (
+          <SetNicknameModal
+            visible={showNicknameModal}
+            profileId={otherProfile.id}
+            realName={otherProfile.display_name || name as string || 'User'}
+            onClose={() => setShowNicknameModal(false)}
+          />
+        )}
       </KeyboardAvoidingView>
     </>
   );
@@ -574,6 +587,8 @@ const styles = StyleSheet.create({
   backButton: { marginRight: 12 },
   headerInfo: { flex: 1 },
   headerName: { ...Typography.body, fontWeight: '700', fontSize: 17 },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  nickBtn: { padding: 2 },
   onlineIndicator: { flexDirection: 'row', alignItems: 'center', marginTop: 2 },
   onlineText: { fontSize: 11, color: '#888' },
   typingText: { fontSize: 11, fontStyle: 'italic' },

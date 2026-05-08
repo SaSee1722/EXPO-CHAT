@@ -4,6 +4,7 @@ import { CircularProgress } from '@/components/ui/CircularProgress';
 import { useAudioPlayer } from 'expo-audio';
 import { Ionicons } from '@expo/vector-icons';
 import { mediaCacheService } from '../../services/mediaCacheService';
+import { updateLocalUri } from '../../services/database/messageDB';
 
 interface AudioPlayerProps {
     url: string;
@@ -132,6 +133,10 @@ export function AudioPlayer({ url, isOwn, duration, messageId, disabled }: Audio
                 );
                 if (downloaded) {
                     setIsDownloaded(true);
+                    // Persist local path to SQLite — next launch skips re-download
+                    if (messageId && messageId !== 'temp') {
+                        updateLocalUri(messageId, downloaded).catch(() => {});
+                    }
                 }
             } catch (e) {
                 console.error('[AudioPlayer] Download failed:', e);

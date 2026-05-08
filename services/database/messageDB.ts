@@ -21,6 +21,7 @@ export const initDatabase = async (): Promise<void> => {
         content TEXT NOT NULL,
         type TEXT NOT NULL,
         media_url TEXT,
+        local_uri TEXT,
         metadata TEXT,
         reply_to TEXT,
         reply_to_message TEXT,
@@ -31,10 +32,11 @@ export const initDatabase = async (): Promise<void> => {
         created_at TEXT NOT NULL,
         synced INTEGER DEFAULT 0
       );
-      
+
+      -- Add local_uri column if upgrading from older schema
       CREATE INDEX IF NOT EXISTS idx_match_id ON messages (match_id);
       CREATE INDEX IF NOT EXISTS idx_created_at ON messages (created_at);
-      
+
       CREATE TABLE IF NOT EXISTS pending_messages (
         id TEXT PRIMARY KEY,
         match_id TEXT NOT NULL,
@@ -49,6 +51,13 @@ export const initDatabase = async (): Promise<void> => {
         retry_count INTEGER DEFAULT 0
       );
     `);
+
+        // Migrate existing databases: add local_uri column if it doesn't exist
+        try {
+            await db.execAsync(`ALTER TABLE messages ADD COLUMN local_uri TEXT;`);
+        } catch {
+            // Column already exists — safe to ignore
+        }
 
         console.log('[SQLite] Database initialized successfully');
     } catch (error) {
@@ -76,8 +85,8 @@ export const saveMessage = async (message: Message): Promise<void> => {
     try {
         await database.runAsync(
             `INSERT OR REPLACE INTO messages 
-       (id, match_id, sender_id, content, type, media_url, metadata, reply_to, reply_to_message, reactions, status, deleted_by, deleted_for_everyone, created_at, synced)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (id, match_id, sender_id, content, type, media_url, local_uri, metadata, reply_to, reply_to_message, reactions, status, deleted_by, deleted_for_everyone, created_at, synced)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 message.id,
                 message.match_id,
@@ -85,6 +94,7 @@ export const saveMessage = async (message: Message): Promise<void> => {
                 message.content || '',
                 message.type,
                 message.media_url || null,
+                (message as any).local_uri || null,
                 message.metadata ? JSON.stringify(message.metadata) : null,
                 message.reply_to || null,
                 message.reply_to_message ? JSON.stringify(message.reply_to_message) : null,
@@ -113,8 +123,8 @@ export const saveMessages = async (messages: Message[]): Promise<void> => {
             for (const message of messages) {
                 await database.runAsync(
                     `INSERT OR REPLACE INTO messages 
-           (id, match_id, sender_id, content, type, media_url, metadata, reply_to, reply_to_message, reactions, status, deleted_by, deleted_for_everyone, created_at, synced)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           (id, match_id, sender_id, content, type, media_url, local_uri, metadata, reply_to, reply_to_message, reactions, status, deleted_by, deleted_for_everyone, created_at, synced)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                     [
                         message.id,
                         message.match_id,
@@ -122,6 +132,7 @@ export const saveMessages = async (messages: Message[]): Promise<void> => {
                         message.content || '',
                         message.type,
                         message.media_url || null,
+                        (message as any).local_uri || null,
                         message.metadata ? JSON.stringify(message.metadata) : null,
                         message.reply_to || null,
                         message.reply_to_message ? JSON.stringify(message.reply_to_message) : null,
@@ -363,5 +374,53 @@ export const getMessageCount = async (matchId: string): Promise<number> => {
     } catch (error) {
         console.error('[SQLite] Failed to get message count:', error);
         return 0;
+    }
+};
+
+/**
+ * Persist the private local file URI for a cached media message.
+ * This lets the next app launch skip re-downloading.
+ */
+export const updateLocalUri = async (messageId: string, localUri: string): Promise<void> => {
+    const database = getDatabase();
+    try {
+        await database.runAsync(
+            `UPDATE messages SET local_uri = ? WHERE id = ?`,
+            [localUri, messageId]
+        );
+    } catch (error) {
+        console.error('[SQLite] Failed to update local_uri:', error);
+    }
+};
+
+/**
+ * Retrieve the cached local file URI for a message (if it was previously downloaded).
+ */
+export const getLocalUri = async (messageId: string): Promise<string | null> => {
+    const database = getDatabase();
+    try {
+        const result = await database.getFirstAsync<{ local_uri: string | null }>(
+            `SELECT local_uri FROM messages WHERE id = ?`,
+            [messageId]
+        );
+        return result?.local_uri || null;
+    } catch (error) {
+        console.error('[SQLite] Failed to get local_uri:', error);
+        return null;
+    }
+};
+
+/**
+ * Clear the cached local URI for a message (e.g. after cache eviction).
+ */
+export const clearLocalUri = async (messageId: string): Promise<void> => {
+    const database = getDatabase();
+    try {
+        await database.runAsync(
+            `UPDATE messages SET local_uri = NULL WHERE id = ?`,
+            [messageId]
+        );
+    } catch (error) {
+        console.error('[SQLite] Failed to clear local_uri:', error);
     }
 };

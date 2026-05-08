@@ -26,6 +26,7 @@ import { EmojiPicker } from './EmojiPicker';
 import { Pressable } from 'react-native';
 import * as Sharing from 'expo-sharing';
 import { mediaCacheService } from '../../services/mediaCacheService';
+import { updateLocalUri } from '../../services/database/messageDB';
 
 interface MessageBubbleProps {
   message: Message;
@@ -78,20 +79,21 @@ function MessageBubbleComponent({
       .map(([emoji, _]) => emoji);
   }, [message.reactions, userId]);
 
-  // Handle media caching (check local availability only)
+  // Handle media caching — check SQLite first, then filesystem
   React.useEffect(() => {
     const checkLocalMedia = async () => {
-      if (['image', 'video', 'audio', 'file', 'sticker'].includes(message.type) && message.media_url) {
-        // Only check if we already have it locally
-        const cached = await mediaCacheService.getLocalUri(message.id, message.type, message.media_url);
-        if (cached) {
-          setLocalUri(cached);
-          setIsDownloaded(true);
-        } else {
-          setIsDownloaded(false);
-          setLocalUri(null);
-        }
+      if (!['image', 'video', 'audio', 'file', 'sticker'].includes(message.type) || !message.media_url) return;
+
+      // 1. Try the filesystem path (fastest, no SQLite round-trip)
+      const cached = await mediaCacheService.getLocalUri(message.id, message.type, message.media_url);
+      if (cached) {
+        setLocalUri(cached);
+        setIsDownloaded(true);
+        return;
       }
+      // 2. Not on disk → show download button
+      setIsDownloaded(false);
+      setLocalUri(null);
     };
     checkLocalMedia();
   }, [message.id, message.type, message.media_url]);
@@ -146,12 +148,11 @@ function MessageBubbleComponent({
 
   const handleFilePress = async () => {
     if (!message.media_url) return;
-
     if (isDownloading) return;
 
     try {
       let fileToShare = localUri;
-      if (!isDownloaded) {
+      if (!isDownloaded || !fileToShare) {
         setIsDownloading(true);
         setDownloadProgress(0);
         const downloaded = await mediaCacheService.downloadMedia(
@@ -165,6 +166,8 @@ function MessageBubbleComponent({
           fileToShare = downloaded;
           setLocalUri(downloaded);
           setIsDownloaded(true);
+          // Persist to SQLite so next launch doesn't re-download
+          updateLocalUri(message.id, downloaded).catch(() => {});
         }
       }
 
@@ -199,6 +202,8 @@ function MessageBubbleComponent({
       if (downloaded) {
         setLocalUri(downloaded);
         setIsDownloaded(true);
+        // Persist to SQLite so next launch skips re-download
+        updateLocalUri(message.id, downloaded).catch(() => {});
         action();
       }
     } catch (error) {
@@ -207,23 +212,25 @@ function MessageBubbleComponent({
     }
   };
 
+  // ── Explicit save to gallery (images / videos / stickers)
+  // ONLY called from long-press menu — never automatic
   const onSaveToGallery = async () => {
     if (!localUri) return;
-    const success = await mediaCacheService.saveToPublicStorage(localUri, message.type);
+    const success = await mediaCacheService.saveToGallery(localUri);
     if (success) {
-      showAlert('Saved to Gallery', 'The media has been saved to your device.');
+      showAlert('Saved to Gallery', 'The media has been saved to your gallery.');
     } else {
-      showAlert('Save Failed', 'Could not save media to gallery.');
+      showAlert('Save Failed', 'Could not save media to gallery. Check permissions.');
     }
   };
 
+  // ── Explicit save / share for audio & documents
+  // ONLY called from long-press menu — never automatic
   const onSaveToDownloads = async () => {
     if (!localUri) return;
-    const success = await mediaCacheService.saveToPublicStorage(localUri, message.type);
-    if (success) {
-      showAlert('Saved to Downloads', 'The file has been saved to your device.');
-    } else {
-      showAlert('Save Failed', 'Could not save file to downloads.');
+    const success = await mediaCacheService.shareFile(localUri);
+    if (!success) {
+      showAlert('Share Failed', 'Could not share this file.');
     }
   };
 
@@ -459,8 +466,16 @@ function MessageBubbleComponent({
         onReply={() => onReply?.(message)}
         onDelete={() => onDelete?.(message.id)}
         onDeleteForEveryone={() => onDeleteForEveryone?.(message.id)}
-        onSaveToGallery={isDownloaded && (message.type === 'image' || message.type === 'video' || message.type === 'sticker') ? onSaveToGallery : undefined}
-        onSaveToDownloads={isDownloaded && (message.type === 'file' || message.type === 'audio') ? onSaveToDownloads : undefined}
+        onSaveToGallery={
+          isDownloaded && localUri && ['image', 'video', 'sticker'].includes(message.type)
+            ? onSaveToGallery
+            : undefined
+        }
+        onSaveToDownloads={
+          isDownloaded && localUri && ['file', 'audio'].includes(message.type)
+            ? onSaveToDownloads
+            : undefined
+        }
         isOwnMessage={isOwn}
       />
 
